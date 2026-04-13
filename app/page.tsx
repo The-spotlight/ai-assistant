@@ -5,6 +5,12 @@ import { useEffect, useRef, useState } from 'react';
 import MarkdownRenderer from '@/components/MarkdownRenderer';
 import ToolCallCard from '@/components/ToolCallCard';
 import SkillPanel from '@/components/SkillPanel';
+import {
+  DEFAULT_OPENROUTER_MODEL_ID,
+  OPENROUTER_MODEL_OPTIONS,
+  ALLOWED_OPENROUTER_MODEL_IDS,
+  OPENROUTER_MODEL_STORAGE_KEY,
+} from '@/lib/openrouter-models';
 
 const SUGGESTIONS = [
   '搜索今日新闻',
@@ -15,8 +21,30 @@ const SUGGESTIONS = [
 ] as const;
 
 export default function Home() {
+  const [modelId, setModelId] = useState(DEFAULT_OPENROUTER_MODEL_ID);
+
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem(OPENROUTER_MODEL_STORAGE_KEY);
+      if (saved && ALLOWED_OPENROUTER_MODEL_IDS.has(saved)) {
+        setModelId(saved);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(OPENROUTER_MODEL_STORAGE_KEY, modelId);
+    } catch {
+      /* ignore */
+    }
+  }, [modelId]);
+
   const { messages, input, handleInputChange, handleSubmit, isLoading, append } = useChat({
     api: '/api/chat',
+    body: { model: modelId },
   });
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -53,9 +81,27 @@ export default function Home() {
               <p className="text-[11px] text-[#666666]">大模型对话 · 多技能协同</p>
             </div>
           </div>
-          <span className="hidden rounded-full border border-[rgba(0,0,0,0.08)] bg-[#fafafa] px-3 py-1 text-xs text-[#4d4d4d] sm:inline">
-            5 项能力
-          </span>
+          <div className="flex items-center gap-2 sm:gap-3">
+            <label htmlFor="openrouter-model" className="sr-only">
+              选择模型
+            </label>
+            <select
+              id="openrouter-model"
+              value={modelId}
+              onChange={(e) => setModelId(e.target.value)}
+              disabled={isLoading}
+              className="max-w-[min(52vw,220px)] cursor-pointer rounded-md border border-[rgba(0,0,0,0.12)] bg-white py-1.5 pl-2.5 pr-8 text-xs text-[#171717] shadow-sm focus:border-[#0072f5] focus:outline-none focus:ring-1 focus:ring-[#0072f5] disabled:cursor-not-allowed disabled:opacity-50 sm:max-w-[260px] sm:text-sm"
+            >
+              {OPENROUTER_MODEL_OPTIONS.map((opt) => (
+                <option key={opt.id} value={opt.id}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+            <span className="hidden rounded-full border border-[rgba(0,0,0,0.08)] bg-[#fafafa] px-3 py-1 text-xs text-[#4d4d4d] lg:inline">
+              5 项能力
+            </span>
+          </div>
         </div>
       </header>
 

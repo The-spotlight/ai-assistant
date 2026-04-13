@@ -1,6 +1,7 @@
 import { createOpenAI } from '@ai-sdk/openai';
 import { streamText, type CoreMessage } from 'ai';
 import { chatTools } from '@/lib/tools/ai-tools';
+import { resolveOpenRouterModelId } from '@/lib/openrouter-models';
 
 export const runtime = 'edge';
 
@@ -32,8 +33,9 @@ const SYSTEM_PROMPT = `你是一个强大的 AI 助手，具备以下能力：
 - 请用中文回答问题，除非用户要求其他语言`;
 
 export async function POST(req: Request) {
-  const { messages } = await req.json();
-  const modelId = process.env.OPENROUTER_MODEL ?? 'openrouter/free';
+  const body = await req.json();
+  const { messages, model: bodyModel } = body;
+  const modelId = resolveOpenRouterModelId(bodyModel, process.env.OPENROUTER_MODEL);
 
   const result = streamText({
     model: openrouter(modelId),

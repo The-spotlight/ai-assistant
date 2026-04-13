@@ -1,10 +1,10 @@
 import type { Config } from 'tailwindcss';
-import typography from '@tailwindcss/typography';
 
 const config: Config = {
   content: [
     './app/**/*.{js,ts,jsx,tsx,mdx}',
     './components/**/*.{js,ts,jsx,tsx,mdx}',
+    './lib/**/*.{js,ts,jsx,tsx,mdx}',
   ],
   theme: {
     extend: {
@@ -20,8 +20,8 @@ const config: Config = {
         'vercel-badge-text': '#0068d6',
       },
       fontFamily: {
-        sans: ['Geist', 'system-ui', '-apple-system', 'sans-serif'],
-        mono: ['Geist Mono', 'ui-monospace', 'SFMono-Regular', 'monospace'],
+        sans: ['system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
+        mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'],
       },
       boxShadow: {
         'vercel-border': 'rgba(0,0,0,0.08) 0px 0px 0px 1px',
@@ -30,7 +30,8 @@ const config: Config = {
       },
     },
   },
-  plugins: [typography],
+  // require() 避免部分环境下 ESM 插件未正确加载导致 @tailwind 工具类未生成
+  plugins: [require('@tailwindcss/typography')],
 };
 
 export default config;

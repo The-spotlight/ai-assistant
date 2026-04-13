@@ -1,3 +1,4 @@
+/* Tailwind 入口：请勿删除以下三行，否则页面会失去所有 utility 样式 */
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -63,7 +64,7 @@
   border-radius: 8px;
   padding: 14px !important;
   box-shadow: rgba(0,0,0,0.08) 0px 0px 0px 1px;
-  font-family: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 14px;
   line-height: 1.5;
 }
