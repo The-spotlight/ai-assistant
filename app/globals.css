@@ -2,23 +2,33 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Vercel Design System */
 :root {
-  --foreground-rgb: 15, 23, 42;
-  --background-start-rgb: 255, 255, 255;
-  --background-end-rgb: 248, 250, 252;
+  /* Primary */
+  --vercel-black: #171717;
+  --vercel-white: #ffffff;
+  
+  /* Grays */
+  --vercel-gray-900: #171717;
+  --vercel-gray-600: #4d4d4d;
+  --vercel-gray-500: #666666;
+  --vercel-gray-400: #808080;
+  --vercel-gray-100: #ebebeb;
+  --vercel-gray-50: #fafafa;
+  
+  /* Accent */
+  --vercel-link: #0072f5;
+  --vercel-focus: hsla(212, 100%, 48%, 1);
+  --vercel-badge-bg: #ebf5ff;
+  --vercel-badge-text: #0068d6;
+  
+  /* Workflow Colors */
+  --vercel-ship-red: #ff5b4f;
+  --vercel-preview-pink: #de1d8d;
+  --vercel-develop-blue: #0a72ef;
 }
 
-body {
-  color: var(--foreground-rgb);
-  background: linear-gradient(
-      to bottom,
-      transparent,
-      rgb(var(--background-end-rgb))
-    )
-    rgb(var(--background-start-rgb));
-}
-
-/* Scrollbar */
+/* Scrollbar - Vercel style */
 ::-webkit-scrollbar {
   width: 6px;
 }
@@ -26,11 +36,11 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: #cbd5e1;
+  background: rgba(0,0,0,0.08);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #94a3b8;
+  background: rgba(0,0,0,0.12);
 }
 
 /* Animation */
@@ -43,18 +53,54 @@ body {
   animation: fadeIn 0.3s ease-out;
 }
 
-/* Markdown overrides */
+/* Markdown overrides — Vercel style */
+.prose {
+  color: #171717;
+}
+
 .prose pre {
-  background: #1e1e2e !important;
+  background: #fafafa !important;
   border-radius: 8px;
-  padding: 12px !important;
+  padding: 14px !important;
+  box-shadow: rgba(0,0,0,0.08) 0px 0px 0px 1px;
+  font-family: 'Geist Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 14px;
+  line-height: 1.5;
 }
 
 .prose h1, .prose h2, .prose h3 {
   margin-top: 0.5em;
   margin-bottom: 0.3em;
+  letter-spacing: -0.02em;
+  color: #171717;
 }
 
 .prose ul, .prose ol {
   padding-left: 1.5em;
+}
+
+.prose p {
+  color: #4d4d4d;
+}
+
+/* Code inline */
+.prose code {
+  background: #fafafa;
+  box-shadow: rgba(0,0,0,0.08) 0px 0px 0px 1px;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 0.875em;
+  color: #171717;
+}
+
+/* Selection */
+::selection {
+  background: rgba(0, 114, 245, 0.2);
+  color: #171717;
+}
+
+/* Focus ring - Vercel style */
+:focus-visible {
+  outline: 2px solid hsla(212, 100%, 48%, 1);
+  outline-offset: 2px;
 }

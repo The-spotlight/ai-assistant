@@ -1,7 +1,6 @@
 import { createOpenAI } from '@ai-sdk/openai';
 import { streamText, type CoreMessage } from 'ai';
-import { getToolSchemas } from '@/lib/tools/definitions';
-import { executeTool } from '@/lib/tools/executor';
+import { chatTools } from '@/lib/tools/ai-tools';
 
 export const runtime = 'edge';
 
@@ -36,26 +35,13 @@ export async function POST(req: Request) {
   const { messages } = await req.json();
   const modelId = process.env.OPENROUTER_MODEL ?? 'openrouter/free';
 
-  const toolSchemas = getToolSchemas();
-
   const result = streamText({
     model: openrouter(modelId),
     system: SYSTEM_PROMPT,
     messages: messages as CoreMessage[],
-    tools: Object.fromEntries(
-      toolSchemas.map((t) => [
-        t.function.name,
-        {
-          description: t.function.description,
-          parameters: t.function.parameters,
-          execute: async (args: Record<string, unknown>) => {
-            return await executeTool(t.function.name, args);
-          },
-        },
-      ])
-    ),
-    maxSteps: 5, // Allow up to 5 tool call rounds
-    experimental_continueSteps: true,
+    tools: chatTools,
+    /** 工具调用后要继续生成回复，至少需要 2 步；不设会导致流程不完整或流异常 */
+    maxSteps: 8,
   });
 
   return result.toDataStreamResponse();

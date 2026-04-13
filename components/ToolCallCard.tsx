@@ -37,40 +37,45 @@ export default function ToolCallCard({ toolName, args, result }: ToolCallProps) 
   }
 
   return (
-    <div className="my-2 border border-gray-200 rounded-lg overflow-hidden bg-gray-50">
-      <button
-        onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-600 hover:bg-gray-100 transition-colors"
-      >
-        <span className="text-base">{emoji}</span>
-        <span className="font-medium">{label}</span>
-        <span className="text-gray-400 text-xs truncate flex-1 text-left">
-          {formatArgs(args)}
-        </span>
-        <span className={`text-gray-400 transition-transform ${expanded ? 'rotate-180' : ''}`}>
-          ▼
-        </span>
-      </button>
+    <div className="mb-3 overflow-hidden rounded-linear border border-linear-border bg-linear-panel shadow-linear-sm">
+      <div className="border-l-[3px] border-linear-brand pl-3">
+        <button
+          type="button"
+          onClick={() => setExpanded(!expanded)}
+          className="flex w-full items-center gap-2 py-2.5 pr-3 text-left text-sm text-linear-tertiary transition-colors hover:bg-linear-deep/80"
+        >
+          <span className="text-base">{emoji}</span>
+          <span className="font-medium text-linear-primary">{label}</span>
+          <span className="min-w-0 flex-1 truncate text-xs text-linear-quaternary">{formatArgs(args)}</span>
+          <span
+            className={`shrink-0 text-linear-quaternary transition-transform ${expanded ? 'rotate-180' : ''}`}
+          >
+            ▼
+          </span>
+        </button>
+      </div>
 
       {expanded && (
-        <div className="border-t border-gray-200 p-3 space-y-2">
-          {/* Arguments */}
+        <div className="space-y-3 border-t border-linear-border bg-linear-deep/50 p-3">
           <div>
-            <div className="text-xs font-semibold text-gray-500 mb-1">参数</div>
-            <pre className="text-xs bg-white p-2 rounded border overflow-x-auto">
+            <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-linear-quaternary">
+              参数
+            </div>
+            <pre className="overflow-x-auto rounded-linear border border-linear-border bg-linear-panel p-3 text-xs text-linear-primary">
               {JSON.stringify(args, null, 2)}
             </pre>
           </div>
 
-          {/* Result */}
           {result && (
             <div>
-              <div className="text-xs font-semibold text-gray-500 mb-1">结果</div>
-              <div className="text-xs bg-white p-2 rounded border overflow-x-auto">
+              <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-linear-quaternary">
+                结果
+              </div>
+              <div className="overflow-x-auto rounded-linear border border-linear-border bg-linear-panel p-3 text-xs">
                 {typeof parsedResult === 'object' && parsedResult !== null ? (
-                  <pre>{JSON.stringify(parsedResult, null, 2)}</pre>
+                  <pre className="text-linear-primary">{JSON.stringify(parsedResult, null, 2)}</pre>
                 ) : (
-                  <p>{result}</p>
+                  <p className="whitespace-pre-wrap text-linear-primary">{result}</p>
                 )}
               </div>
             </div>
@@ -85,6 +90,7 @@ function formatArgs(args: Record<string, unknown>): string {
   const entries = Object.entries(args);
   if (entries.length === 0) return '无参数';
   const [key, val] = entries[0];
-  const displayVal = typeof val === 'string' && val.length > 40 ? val.slice(0, 40) + '...' : String(val);
+  const displayVal =
+    typeof val === 'string' && val.length > 40 ? val.slice(0, 40) + '...' : String(val);
   return `${key}: ${displayVal}`;
 }

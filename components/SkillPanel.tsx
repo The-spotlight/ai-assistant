@@ -1,7 +1,5 @@
 'use client';
 
-import { useState } from 'react';
-
 interface Skill {
   name: string;
   emoji: string;
@@ -58,34 +56,37 @@ export default function SkillPanel({ visible, onClose, onInsertPrompt }: SkillPa
   if (!visible) return null;
 
   return (
-    <div className="absolute bottom-full left-0 right-0 mb-2 bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-2 bg-gray-50 border-b">
-        <h3 className="text-sm font-semibold text-gray-700">🛠️ 可用技能</h3>
+    <div className="absolute bottom-full left-0 right-0 z-30 mb-3 overflow-hidden rounded-linear-lg border border-linear-border bg-linear-panel shadow-linear-lg">
+      <div className="flex items-center justify-between border-b border-linear-border px-4 py-3">
+        <h3 className="text-sm font-semibold text-linear-primary">可用技能</h3>
         <button
+          type="button"
           onClick={onClose}
-          className="text-gray-400 hover:text-gray-600 text-lg leading-none"
+          className="flex h-8 w-8 items-center justify-center rounded-linear text-linear-tertiary transition-colors hover:bg-linear-deep hover:text-linear-primary"
+          aria-label="关闭"
         >
           ×
         </button>
       </div>
-      <div className="p-2 max-h-64 overflow-y-auto">
+      <div className="max-h-64 overflow-y-auto p-2">
         {SKILLS.map((skill) => (
           <button
             key={skill.name}
+            type="button"
             onClick={() => {
               onInsertPrompt(skill.example);
               onClose();
             }}
-            className="w-full text-left px-3 py-2 rounded-lg hover:bg-blue-50 transition-colors group"
+            className="group w-full rounded-linear px-3 py-2.5 text-left transition-colors hover:bg-linear-hover"
           >
-            <div className="flex items-center gap-2">
-              <span className="text-lg">{skill.emoji}</span>
-              <div className="flex-1">
-                <div className="text-sm font-medium text-gray-800">{skill.label}</div>
-                <div className="text-xs text-gray-500">{skill.description}</div>
+            <div className="flex items-start gap-3">
+              <span className="text-lg leading-none">{skill.emoji}</span>
+              <div className="min-w-0 flex-1">
+                <div className="text-sm font-medium text-linear-primary">{skill.label}</div>
+                <div className="mt-0.5 text-xs leading-snug text-linear-tertiary">{skill.description}</div>
               </div>
-              <span className="text-xs text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity">
-                试一试 →
+              <span className="shrink-0 text-xs text-linear-brand opacity-0 transition-opacity group-hover:opacity-100">
+                试试
               </span>
             </div>
           </button>
