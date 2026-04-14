@@ -3,12 +3,7 @@
 import type { Message } from 'ai';
 import { useCallback, useEffect, useState } from 'react';
 import ChatSession from '@/components/ChatSession';
-import {
-  DEFAULT_OPENROUTER_MODEL_ID,
-  OPENROUTER_MODEL_OPTIONS,
-  ALLOWED_OPENROUTER_MODEL_IDS,
-  OPENROUTER_MODEL_STORAGE_KEY,
-} from '@/lib/openrouter-models';
+import { DEFAULT_OPENROUTER_MODEL_ID, FIXED_OPENROUTER_MODEL_LABEL } from '@/lib/openrouter-models';
 import { CONVERSATION_STORAGE_KEY, getOrCreateDeviceId } from '@/lib/device';
 
 type ConversationRow = {
@@ -65,30 +60,10 @@ function IconChevronDown(props: React.SVGProps<SVGSVGElement>) {
 }
 
 export default function Home() {
-  const [modelId, setModelId] = useState(DEFAULT_OPENROUTER_MODEL_ID);
   const [deviceId, setDeviceId] = useState<string | null>(null);
   const [chatPayload, setChatPayload] = useState<ChatPayload | null>(null);
   const [convList, setConvList] = useState<ConversationRow[]>([]);
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
-
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem(OPENROUTER_MODEL_STORAGE_KEY);
-      if (saved && ALLOWED_OPENROUTER_MODEL_IDS.has(saved)) {
-        setModelId(saved);
-      }
-    } catch {
-      /* ignore */
-    }
-  }, []);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(OPENROUTER_MODEL_STORAGE_KEY, modelId);
-    } catch {
-      /* ignore */
-    }
-  }, [modelId]);
 
   const loadConversations = useCallback(async (did: string) => {
     const r = await fetch('/api/conversations', { headers: { 'x-device-id': did } });
@@ -241,25 +216,9 @@ export default function Home() {
               <p className="hidden text-[11px] text-[#666666] sm:block">对话已同步到此浏览器</p>
             </div>
           </div>
-          <div className="relative flex shrink-0 items-center">
-            <label htmlFor="openrouter-model" className="sr-only">
-              选择模型
-            </label>
-            <select
-              id="openrouter-model"
-              value={modelId}
-              onChange={(e) => setModelId(e.target.value)}
-              disabled={!!loadingMain}
-              className="max-w-[min(52vw,220px)] cursor-pointer rounded-md border border-[rgba(0,0,0,0.12)] bg-white py-1.5 pl-2.5 pr-8 text-xs text-[#171717] shadow-sm focus:border-neutral-400 focus:outline-none focus:ring-1 focus:ring-neutral-400/40 disabled:cursor-not-allowed disabled:opacity-50 sm:max-w-[260px] sm:text-sm"
-            >
-              {OPENROUTER_MODEL_OPTIONS.map((opt) => (
-                <option key={opt.id} value={opt.id}>
-                  {opt.label}
-                </option>
-              ))}
-            </select>
-            {/* <IconChevronDown className="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#737373]" /> */}
-          </div>
+          <p className="shrink-0 text-right text-[11px] text-[#666666] sm:text-xs" title="当前固定模型">
+            {FIXED_OPENROUTER_MODEL_LABEL}
+          </p>
         </div>
       </header>
 
@@ -389,7 +348,7 @@ export default function Home() {
                 key={chatPayload.conversationId}
                 deviceId={deviceId}
                 conversationId={chatPayload.conversationId}
-                modelId={modelId}
+                modelId={DEFAULT_OPENROUTER_MODEL_ID}
                 initialMessages={chatPayload.messages}
               />
             </div>

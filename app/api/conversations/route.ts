@@ -40,12 +40,30 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: '缺少 deviceId 或 X-Device-Id' }, { status: 400 });
   }
 
-  const c = await prisma.conversation.create({
-    data: {
-      deviceId,
-      title: '新对话',
-    },
-  });
+  try {
+    const c = await prisma.conversation.create({
+      data: {
+        deviceId,
+        title: '新对话',
+      },
+    });
 
-  return NextResponse.json({ id: c.id });
+    return NextResponse.json({ id: c.id });
+  } catch (e: unknown) {
+    console.error('[POST /api/conversations]', e);
+    const code = typeof e === 'object' && e !== null && 'code' in e ? String((e as { code: string }).code) : '';
+    if (code === 'P2021') {
+      return NextResponse.json(
+        {
+          error:
+            '数据库表尚未创建：请在本地对当前 DATABASE_URL 执行 pnpm prisma db push（或 migrate deploy），并重新部署',
+        },
+        { status: 500 }
+      );
+    }
+    return NextResponse.json(
+      { error: '创建会话失败：请确认 Vercel 环境变量 DATABASE_URL 已更新为新 Neon 库，且网络可访问' },
+      { status: 500 }
+    );
+  }
 }

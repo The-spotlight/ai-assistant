@@ -1,11 +1,15 @@
-/** OpenRouter 模型列表（客户端下拉 + 服务端白名单校验） */
+/** OpenRouter：当前产品固定为 Elephant Alpha；白名单供服务端校验 body / 环境变量 */
 
-export const DEFAULT_OPENROUTER_MODEL_ID = 'openrouter/free';
+export const FIXED_OPENROUTER_MODEL_ID = 'openrouter/elephant-alpha';
+export const FIXED_OPENROUTER_MODEL_LABEL = 'Elephant Alpha（OpenRouter）';
+
+/** 默认与固定模型一致（无模型选择器时客户端始终传此 id） */
+export const DEFAULT_OPENROUTER_MODEL_ID = FIXED_OPENROUTER_MODEL_ID;
 
 export const OPENROUTER_MODEL_OPTIONS: { id: string; label: string }[] = [
   { id: 'google/gemma-4-26b-a4b-it:free', label: 'Gemma 4 26B A4B（免费）' },
   { id: 'openrouter/free', label: 'OpenRouter 免费路由' },
-  { id: 'openrouter/elephant-alpha', label: 'Elephant Alpha（OpenRouter）' },
+  { id: 'openrouter/elephant-alpha', label: FIXED_OPENROUTER_MODEL_LABEL },
   { id: 'meta-llama/llama-3.2-3b-instruct:free', label: 'Llama 3.2 3B Instruct（免费）' },
   { id: 'google/gemma-2-9b-it:free', label: 'Gemma 2 9B IT（免费）' },
   { id: 'mistralai/mistral-7b-instruct:free', label: 'Mistral 7B Instruct（免费）' },
