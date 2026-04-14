@@ -1,0 +1,43 @@
+// https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// 聊天会话（一条时间线）
+model Conversation {
+  id        String    @id @default(cuid())
+  /// 单浏览器维度：localStorage 生成的 deviceId
+  deviceId  String
+  title     String?
+  /// 该会话最近使用的 OpenRouter 模型 id
+  modelId   String?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  messages  Message[]
+
+  @@index([deviceId, updatedAt(sort: Desc)])
+  @@index([updatedAt(sort: Desc)])
+}
+
+/// 单条消息（与前端 useChat / AI SDK 结构对齐）
+model Message {
+  id              String       @id @default(cuid())
+  conversationId  String
+  conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role            String
+  content         String       @db.Text
+  /// 工具调用等扩展：存 AI SDK 的 toolInvocations 等 JSON
+  toolInvocations Json?
+  /// 前端 message.id，用于去重
+  clientMessageId String?
+  createdAt       DateTime     @default(now())
+
+  @@unique([conversationId, clientMessageId])
+  @@index([conversationId, createdAt])
+}

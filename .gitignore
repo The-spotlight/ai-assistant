@@ -27,6 +27,11 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 
+# Prisma 7 生成客户端（install / db:generate 会生成）
+/lib/generated/prisma
+
 # os / editor
 .DS_Store
 .idea
+
+/lib/generated/prisma

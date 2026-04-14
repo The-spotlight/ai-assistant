@@ -1,9 +1,12 @@
+import { createHash, randomUUID } from 'node:crypto';
 import { createOpenAI } from '@ai-sdk/openai';
 import { streamText, type CoreMessage } from 'ai';
 import { chatTools } from '@/lib/tools/ai-tools';
 import { resolveOpenRouterModelId } from '@/lib/openrouter-models';
+import { toolInvocationsFromSteps } from '@/lib/chat-persist';
+import { prisma } from '@/lib/db';
 
-export const runtime = 'edge';
+export const runtime = 'nodejs';
 
 const openrouter = createOpenAI({
   baseURL: 'https://openrouter.ai/api/v1',
@@ -32,18 +35,158 @@ const SYSTEM_PROMPT = `你是一个强大的 AI 助手，具备以下能力：
 - 工具调用后，基于结果给出完整、友好的回答
 - 请用中文回答问题，除非用户要求其他语言`;
 
+function normalizeTextContent(content: unknown): string {
+  if (typeof content === 'string') return content;
+  if (Array.isArray(content)) {
+    return content
+      .map((p) => {
+        if (p && typeof p === 'object' && 'text' in p) {
+          return String((p as { text: string }).text);
+        }
+        return '';
+      })
+      .join('');
+  }
+  return '';
+}
+
+function lastUserFromMessages(
+  messages: CoreMessage[],
+  conversationId: string
+): { clientId: string; text: string } | null {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i] as CoreMessage & { id?: string };
+    if (m.role !== 'user') continue;
+    const text = normalizeTextContent(m.content);
+    if (!text) continue;
+    const clientId =
+      typeof m.id === 'string'
+        ? m.id
+        : `user_${createHash('sha256').update(`${conversationId}\n${text}`).digest('hex').slice(0, 32)}`;
+    return { clientId, text };
+  }
+  return null;
+}
+
+async function persistUserMessage(
+  conversationId: string,
+  clientId: string,
+  text: string
+): Promise<void> {
+  try {
+    await prisma.message.create({
+      data: {
+        conversationId,
+        role: 'user',
+        content: text,
+        clientMessageId: clientId,
+      },
+    });
+  } catch (e: unknown) {
+    if (
+      typeof e === 'object' &&
+      e !== null &&
+      'code' in e &&
+      (e as { code: string }).code === 'P2002'
+    ) {
+      return;
+    }
+    throw e;
+  }
+}
+
+async function ensureConversationTitle(conversationId: string): Promise<void> {
+  const conv = await prisma.conversation.findUnique({ where: { id: conversationId } });
+  if (!conv || (conv.title && conv.title !== '新对话')) return;
+  const first = await prisma.message.findFirst({
+    where: { conversationId, role: 'user' },
+    orderBy: { createdAt: 'asc' },
+  });
+  if (!first?.content) return;
+  const t = first.content.trim().slice(0, 48);
+  if (!t) return;
+  await prisma.conversation.update({
+    where: { id: conversationId },
+    data: { title: t },
+  });
+}
+
 export async function POST(req: Request) {
   const body = await req.json();
-  const { messages, model: bodyModel } = body;
+  const { messages, model: bodyModel, conversationId, deviceId } = body as {
+    messages?: CoreMessage[];
+    model?: string;
+    conversationId?: string;
+    deviceId?: string;
+  };
+
+  if (!conversationId || typeof conversationId !== 'string') {
+    return new Response(JSON.stringify({ error: '缺少 conversationId' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+  if (!deviceId || typeof deviceId !== 'string') {
+    return new Response(JSON.stringify({ error: '缺少 deviceId' }), {
+      status: 400,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  const conv = await prisma.conversation.findFirst({
+    where: { id: conversationId, deviceId },
+  });
+  if (!conv) {
+    return new Response(JSON.stringify({ error: '会话不存在或无权访问' }), {
+      status: 404,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
   const modelId = resolveOpenRouterModelId(bodyModel, process.env.OPENROUTER_MODEL);
+  await prisma.conversation.update({
+    where: { id: conversationId },
+    data: { modelId },
+  });
+
+  const coreMessages = (messages ?? []) as CoreMessage[];
+  const lastUser = lastUserFromMessages(coreMessages, conversationId);
+  if (lastUser) {
+    await persistUserMessage(conversationId, lastUser.clientId, lastUser.text);
+  }
 
   const result = streamText({
     model: openrouter(modelId),
     system: SYSTEM_PROMPT,
-    messages: messages as CoreMessage[],
+    messages: coreMessages,
     tools: chatTools,
-    /** 工具调用后要继续生成回复，至少需要 2 步；不设会导致流程不完整或流异常 */
     maxSteps: 8,
+    onFinish: async (event) => {
+      try {
+        const inv = toolInvocationsFromSteps(
+          event.steps as {
+            toolCalls: { toolName: string; args: unknown }[];
+            toolResults: { result?: unknown }[];
+          }[]
+        );
+        await prisma.message.create({
+          data: {
+            conversationId,
+            role: 'assistant',
+            content: event.text,
+            clientMessageId: `asst_${randomUUID()}`,
+            ...(inv != null ? { toolInvocations: inv as object } : {}),
+          },
+        });
+        await prisma.conversation.update({
+          where: { id: conversationId },
+          data: { updatedAt: new Date() },
+        });
+        await ensureConversationTitle(conversationId);
+      } catch (e) {
+        console.error('[chat] onFinish persist failed', e);
+      }
+    },
   });
 
   return result.toDataStreamResponse();

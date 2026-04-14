@@ -11,7 +11,7 @@ interface MarkdownRendererProps {
 
 export default function MarkdownRenderer({ content }: MarkdownRendererProps) {
   return (
-    <div className="prose prose-sm max-w-none text-[#171717] prose-p:my-1.5 prose-p:text-[#4d4d4d] prose-pre:my-3 prose-headings:scroll-mt-4 prose-headings:text-[#171717] prose-strong:text-[#171717] prose-li:text-[#4d4d4d] prose-code:rounded prose-code:border prose-code:border-[rgba(0,0,0,0.08)] prose-code:bg-[#fafafa] prose-code:px-1.5 prose-code:py-0.5 prose-code:text-[0.9em] prose-code:text-[#171717] prose-code:before:content-[''] prose-code:after:content-[''] prose-a:text-[#0072f5] prose-a:no-underline hover:prose-a:underline">
+    <div className="prose prose-sm max-w-none text-[#171717] prose-p:my-1.5 prose-p:text-[#4d4d4d] prose-pre:my-3 prose-headings:scroll-mt-4 prose-headings:text-[#171717] prose-strong:text-[#171717] prose-li:text-[#4d4d4d] prose-code:rounded prose-code:border prose-code:border-[rgba(0,0,0,0.08)] prose-code:bg-[#fafafa] prose-code:px-1.5 prose-code:py-0.5 prose-code:text-[0.9em] prose-code:text-[#171717] prose-code:before:content-[''] prose-code:after:content-[''] prose-a:text-[#171717] prose-a:underline prose-a:decoration-neutral-400 prose-a:underline-offset-2 hover:prose-a:decoration-neutral-600">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
@@ -58,7 +58,7 @@ export default function MarkdownRenderer({ content }: MarkdownRendererProps) {
                 href={href}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-[#0072f5] hover:underline"
+                className="text-[#171717] underline decoration-neutral-400 underline-offset-2 hover:decoration-neutral-600"
               >
                 {children}
               </a>
@@ -66,7 +66,7 @@ export default function MarkdownRenderer({ content }: MarkdownRendererProps) {
           },
           blockquote({ children }) {
             return (
-              <blockquote className="my-3 border-l-[3px] border-[#0072f5]/50 pl-3 italic text-[#4d4d4d]">
+              <blockquote className="my-3 border-l-[3px] border-neutral-300 pl-3 italic text-[#4d4d4d]">
                 {children}
               </blockquote>
             );

@@ -90,7 +90,7 @@ export default function SkillPanel({ visible, onClose, onInsertPrompt }: SkillPa
                 <div className="text-sm font-medium text-[#171717]">{skill.label}</div>
                 <div className="mt-0.5 text-xs leading-snug text-[#4d4d4d]">{skill.description}</div>
               </div>
-              <span className="shrink-0 text-xs text-[#0072f5] opacity-0 transition-opacity group-hover:opacity-100">
+              <span className="shrink-0 text-xs text-neutral-500 opacity-0 transition-opacity group-hover:opacity-100">
                 试试
               </span>
             </div>

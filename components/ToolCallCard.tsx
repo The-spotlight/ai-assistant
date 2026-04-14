@@ -38,7 +38,7 @@ export default function ToolCallCard({ toolName, args, result }: ToolCallProps) 
 
   return (
     <div className="mb-3 overflow-hidden rounded-lg border border-[rgba(0,0,0,0.08)] bg-[#fafafa] shadow-[rgba(0,0,0,0.03)_0px_1.2px_0px]">
-      <div className="border-l-[3px] border-[#0072f5] pl-3">
+      <div className="border-l-[3px] border-neutral-300 pl-3">
         <button
           type="button"
           onClick={() => setExpanded(!expanded)}
