@@ -37,18 +37,18 @@ export default function ToolCallCard({ toolName, args, result }: ToolCallProps) 
   }
 
   return (
-    <div className="mb-3 overflow-hidden rounded-linear border border-linear-border bg-linear-panel shadow-linear-sm">
-      <div className="border-l-[3px] border-linear-brand pl-3">
+    <div className="mb-3 overflow-hidden rounded-lg border border-[rgba(0,0,0,0.08)] bg-[#fafafa] shadow-[rgba(0,0,0,0.03)_0px_1.2px_0px]">
+      <div className="border-l-[3px] border-[#0072f5] pl-3">
         <button
           type="button"
           onClick={() => setExpanded(!expanded)}
-          className="flex w-full items-center gap-2 py-2.5 pr-3 text-left text-sm text-linear-tertiary transition-colors hover:bg-linear-deep/80"
+          className="flex w-full items-center gap-2 py-2.5 pr-3 text-left text-sm text-[#666666] transition-colors hover:bg-[#f0f0f0]"
         >
           <span className="text-base">{emoji}</span>
-          <span className="font-medium text-linear-primary">{label}</span>
-          <span className="min-w-0 flex-1 truncate text-xs text-linear-quaternary">{formatArgs(args)}</span>
+          <span className="font-medium text-[#171717]">{label}</span>
+          <span className="min-w-0 flex-1 truncate text-xs text-[#808080]">{formatArgs(args)}</span>
           <span
-            className={`shrink-0 text-linear-quaternary transition-transform ${expanded ? 'rotate-180' : ''}`}
+            className={`shrink-0 text-[#808080] transition-transform ${expanded ? 'rotate-180' : ''}`}
           >
             ▼
           </span>
@@ -56,26 +56,26 @@ export default function ToolCallCard({ toolName, args, result }: ToolCallProps) 
       </div>
 
       {expanded && (
-        <div className="space-y-3 border-t border-linear-border bg-linear-deep/50 p-3">
+        <div className="space-y-3 border-t border-[rgba(0,0,0,0.08)] bg-white p-3">
           <div>
-            <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-linear-quaternary">
+            <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-[#808080]">
               参数
             </div>
-            <pre className="overflow-x-auto rounded-linear border border-linear-border bg-linear-panel p-3 text-xs text-linear-primary">
+            <pre className="overflow-x-auto rounded-md border border-[rgba(0,0,0,0.08)] bg-[#fafafa] p-3 text-xs text-[#171717]">
               {JSON.stringify(args, null, 2)}
             </pre>
           </div>
 
           {result && (
             <div>
-              <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-linear-quaternary">
+              <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-[#808080]">
                 结果
               </div>
-              <div className="overflow-x-auto rounded-linear border border-linear-border bg-linear-panel p-3 text-xs">
+              <div className="overflow-x-auto rounded-md border border-[rgba(0,0,0,0.08)] bg-[#fafafa] p-3 text-xs">
                 {typeof parsedResult === 'object' && parsedResult !== null ? (
-                  <pre className="text-linear-primary">{JSON.stringify(parsedResult, null, 2)}</pre>
+                  <pre className="text-[#171717]">{JSON.stringify(parsedResult, null, 2)}</pre>
                 ) : (
-                  <p className="whitespace-pre-wrap text-linear-primary">{result}</p>
+                  <p className="whitespace-pre-wrap text-[#171717]">{result}</p>
                 )}
               </div>
             </div>
