@@ -171,6 +171,12 @@ export async function POST(req: Request) {
             toolResults: { result?: unknown }[];
           }[]
         );
+        const usage = event.usage as {
+          promptTokens?: number;
+          completionTokens?: number;
+          totalTokens?: number;
+        } | null;
+
         await prisma.message.create({
           data: {
             conversationId,
@@ -178,6 +184,9 @@ export async function POST(req: Request) {
             content: event.text,
             clientMessageId: `asst_${randomUUID()}`,
             ...(inv != null ? { toolInvocations: inv as object } : {}),
+            ...(usage?.promptTokens != null ? { promptTokens: usage.promptTokens } : {}),
+            ...(usage?.completionTokens != null ? { completionTokens: usage.completionTokens } : {}),
+            ...(usage?.totalTokens != null ? { totalTokens: usage.totalTokens } : {}),
           },
         });
         await prisma.conversation.update({
