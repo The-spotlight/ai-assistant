@@ -17,12 +17,17 @@ model Conversation {
   title     String?
   /// 该会话最近使用的 OpenRouter 模型 id
   modelId   String?
+  /// 是否置顶
+  isPinned  Boolean   @default(false)
+  /// 置顶时间（用于置顶排序）
+  pinnedAt  DateTime?
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   messages  Message[]
 
   @@index([deviceId, updatedAt(sort: Desc)])
   @@index([updatedAt(sort: Desc)])
+  @@index([deviceId, isPinned(sort: Desc), pinnedAt(sort: Desc), updatedAt(sort: Desc)])
 }
 
 /// 单条消息（与前端 useChat / AI SDK 结构对齐）
