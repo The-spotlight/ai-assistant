@@ -214,7 +214,10 @@ export default function ToolCallCard({ toolName, args, result }: ToolCallProps) 
     parsedResult = result;
   }
 
-  const isWeatherTool = toolName === 'weather' && isWeatherResult(parsedResult);
+  let weatherResult: WeatherResult | null = null;
+  if (toolName === 'weather' && isWeatherResult(parsedResult)) {
+    weatherResult = parsedResult;
+  }
 
   return (
     <div className="mb-3 overflow-hidden rounded-lg border border-[rgba(0,0,0,0.08)] bg-[#fafafa] shadow-[rgba(0,0,0,0.03)_0px_1.2px_0px]">
@@ -227,9 +230,9 @@ export default function ToolCallCard({ toolName, args, result }: ToolCallProps) 
           <span className="text-base">{emoji}</span>
           <span className="font-medium text-[#171717]">{label}</span>
           <span className="min-w-0 flex-1 truncate text-xs text-[#808080]">{formatArgs(args)}</span>
-          {isWeatherTool && parsedResult && 'current' in parsedResult && parsedResult.current && (
+          {weatherResult && weatherResult.current && (
             <span className="shrink-0 text-xs font-medium text-[#171717]">
-              {parsedResult.current.weather_emoji} {parsedResult.current.temperature}°C
+              {weatherResult.current.weather_emoji} {weatherResult.current.temperature}°C
             </span>
           )}
           <span
@@ -256,8 +259,8 @@ export default function ToolCallCard({ toolName, args, result }: ToolCallProps) 
               <div className="mb-1 text-[11px] font-medium uppercase tracking-wide text-[#808080]">
                 结果
               </div>
-              {isWeatherTool ? (
-                renderWeatherResult(parsedResult)
+              {weatherResult ? (
+                renderWeatherResult(weatherResult)
               ) : (
                 <div className="overflow-x-auto rounded-md border border-[rgba(0,0,0,0.08)] bg-[#fafafa] p-3 text-xs">
                   {typeof parsedResult === 'object' && parsedResult !== null ? (
