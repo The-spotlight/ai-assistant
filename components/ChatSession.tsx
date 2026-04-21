@@ -81,6 +81,57 @@ function IconChevronDown(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
+function IconCheck(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      {...props}
+    >
+      <path d="M20 6 9 17l-5-5" />
+    </svg>
+  );
+}
+
+function IconSparkles(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      {...props}
+    >
+      <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z" />
+    </svg>
+  );
+}
+
+function IconCrown(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      {...props}
+    >
+      <path d="m2 4 3 12h14l3-12-6 7-4-7-4 7-6-7zm3 16h14" />
+    </svg>
+  );
+}
+
 function areMessagesEqual(a: Message, b: Message): boolean {
   if (a.id !== b.id || a.role !== b.role || a.content !== b.content) {
     return false;
@@ -337,45 +388,126 @@ const ChatSession = forwardRef<ChatSessionRef, ChatSessionProps>(function ChatSe
               </button>
 
               {showModelSelector && (
-                <div className="absolute left-0 top-full z-50 mt-1 w-72 rounded-xl border border-black/[0.08] bg-white py-1 shadow-lg">
-                  <div className="px-3 py-2 text-[10px] font-medium uppercase tracking-wider text-[#a3a3a3]">
-                    选择模型
+                <div className="absolute left-0 top-full z-50 mt-1 w-80 overflow-hidden rounded-xl border border-black/[0.08] bg-white shadow-lg">
+                  <div className="border-b border-black/[0.06] px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <IconSparkles className="h-4 w-4 text-[#171717]" />
+                      <span className="text-sm font-medium text-[#171717]">选择模型</span>
+                    </div>
+                    <p className="mt-1 text-[11px] text-[#a3a3a3]">
+                      切换模型后，新对话将使用新模型
+                    </p>
                   </div>
-                  {OPENROUTER_MODEL_OPTIONS.map((model) => {
-                    const isSelected = model.id === modelId;
-                    const pricing = getModelPricing(model.id);
-                    return (
-                      <button
-                        key={model.id}
-                        type="button"
-                        onClick={() => {
-                          if (onModelChange) {
-                            onModelChange(model.id);
-                          }
-                          setShowModelSelector(false);
-                        }}
-                        className={`w-full px-3 py-2 text-left transition-colors ${
-                          isSelected
-                            ? 'bg-black/[0.04]'
-                            : 'hover:bg-black/[0.02]'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className={`text-sm ${
-                            isSelected ? 'text-[#171717] font-medium' : 'text-[#4d4d4d]'
-                          }`}>
-                            {model.label}
-                          </span>
-                          {isSelected && (
-                            <span className="text-[#171717] text-xs">✓</span>
-                          )}
-                        </div>
-                        <div className="mt-0.5 text-[10px] text-[#a3a3a3]">
-                          输入: {pricing.input === 0 ? '免费' : `$${pricing.input}/M`}, 输出: {pricing.output === 0 ? '免费' : `$${pricing.output}/M`}
-                        </div>
-                      </button>
-                    );
-                  })}
+
+                  <div className="max-h-80 overflow-y-auto py-2">
+                    <div className="px-3">
+                      <div className="mb-1 flex items-center gap-1.5 px-1 py-1">
+                        <IconCrown className="h-3 w-3 text-[#f59e0b]" />
+                        <span className="text-[10px] font-medium uppercase tracking-wider text-[#737373]">
+                          推荐模型
+                        </span>
+                      </div>
+                      {OPENROUTER_MODEL_OPTIONS.filter((m) => m.id === 'openrouter/elephant-alpha').map(
+                        (model) => {
+                          const isSelected = model.id === modelId;
+                          const pricing = getModelPricing(model.id);
+                          return (
+                            <button
+                              key={model.id}
+                              type="button"
+                              onClick={() => {
+                                if (onModelChange) {
+                                  onModelChange(model.id);
+                                }
+                                setShowModelSelector(false);
+                              }}
+                              className={`mb-1 w-full rounded-lg px-3 py-2.5 text-left transition-all ${
+                                isSelected
+                                  ? 'bg-[#f5f5f4] ring-1 ring-inset ring-[#e5e5e5]'
+                                  : 'hover:bg-black/[0.02]'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <span
+                                    className={`text-sm ${
+                                      isSelected ? 'text-[#171717] font-medium' : 'text-[#4d4d4d]'
+                                    }`}
+                                  >
+                                    {model.label}
+                                  </span>
+                                  <span className="inline-flex items-center rounded-full bg-[#fef3c7] px-1.5 py-0.5 text-[9px] font-medium text-[#92400e]">
+                                    默认
+                                  </span>
+                                </div>
+                                {isSelected && (
+                                  <IconCheck className="h-4 w-4 text-[#171717]" />
+                                )}
+                              </div>
+                              <div className="mt-1 text-[10px] text-[#a3a3a3]">
+                                输入: ${pricing.input}/M tokens · 输出: ${pricing.output}/M tokens
+                              </div>
+                            </button>
+                          );
+                        }
+                      )}
+                    </div>
+
+                    <div className="mx-3 my-2 h-px bg-black/[0.05]" />
+
+                    <div className="px-3">
+                      <div className="mb-1 flex items-center gap-1.5 px-1 py-1">
+                        <IconSparkles className="h-3 w-3 text-[#22c55e]" />
+                        <span className="text-[10px] font-medium uppercase tracking-wider text-[#737373]">
+                          免费模型
+                        </span>
+                      </div>
+                      {OPENROUTER_MODEL_OPTIONS.filter((m) => m.id !== 'openrouter/elephant-alpha').map(
+                        (model) => {
+                          const isSelected = model.id === modelId;
+                          const pricing = getModelPricing(model.id);
+                          return (
+                            <button
+                              key={model.id}
+                              type="button"
+                              onClick={() => {
+                                if (onModelChange) {
+                                  onModelChange(model.id);
+                                }
+                                setShowModelSelector(false);
+                              }}
+                              className={`mb-1 w-full rounded-lg px-3 py-2.5 text-left transition-all ${
+                                isSelected
+                                  ? 'bg-[#f5f5f4] ring-1 ring-inset ring-[#e5e5e5]'
+                                  : 'hover:bg-black/[0.02]'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between">
+                                <span
+                                  className={`text-sm ${
+                                    isSelected ? 'text-[#171717] font-medium' : 'text-[#4d4d4d]'
+                                  }`}
+                                >
+                                  {model.label}
+                                </span>
+                                <div className="flex items-center gap-2">
+                                  <span className="inline-flex items-center rounded-full bg-[#dcfce7] px-1.5 py-0.5 text-[9px] font-medium text-[#15803d]">
+                                    免费
+                                  </span>
+                                  {isSelected && (
+                                    <IconCheck className="h-4 w-4 text-[#171717]" />
+                                  )}
+                                </div>
+                              </div>
+                              <div className="mt-1 text-[10px] text-[#a3a3a3]">
+                                输入: 免费 · 输出: 免费
+                              </div>
+                            </button>
+                          );
+                        }
+                      )}
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
