@@ -13,6 +13,7 @@ import {
   formatTokens,
   getModelPricing,
 } from '@/lib/model-pricing';
+import { OPENROUTER_MODEL_OPTIONS } from '@/lib/openrouter-models';
 
 const SUGGESTIONS = [
   '搜索今日新闻',
@@ -26,6 +27,7 @@ type MessageWithTokens = Message & {
   promptTokens?: number;
   completionTokens?: number;
   totalTokens?: number;
+  modelId?: string;
 };
 
 type ChatSessionProps = {
@@ -35,6 +37,7 @@ type ChatSessionProps = {
   initialMessages: Message[];
   highlightMessageId?: string | null;
   onHighlightCleared?: () => void;
+  onModelChange?: (modelId: string) => void;
 };
 
 export type ChatSessionRef = {
@@ -61,6 +64,23 @@ function IconRefresh(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
+function IconChevronDown(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      {...props}
+    >
+      <path d="m6 9 6 6 6-6" />
+    </svg>
+  );
+}
+
 function areMessagesEqual(a: Message, b: Message): boolean {
   if (a.id !== b.id || a.role !== b.role || a.content !== b.content) {
     return false;
@@ -70,6 +90,7 @@ function areMessagesEqual(a: Message, b: Message): boolean {
   if (aWithTokens.promptTokens !== bWithTokens.promptTokens) return false;
   if (aWithTokens.completionTokens !== bWithTokens.completionTokens) return false;
   if (aWithTokens.totalTokens !== bWithTokens.totalTokens) return false;
+  if (aWithTokens.modelId !== bWithTokens.modelId) return false;
   const aTool = (a as { toolInvocations?: unknown[] }).toolInvocations;
   const bTool = (b as { toolInvocations?: unknown[] }).toolInvocations;
   if (aTool === undefined && bTool === undefined) return true;
@@ -95,6 +116,7 @@ const ChatSession = forwardRef<ChatSessionRef, ChatSessionProps>(function ChatSe
     initialMessages,
     highlightMessageId,
     onHighlightCleared,
+    onModelChange,
   },
   ref
 ) {
@@ -118,6 +140,21 @@ const ChatSession = forwardRef<ChatSessionRef, ChatSessionProps>(function ChatSe
   const inputRef = useRef<HTMLInputElement>(null);
   const messageRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const [showSkills, setShowSkills] = useState(false);
+  const [showModelSelector, setShowModelSelector] = useState(false);
+  const modelSelectorRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        modelSelectorRef.current &&
+        !modelSelectorRef.current.contains(event.target as Node)
+      ) {
+        setShowModelSelector(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   type RegeneratePhase = 'idle' | 'truncated' | 'appending';
   const [regeneratePhase, setRegeneratePhase] = useState<RegeneratePhase>('idle');
@@ -178,7 +215,8 @@ const ChatSession = forwardRef<ChatSessionRef, ChatSessionProps>(function ChatSe
         tokens += msg.completionTokens;
       }
       if (msg.promptTokens != null && msg.completionTokens != null) {
-        cost += calculateMessageCost(msg.promptTokens, msg.completionTokens, modelId);
+        const msgModelId = msg.modelId ?? modelId;
+        cost += calculateMessageCost(msg.promptTokens, msg.completionTokens, msgModelId);
       }
     });
     return { totalTokens: tokens, totalCost: cost };
@@ -287,9 +325,60 @@ const ChatSession = forwardRef<ChatSessionRef, ChatSessionProps>(function ChatSe
       {messages.length > 0 && (
         <div className="shrink-0 border-b border-black/[0.06] bg-white/80 px-4 py-2 text-xs text-[#737373]">
           <div className="flex items-center justify-between gap-2">
-            <span className="truncate">
-              模型：{modelPricing.label}
-            </span>
+            <div className="relative" ref={modelSelectorRef}>
+              <button
+                type="button"
+                onClick={() => setShowModelSelector(!showModelSelector)}
+                className="flex items-center gap-1 truncate rounded px-2 py-1 transition-colors hover:bg-black/[0.04]"
+                title="点击切换模型"
+              >
+                <span>模型：{modelPricing.label}</span>
+                <IconChevronDown className="h-3 w-3" />
+              </button>
+
+              {showModelSelector && (
+                <div className="absolute left-0 top-full z-50 mt-1 w-72 rounded-xl border border-black/[0.08] bg-white py-1 shadow-lg">
+                  <div className="px-3 py-2 text-[10px] font-medium uppercase tracking-wider text-[#a3a3a3]">
+                    选择模型
+                  </div>
+                  {OPENROUTER_MODEL_OPTIONS.map((model) => {
+                    const isSelected = model.id === modelId;
+                    const pricing = getModelPricing(model.id);
+                    return (
+                      <button
+                        key={model.id}
+                        type="button"
+                        onClick={() => {
+                          if (onModelChange) {
+                            onModelChange(model.id);
+                          }
+                          setShowModelSelector(false);
+                        }}
+                        className={`w-full px-3 py-2 text-left transition-colors ${
+                          isSelected
+                            ? 'bg-black/[0.04]'
+                            : 'hover:bg-black/[0.02]'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className={`text-sm ${
+                            isSelected ? 'text-[#171717] font-medium' : 'text-[#4d4d4d]'
+                          }`}>
+                            {model.label}
+                          </span>
+                          {isSelected && (
+                            <span className="text-[#171717] text-xs">✓</span>
+                          )}
+                        </div>
+                        <div className="mt-0.5 text-[10px] text-[#a3a3a3]">
+                          输入: {pricing.input === 0 ? '免费' : `$${pricing.input}/M`}, 输出: {pricing.output === 0 ? '免费' : `$${pricing.output}/M`}
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
             <span className="flex items-center gap-4">
               <span title="总 token 数">
                 {formatTokens(totalTokens)} tokens
@@ -360,10 +449,12 @@ const ChatSession = forwardRef<ChatSessionRef, ChatSessionProps>(function ChatSe
           const msg = m as MessageWithTokens;
           const canRegenerate = m.role === 'assistant' && !isLoading && regeneratePhase === 'idle';
 
+          const msgModelId = msg.modelId ?? modelId;
           const messageCost =
             msg.promptTokens != null && msg.completionTokens != null
-              ? calculateMessageCost(msg.promptTokens, msg.completionTokens, modelId)
+              ? calculateMessageCost(msg.promptTokens, msg.completionTokens, msgModelId)
               : null;
+          const messageModelPricing = getModelPricing(msgModelId);
 
           return (
             <div
@@ -446,6 +537,12 @@ const ChatSession = forwardRef<ChatSessionRef, ChatSessionProps>(function ChatSe
                           )}
                         </span>
                       )}
+                      <span
+                        className="inline-flex items-center gap-1 rounded-full bg-black/[0.03] px-1.5 py-0.5"
+                        title={`生成此回复使用的模型: ${messageModelPricing.label}`}
+                      >
+                        {messageModelPricing.label}
+                      </span>
                     </div>
                     {canRegenerate && (
                       <button
