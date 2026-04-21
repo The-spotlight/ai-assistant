@@ -183,6 +183,7 @@ export async function POST(req: Request) {
             role: 'assistant',
             content: event.text,
             clientMessageId: `asst_${randomUUID()}`,
+            modelId,
             ...(inv != null ? { toolInvocations: inv as object } : {}),
             ...(usage?.promptTokens != null ? { promptTokens: usage.promptTokens } : {}),
             ...(usage?.completionTokens != null ? { completionTokens: usage.completionTokens } : {}),

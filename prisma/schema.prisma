@@ -42,6 +42,8 @@ model Message {
   completionTokens Int?
   /// 总 token 数（仅 assistant 消息）
   totalTokens     Int?
+  /// 生成此消息时使用的模型 ID（仅 assistant 消息）
+  modelId         String?
   createdAt       DateTime     @default(now())
 
   @@unique([conversationId, clientMessageId])

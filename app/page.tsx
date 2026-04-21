@@ -3,7 +3,7 @@
 import type { Message } from 'ai';
 import { useCallback, useEffect, useState, useRef } from 'react';
 import ChatSession from '@/components/ChatSession';
-import { DEFAULT_OPENROUTER_MODEL_ID, FIXED_OPENROUTER_MODEL_LABEL } from '@/lib/openrouter-models';
+import { DEFAULT_OPENROUTER_MODEL_ID, FIXED_OPENROUTER_MODEL_LABEL, OPENROUTER_MODEL_STORAGE_KEY, ALLOWED_OPENROUTER_MODEL_IDS } from '@/lib/openrouter-models';
 import { CONVERSATION_STORAGE_KEY, getOrCreateDeviceId } from '@/lib/device';
 
 type ConversationRow = {
@@ -98,15 +98,21 @@ export default function Home() {
   const [chatPayload, setChatPayload] = useState<ChatPayload | null>(null);
   const [convList, setConvList] = useState<ConversationRow[]>([]);
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
-  
+  const [currentModelId, setCurrentModelId] = useState<string>(DEFAULT_OPENROUTER_MODEL_ID);
+
   // 搜索相关状态
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
   const [isSearching, setIsSearching] = useState<boolean>(false);
   const [showSearchResults, setShowSearchResults] = useState<boolean>(false);
   const [highlightMessageId, setHighlightMessageId] = useState<string | null>(null);
-  
+
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  const handleModelChange = useCallback((modelId: string) => {
+    setCurrentModelId(modelId);
+    localStorage.setItem(OPENROUTER_MODEL_STORAGE_KEY, modelId);
+  }, []);
 
   const loadConversations = useCallback(async (did: string) => {
     const r = await fetch('/api/conversations', { headers: { 'x-device-id': did } });
@@ -196,6 +202,11 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    const savedModel = localStorage.getItem(OPENROUTER_MODEL_STORAGE_KEY);
+    if (savedModel && ALLOWED_OPENROUTER_MODEL_IDS.has(savedModel)) {
+      setCurrentModelId(savedModel);
+    }
+
     const did = getOrCreateDeviceId();
     if (!did) {
       setBootstrapError('无法读取本地设备标识');
@@ -573,10 +584,11 @@ export default function Home() {
                 key={chatPayload.conversationId}
                 deviceId={deviceId}
                 conversationId={chatPayload.conversationId}
-                modelId={DEFAULT_OPENROUTER_MODEL_ID}
+                modelId={currentModelId}
                 initialMessages={chatPayload.messages}
                 highlightMessageId={highlightMessageId}
                 onHighlightCleared={clearHighlight}
+                onModelChange={handleModelChange}
               />
             </div>
           )}
