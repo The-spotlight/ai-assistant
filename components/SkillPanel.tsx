@@ -13,8 +13,15 @@ const SKILLS: Skill[] = [
     name: 'web_search',
     emoji: '🔍',
     label: '网络搜索',
-    description: '搜索互联网获取实时信息',
-    example: '今天的天气怎么样？',
+    description: '搜索互联网获取实时新闻和事件',
+    example: '今天有什么重要新闻？',
+  },
+  {
+    name: 'weather',
+    emoji: '🌤️',
+    label: '天气查询',
+    description: '查询实时天气和天气预报',
+    example: '北京明天的天气怎么样？',
   },
   {
     name: 'code_execution',

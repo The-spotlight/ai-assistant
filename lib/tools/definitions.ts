@@ -127,6 +127,35 @@ export const translatorTool: ToolDefinition = {
   },
 };
 
+// ─── 6. Weather ───────────────────────────────────────────────────────────
+
+export const weatherTool: ToolDefinition = {
+  name: 'weather',
+  description: '查询实时天气和天气预报。当用户询问天气、气温、降水、风向等气象信息时使用此工具。支持城市名称查询和经纬度坐标查询。',
+  parameters: {
+    type: 'object',
+    properties: {
+      location: {
+        type: 'string',
+        description: '城市名称或地址，如 "北京"、"上海市浦东新区"、"New York"',
+      },
+      latitude: {
+        type: 'number',
+        description: '纬度坐标（可选，与 location 二选一）',
+      },
+      longitude: {
+        type: 'number',
+        description: '经度坐标（可选，与 location 二选一）',
+      },
+      forecast_days: {
+        type: 'number',
+        description: '预报天数，默认3天，最多7天',
+      },
+    },
+    required: [],
+  },
+};
+
 // ─── Tool Registry ───────────────────────────────────────────────────────────
 
 export const ALL_TOOLS: ToolDefinition[] = [
@@ -135,6 +164,7 @@ export const ALL_TOOLS: ToolDefinition[] = [
   calculatorTool,
   textAnalyzerTool,
   translatorTool,
+  weatherTool,
 ];
 
 // Convert to OpenAI function calling format
