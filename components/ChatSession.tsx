@@ -2,10 +2,11 @@
 
 import { useChat } from 'ai/react';
 import type { Message } from 'ai';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, forwardRef, useImperativeHandle } from 'react';
 import MarkdownRenderer from '@/components/MarkdownRenderer';
 import ToolCallCard from '@/components/ToolCallCard';
 import SkillPanel from '@/components/SkillPanel';
+import RefreshControl from '@/components/RefreshControl';
 import {
   calculateMessageCost,
   formatCost,
@@ -36,6 +37,10 @@ type ChatSessionProps = {
   onHighlightCleared?: () => void;
 };
 
+export type ChatSessionRef = {
+  refreshMessages: () => Promise<boolean>;
+};
+
 function IconRefresh(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg
@@ -56,14 +61,43 @@ function IconRefresh(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
-export default function ChatSession({
-  deviceId,
-  conversationId,
-  modelId,
-  initialMessages,
-  highlightMessageId,
-  onHighlightCleared,
-}: ChatSessionProps) {
+function areMessagesEqual(a: Message, b: Message): boolean {
+  if (a.id !== b.id || a.role !== b.role || a.content !== b.content) {
+    return false;
+  }
+  const aWithTokens = a as MessageWithTokens;
+  const bWithTokens = b as MessageWithTokens;
+  if (aWithTokens.promptTokens !== bWithTokens.promptTokens) return false;
+  if (aWithTokens.completionTokens !== bWithTokens.completionTokens) return false;
+  if (aWithTokens.totalTokens !== bWithTokens.totalTokens) return false;
+  const aTool = (a as { toolInvocations?: unknown[] }).toolInvocations;
+  const bTool = (b as { toolInvocations?: unknown[] }).toolInvocations;
+  if (aTool === undefined && bTool === undefined) return true;
+  if (aTool === undefined || bTool === undefined) return false;
+  return JSON.stringify(aTool) === JSON.stringify(bTool);
+}
+
+function hasMessageChanges(current: Message[], fresh: Message[]): boolean {
+  if (current.length !== fresh.length) return true;
+  for (let i = 0; i < current.length; i++) {
+    if (!areMessagesEqual(current[i], fresh[i])) {
+      return true;
+    }
+  }
+  return false;
+}
+
+const ChatSession = forwardRef<ChatSessionRef, ChatSessionProps>(function ChatSession(
+  {
+    deviceId,
+    conversationId,
+    modelId,
+    initialMessages,
+    highlightMessageId,
+    onHighlightCleared,
+  },
+  ref
+) {
   const {
     messages,
     input,
@@ -85,18 +119,53 @@ export default function ChatSession({
   const messageRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const [showSkills, setShowSkills] = useState(false);
 
-  // 重新生成相关的状态和 ref
-  // 使用状态机来确保操作的顺序性，避免 React 批量更新的竞态问题
   type RegeneratePhase = 'idle' | 'truncated' | 'appending';
   const [regeneratePhase, setRegeneratePhase] = useState<RegeneratePhase>('idle');
   const regenerateDataRef = useRef<{
     userMessageId: string;
     userMessageContent: string;
   } | null>(null);
-  // 保存截断时期望的消息长度，用于验证截断是否成功
   const expectedMessageCountRef = useRef<number>(-1);
 
-  // 计算总 token 数和费用
+  const fetchLatestMessages = useCallback(async (): Promise<Message[] | null> => {
+    try {
+      const r = await fetch(`/api/conversations/${conversationId}/messages`, {
+        headers: { 'x-device-id': deviceId },
+      });
+      if (!r.ok) return null;
+      const data = (await r.json()) as { messages?: Message[] };
+      return data.messages ?? null;
+    } catch {
+      return null;
+    }
+  }, [conversationId, deviceId]);
+
+  const refreshMessages = useCallback(async (): Promise<boolean> => {
+    if (isLoading || regeneratePhase !== 'idle') {
+      return false;
+    }
+
+    const freshMessages = await fetchLatestMessages();
+    if (!freshMessages) {
+      return false;
+    }
+
+    if (!hasMessageChanges(messages, freshMessages)) {
+      return false;
+    }
+
+    setMessages(freshMessages);
+    return true;
+  }, [isLoading, regeneratePhase, fetchLatestMessages, messages, setMessages]);
+
+  useImperativeHandle(
+    ref,
+    () => ({
+      refreshMessages,
+    }),
+    [refreshMessages]
+  );
+
   const { totalTokens, totalCost } = useMemo(() => {
     let tokens = 0;
     let cost = 0;
@@ -115,19 +184,16 @@ export default function ChatSession({
     return { totalTokens: tokens, totalCost: cost };
   }, [messages, modelId]);
 
-  // 滚动到底部（原有逻辑）
   useEffect(() => {
     if (!highlightMessageId) {
       bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages, highlightMessageId]);
 
-  // 滚动到高亮消息
   useEffect(() => {
     if (highlightMessageId) {
       const messageEl = messageRefs.current.get(highlightMessageId);
       if (messageEl) {
-        // 延迟一点确保 DOM 已渲染
         setTimeout(() => {
           messageEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
         }, 100);
@@ -135,7 +201,6 @@ export default function ChatSession({
     }
   }, [highlightMessageId, messages]);
 
-  // 清除高亮
   const handleClearHighlight = useCallback(() => {
     if (onHighlightCleared) {
       onHighlightCleared();
@@ -153,22 +218,14 @@ export default function ChatSession({
     }
   };
 
-  // 使用 useEffect 来处理重新生成的第二阶段：截断后发送消息
-  // 这样可以确保 React 状态更新完成后再执行下一步操作
   useEffect(() => {
     if (regeneratePhase !== 'truncated') return;
     if (!regenerateDataRef.current) return;
 
     const { userMessageId, userMessageContent } = regenerateDataRef.current;
 
-    // 验证消息列表是否已截断
-    // 注意：这里我们假设 setMessages 已经生效
-    // 在 React 18+ 中，状态更新是同步的（在同一事件循环中）
-
-    // 进入 appending 阶段，防止重复触发
     setRegeneratePhase('appending');
 
-    // 发送用户消息，触发重新生成
     append({
       role: 'user',
       content: userMessageContent,
@@ -176,10 +233,8 @@ export default function ChatSession({
     });
   }, [regeneratePhase, append]);
 
-  // 监听 isLoading 变化，当生成完成时重置状态
   useEffect(() => {
     if (!isLoading && regeneratePhase === 'appending') {
-      // 等待一小段时间确保状态稳定
       const timer = setTimeout(() => {
         setRegeneratePhase('idle');
         regenerateDataRef.current = null;
@@ -189,17 +244,13 @@ export default function ChatSession({
     }
   }, [isLoading, regeneratePhase]);
 
-  // 重新生成消息
   const handleRegenerate = useCallback(
     (messageIndex: number) => {
-      // 防止重复点击：如果正在加载或已经在重新生成流程中，忽略
       if (isLoading || regeneratePhase !== 'idle') return;
 
-      // 找到目标 AI 消息
       const targetMessage = messages[messageIndex] as MessageWithTokens;
       if (targetMessage.role !== 'assistant') return;
 
-      // 向前找对应的用户消息（通常是前一条）
       let userMessageIndex = -1;
       for (let i = messageIndex - 1; i >= 0; i--) {
         if (messages[i].role === 'user') {
@@ -212,22 +263,16 @@ export default function ChatSession({
 
       const userMessage = messages[userMessageIndex];
 
-      // 保存用户消息信息到 ref（避免闭包问题）
       regenerateDataRef.current = {
         userMessageId: userMessage.id,
         userMessageContent: userMessage.content,
       };
 
-      // 保存截断后期望的消息长度
       expectedMessageCountRef.current = userMessageIndex;
 
-      // 第一阶段：截断消息列表到用户消息之前（不包含用户消息）
       const messagesBeforeUser = messages.slice(0, userMessageIndex);
       setMessages(messagesBeforeUser);
 
-      // 设置阶段为 truncated，触发 useEffect 执行下一步
-      // 使用 setTimeout 0 来确保在下一个事件循环中处理
-      // 这样可以避免 React 批量更新导致的时序问题
       setTimeout(() => {
         setRegeneratePhase('truncated');
       }, 0);
@@ -239,7 +284,6 @@ export default function ChatSession({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-black/[0.06] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04),0_8px_24px_-4px_rgba(0,0,0,0.06)]">
-      {/* 顶部状态栏：显示 token 和费用 */}
       {messages.length > 0 && (
         <div className="shrink-0 border-b border-black/[0.06] bg-white/80 px-4 py-2 text-xs text-[#737373]">
           <div className="flex items-center justify-between gap-2">
@@ -254,6 +298,10 @@ export default function ChatSession({
                 {formatCost(totalCost)}
               </span>
             </span>
+            <RefreshControl
+              isLoading={isLoading || regeneratePhase !== 'idle'}
+              onRefresh={refreshMessages}
+            />
           </div>
         </div>
       )}
@@ -283,10 +331,17 @@ export default function ChatSession({
                 </button>
               ))}
             </div>
+            {deviceId && (
+              <div className="mt-8">
+                <RefreshControl
+                  isLoading={isLoading || regeneratePhase !== 'idle'}
+                  onRefresh={refreshMessages}
+                />
+              </div>
+            )}
           </div>
         )}
 
-        {/* 高亮提示条 */}
         {highlightMessageId && (
           <div className="sticky top-0 z-10 mb-4 flex items-center justify-between gap-2 rounded-lg bg-[#fef3c7] px-4 py-2.5 text-sm text-[#92400e] shadow-sm">
             <span className="font-medium">已定位到匹配消息</span>
@@ -303,10 +358,8 @@ export default function ChatSession({
         {messages.map((m, index) => {
           const isHighlighted = highlightMessageId === m.id;
           const msg = m as MessageWithTokens;
-          const isLastAssistant = m.role === 'assistant' && index === messages.length - 1 && !isLoading;
-          const canRegenerate = m.role === 'assistant' && !isLoading;
+          const canRegenerate = m.role === 'assistant' && !isLoading && regeneratePhase === 'idle';
 
-          // 计算单条消息的费用（如果有 token 数据）
           const messageCost =
             msg.promptTokens != null && msg.completionTokens != null
               ? calculateMessageCost(msg.promptTokens, msg.completionTokens, modelId)
@@ -382,7 +435,6 @@ export default function ChatSession({
                     ))}
                 </div>
 
-                {/* 消息操作栏：重新生成按钮 + token 信息 */}
                 {m.role === 'assistant' && (
                   <div className="mt-1.5 flex items-center justify-between gap-2 px-1">
                     <div className="flex items-center gap-3 text-[10px] text-[#a3a3a3]">
@@ -481,4 +533,6 @@ export default function ChatSession({
       </div>
     </div>
   );
-}
+});
+
+export default ChatSession;
