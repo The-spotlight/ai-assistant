@@ -161,6 +161,21 @@ function SidebarContent({
   const showTime = !isNarrow;
   const showWideInfo = isWide;
 
+  const { pinnedConversations, unpinnedConversations } = useMemo(() => {
+    const pinned: ConversationRow[] = [];
+    const unpinned: ConversationRow[] = [];
+
+    convList.forEach((c) => {
+      if (c.isPinned === true) {
+        pinned.push(c);
+      } else {
+        unpinned.push(c);
+      }
+    });
+
+    return { pinnedConversations: pinned, unpinnedConversations: unpinned };
+  }, [convList]);
+
   return (
     <>
       <button
@@ -287,7 +302,7 @@ function SidebarContent({
         // 历史会话列表
         <>
           {/* 置顶会话 */}
-          {convList.some((c) => c.isPinned === true) && (
+          {pinnedConversations.length > 0 && (
             <>
               <p className={`mb-2 px-1 text-[11px] font-medium uppercase tracking-wider text-[#a3a3a3] ${
                 isNarrow ? 'mb-1 text-[10px]' : ''
@@ -295,7 +310,7 @@ function SidebarContent({
                 置顶会话
               </p>
               <div className="mb-3 flex flex-col gap-0.5">
-                {convList.filter((c) => c.isPinned === true).map((c) => {
+                {pinnedConversations.map((c) => {
                   const active = chatPayload?.conversationId === c.id;
                   return (
                     <div
@@ -372,12 +387,12 @@ function SidebarContent({
             </AdaptiveText>
           </p>
           <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto pr-0.5">
-            {convList.filter((c) => c.isPinned !== true).length === 0 && convList.filter((c) => c.isPinned === true).length === 0 && !loadingMain && (
+            {unpinnedConversations.length === 0 && pinnedConversations.length === 0 && !loadingMain && (
               <p className="px-2 py-6 text-center text-[13px] leading-relaxed text-[#a3a3a3]">
                 暂无会话记录
               </p>
             )}
-            {convList.filter((c) => c.isPinned !== true).map((c) => {
+            {unpinnedConversations.map((c) => {
               const active = chatPayload?.conversationId === c.id;
               return (
                 <div
