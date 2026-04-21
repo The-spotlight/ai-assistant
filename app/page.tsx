@@ -11,6 +11,8 @@ type ConversationRow = {
   id: string;
   title: string | null;
   modelId: string | null;
+  isPinned: boolean | null;
+  pinnedAt: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -94,6 +96,16 @@ function IconX(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
+function IconPin(props: React.SVGProps<SVGSVGElement> & { filled?: boolean }) {
+  const { filled, ...rest } = props;
+  return (
+    <svg viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden {...rest}>
+      <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
+      <circle cx="12" cy="10" r="3" />
+    </svg>
+  );
+}
+
 interface SidebarContentProps {
   deviceId: string | null;
   loadingMain: boolean;
@@ -109,6 +121,7 @@ interface SidebarContentProps {
   chatPayload: ChatPayload | null;
   selectConversation: (id: string) => Promise<void>;
   deleteConversation: (id: string, e: React.MouseEvent) => Promise<void>;
+  togglePin: (id: string, e: React.MouseEvent) => Promise<void>;
 }
 
 function SidebarContent({
@@ -126,6 +139,7 @@ function SidebarContent({
   chatPayload,
   selectConversation,
   deleteConversation,
+  togglePin,
 }: SidebarContentProps) {
   const { widthCategory, sidebarWidth } = useLayoutContext();
 
@@ -270,8 +284,86 @@ function SidebarContent({
           )}
         </div>
       ) : (
-        // 历史会话列表（原有逻辑）
+        // 历史会话列表
         <>
+          {/* 置顶会话 */}
+          {convList.some((c) => c.isPinned === true) && (
+            <>
+              <p className={`mb-2 px-1 text-[11px] font-medium uppercase tracking-wider text-[#a3a3a3] ${
+                isNarrow ? 'mb-1 text-[10px]' : ''
+              }`}>
+                置顶会话
+              </p>
+              <div className="mb-3 flex flex-col gap-0.5">
+                {convList.filter((c) => c.isPinned === true).map((c) => {
+                  const active = chatPayload?.conversationId === c.id;
+                  return (
+                    <div
+                      key={c.id}
+                      className={`group relative flex items-stretch gap-0 overflow-hidden rounded-xl border transition-colors ${
+                        active
+                          ? 'border-black/[0.08] bg-[#f4f4f5]'
+                          : 'border-transparent hover:bg-[#fafafa]'
+                      }`}
+                    >
+                      {/* 置顶视觉区分：左侧竖条 */}
+                      <div className="w-1 shrink-0 bg-[#f59e0b] rounded-l-xl" />
+                      <button
+                        type="button"
+                        onClick={() => selectConversation(c.id)}
+                        className={`min-w-0 flex-1 ${itemPadding} text-left`}
+                        title={c.title ?? '新对话'}
+                      >
+                        <div className="flex items-center gap-1.5">
+                          <IconPin className={`h-3 w-3 shrink-0 text-[#f59e0b] ${isNarrow ? 'h-2.5 w-2.5' : ''}`} filled />
+                          <span className={`${titleLines} text-[13px] font-medium leading-snug text-[#171717] ${
+                            isNarrow ? 'text-[12px]' : ''
+                          } ${isWide ? 'text-sm' : ''}`}>
+                            {c.title?.trim() || '新对话'}
+                          </span>
+                        </div>
+                        {showTime && (
+                          <span className={`mt-1 block text-[11px] text-[#a3a3a3] ${
+                            isWide ? 'text-xs' : ''
+                          }`}>
+                            {formatRelativeTime(c.updatedAt)}
+                          </span>
+                        )}
+                        {showWideInfo && (
+                          <span className="mt-0.5 block text-[10px] text-[#d4d4d4]">
+                            ID: {c.id.slice(0, 8)}
+                          </span>
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="取消置顶"
+                        onClick={(e) => togglePin(c.id, e)}
+                        className={`flex w-9 shrink-0 items-center justify-center text-[#f59e0b] opacity-0 transition hover:bg-amber-50 group-hover:opacity-100 ${
+                          isNarrow ? 'w-7' : ''
+                        }`}
+                        title="取消置顶"
+                      >
+                        <IconPin className={`h-4 w-4 ${isNarrow ? 'h-3.5 w-3.5' : ''}`} filled />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="删除会话"
+                        onClick={(e) => deleteConversation(c.id, e)}
+                        className={`flex w-9 shrink-0 items-center justify-center text-[#a3a3a3] opacity-0 transition hover:bg-red-50 hover:text-red-600 group-hover:opacity-100 ${
+                          isNarrow ? 'w-7' : ''
+                        }`}
+                      >
+                        <IconTrash className={`h-4 w-4 ${isNarrow ? 'h-3.5 w-3.5' : ''}`} />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
+          )}
+
+          {/* 普通会话 */}
           <p className={`mb-2 px-1 text-[11px] font-medium uppercase tracking-wider text-[#a3a3a3] ${
             isNarrow ? 'mb-1 text-[10px]' : ''
           }`}>
@@ -280,12 +372,12 @@ function SidebarContent({
             </AdaptiveText>
           </p>
           <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto pr-0.5">
-            {convList.length === 0 && !loadingMain && (
+            {convList.filter((c) => c.isPinned !== true).length === 0 && convList.filter((c) => c.isPinned === true).length === 0 && !loadingMain && (
               <p className="px-2 py-6 text-center text-[13px] leading-relaxed text-[#a3a3a3]">
                 暂无会话记录
               </p>
             )}
-            {convList.map((c) => {
+            {convList.filter((c) => c.isPinned !== true).map((c) => {
               const active = chatPayload?.conversationId === c.id;
               return (
                 <div
@@ -319,6 +411,17 @@ function SidebarContent({
                         ID: {c.id.slice(0, 8)}
                       </span>
                     )}
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="置顶会话"
+                    onClick={(e) => togglePin(c.id, e)}
+                    className={`flex w-9 shrink-0 items-center justify-center text-[#a3a3a3] opacity-0 transition hover:bg-amber-50 hover:text-[#f59e0b] group-hover:opacity-100 ${
+                      isNarrow ? 'w-7' : ''
+                    }`}
+                    title="置顶会话"
+                  >
+                    <IconPin className={`h-4 w-4 ${isNarrow ? 'h-3.5 w-3.5' : ''}`} />
                   </button>
                   <button
                     type="button"
@@ -569,7 +672,35 @@ export default function Home() {
     }
   }
 
-  const loadingMain = deviceId && !chatPayload && !bootstrapError;
+  async function togglePin(id: string, e: React.MouseEvent) {
+    e.stopPropagation();
+    if (!deviceId) return;
+
+    const conversation = convList.find((c) => c.id === id);
+    if (!conversation) return;
+
+    const newIsPinned = conversation.isPinned !== true;
+
+    const r = await fetch(`/api/conversations/${id}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-device-id': deviceId,
+      },
+      body: JSON.stringify({ isPinned: newIsPinned }),
+    });
+
+    if (!r.ok) return;
+
+    const listRes = await fetch('/api/conversations', {
+      headers: { 'x-device-id': deviceId },
+    });
+    const data = (await listRes.json()) as { conversations?: ConversationRow[] };
+    const list = data.conversations ?? [];
+    setConvList(list);
+  }
+
+  const loadingMain = !!(deviceId && !chatPayload && !bootstrapError);
 
   return (
     <div className="flex h-dvh max-h-dvh min-h-0 flex-col overflow-hidden">
@@ -609,6 +740,7 @@ export default function Home() {
             chatPayload={chatPayload}
             selectConversation={selectConversation}
             deleteConversation={deleteConversation}
+            togglePin={togglePin}
           />
         </ResizablePanel>
 

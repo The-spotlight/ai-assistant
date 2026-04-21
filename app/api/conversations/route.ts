@@ -12,11 +12,17 @@ export async function GET(req: Request) {
 
   const conversations = await prisma.conversation.findMany({
     where: { deviceId },
-    orderBy: { updatedAt: 'desc' },
+    orderBy: [
+      { isPinned: 'desc' },
+      { pinnedAt: 'desc' },
+      { updatedAt: 'desc' },
+    ],
     select: {
       id: true,
       title: true,
       modelId: true,
+      isPinned: true,
+      pinnedAt: true,
       createdAt: true,
       updatedAt: true,
     },
