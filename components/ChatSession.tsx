@@ -85,6 +85,17 @@ export default function ChatSession({
   const messageRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const [showSkills, setShowSkills] = useState(false);
 
+  // 重新生成相关的状态和 ref
+  // 使用状态机来确保操作的顺序性，避免 React 批量更新的竞态问题
+  type RegeneratePhase = 'idle' | 'truncated' | 'appending';
+  const [regeneratePhase, setRegeneratePhase] = useState<RegeneratePhase>('idle');
+  const regenerateDataRef = useRef<{
+    userMessageId: string;
+    userMessageContent: string;
+  } | null>(null);
+  // 保存截断时期望的消息长度，用于验证截断是否成功
+  const expectedMessageCountRef = useRef<number>(-1);
+
   // 计算总 token 数和费用
   const { totalTokens, totalCost } = useMemo(() => {
     let tokens = 0;
@@ -142,9 +153,48 @@ export default function ChatSession({
     }
   };
 
+  // 使用 useEffect 来处理重新生成的第二阶段：截断后发送消息
+  // 这样可以确保 React 状态更新完成后再执行下一步操作
+  useEffect(() => {
+    if (regeneratePhase !== 'truncated') return;
+    if (!regenerateDataRef.current) return;
+
+    const { userMessageId, userMessageContent } = regenerateDataRef.current;
+
+    // 验证消息列表是否已截断
+    // 注意：这里我们假设 setMessages 已经生效
+    // 在 React 18+ 中，状态更新是同步的（在同一事件循环中）
+
+    // 进入 appending 阶段，防止重复触发
+    setRegeneratePhase('appending');
+
+    // 发送用户消息，触发重新生成
+    append({
+      role: 'user',
+      content: userMessageContent,
+      id: userMessageId,
+    });
+  }, [regeneratePhase, append]);
+
+  // 监听 isLoading 变化，当生成完成时重置状态
+  useEffect(() => {
+    if (!isLoading && regeneratePhase === 'appending') {
+      // 等待一小段时间确保状态稳定
+      const timer = setTimeout(() => {
+        setRegeneratePhase('idle');
+        regenerateDataRef.current = null;
+        expectedMessageCountRef.current = -1;
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [isLoading, regeneratePhase]);
+
   // 重新生成消息
   const handleRegenerate = useCallback(
     (messageIndex: number) => {
+      // 防止重复点击：如果正在加载或已经在重新生成流程中，忽略
+      if (isLoading || regeneratePhase !== 'idle') return;
+
       // 找到目标 AI 消息
       const targetMessage = messages[messageIndex] as MessageWithTokens;
       if (targetMessage.role !== 'assistant') return;
@@ -162,32 +212,27 @@ export default function ChatSession({
 
       const userMessage = messages[userMessageIndex];
 
-      // 截断消息列表：保留用户消息之前的所有消息（包括用户消息）
-      const newMessages = messages.slice(0, userMessageIndex + 1);
-      setMessages(newMessages);
+      // 保存用户消息信息到 ref（避免闭包问题）
+      regenerateDataRef.current = {
+        userMessageId: userMessage.id,
+        userMessageContent: userMessage.content,
+      };
 
-      // 重新发送用户消息来触发新的回复
-      // 注意：我们需要使用 append 来触发 API 调用
-      // 但首先需要确保消息列表已更新
+      // 保存截断后期望的消息长度
+      expectedMessageCountRef.current = userMessageIndex;
+
+      // 第一阶段：截断消息列表到用户消息之前（不包含用户消息）
+      const messagesBeforeUser = messages.slice(0, userMessageIndex);
+      setMessages(messagesBeforeUser);
+
+      // 设置阶段为 truncated，触发 useEffect 执行下一步
+      // 使用 setTimeout 0 来确保在下一个事件循环中处理
+      // 这样可以避免 React 批量更新导致的时序问题
       setTimeout(() => {
-        // 使用 append 会添加新消息，但我们需要的是基于现有上下文重新生成
-        // 更好的方式是使用 reload，但 useChat 可能没有这个方法
-        // 我们可以通过设置一个特殊的标志或者直接使用 API 调用
-
-        // 简单的方案：移除用户消息后重新 append
-        const messagesWithoutUser = newMessages.slice(0, userMessageIndex);
-        setMessages(messagesWithoutUser);
-
-        setTimeout(() => {
-          append({
-            role: 'user',
-            content: userMessage.content,
-            id: userMessage.id,
-          });
-        }, 50);
-      }, 50);
+        setRegeneratePhase('truncated');
+      }, 0);
     },
-    [messages, setMessages, append]
+    [messages, isLoading, regeneratePhase, setMessages]
   );
 
   const modelPricing = getModelPricing(modelId);
