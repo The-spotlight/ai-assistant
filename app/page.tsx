@@ -1,7 +1,7 @@
 'use client';
 
 import type { Message } from 'ai';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import ChatSession from '@/components/ChatSession';
 import { DEFAULT_OPENROUTER_MODEL_ID, FIXED_OPENROUTER_MODEL_LABEL } from '@/lib/openrouter-models';
 import { CONVERSATION_STORAGE_KEY, getOrCreateDeviceId } from '@/lib/device';
@@ -17,6 +17,23 @@ type ConversationRow = {
 type ChatPayload = {
   conversationId: string;
   messages: Message[];
+};
+
+type MatchedMessage = {
+  id: string;
+  role: string;
+  content: string;
+  matchStart: number;
+  matchEnd: number;
+  snippet: string;
+};
+
+type SearchResult = {
+  conversationId: string;
+  conversationTitle: string | null;
+  updatedAt: string;
+  matchedMessages: MatchedMessage[];
+  titleMatch: boolean;
 };
 
 function formatRelativeTime(iso: string): string {
@@ -59,17 +76,123 @@ function IconChevronDown(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
+function IconSearch(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden {...props}>
+      <circle cx="11" cy="11" r="8" />
+      <path d="m21 21-4.35-4.35" />
+    </svg>
+  );
+}
+
+function IconX(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden {...props}>
+      <path d="M18 6 6 18M6 6l12 12" />
+    </svg>
+  );
+}
+
 export default function Home() {
   const [deviceId, setDeviceId] = useState<string | null>(null);
   const [chatPayload, setChatPayload] = useState<ChatPayload | null>(null);
   const [convList, setConvList] = useState<ConversationRow[]>([]);
   const [bootstrapError, setBootstrapError] = useState<string | null>(null);
+  
+  // 搜索相关状态
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
+  const [isSearching, setIsSearching] = useState<boolean>(false);
+  const [showSearchResults, setShowSearchResults] = useState<boolean>(false);
+  const [highlightMessageId, setHighlightMessageId] = useState<string | null>(null);
+  
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const loadConversations = useCallback(async (did: string) => {
     const r = await fetch('/api/conversations', { headers: { 'x-device-id': did } });
     if (!r.ok) return;
     const data = (await r.json()) as { conversations?: ConversationRow[] };
     setConvList(data.conversations ?? []);
+  }, []);
+
+  // 搜索函数
+  const performSearch = useCallback(async (query: string) => {
+    if (!deviceId || !query.trim()) {
+      setSearchResults([]);
+      setShowSearchResults(false);
+      return;
+    }
+
+    setIsSearching(true);
+    setShowSearchResults(true);
+
+    try {
+      const r = await fetch(`/api/search?q=${encodeURIComponent(query.trim())}`, {
+        headers: { 'x-device-id': deviceId },
+      });
+      
+      if (r.ok) {
+        const data = (await r.json()) as { results?: SearchResult[] };
+        setSearchResults(data.results ?? []);
+      } else {
+        setSearchResults([]);
+      }
+    } catch (error) {
+      console.error('搜索失败:', error);
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  }, [deviceId]);
+
+  // 处理搜索输入变化（防抖）
+  const handleSearchChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const query = e.target.value;
+    setSearchQuery(query);
+
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    if (!query.trim()) {
+      setSearchResults([]);
+      setShowSearchResults(false);
+      return;
+    }
+
+    searchTimeoutRef.current = setTimeout(() => {
+      performSearch(query);
+    }, 300);
+  }, [performSearch]);
+
+  // 清除搜索
+  const clearSearch = useCallback(() => {
+    setSearchQuery('');
+    setSearchResults([]);
+    setShowSearchResults(false);
+    setHighlightMessageId(null);
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+  }, []);
+
+  // 处理搜索结果点击
+  const handleSearchResultClick = useCallback(async (conversationId: string, messageId?: string) => {
+    // 清除搜索状态
+    clearSearch();
+    
+    // 设置要高亮的消息ID
+    if (messageId) {
+      setHighlightMessageId(messageId);
+    }
+    
+    // 跳转到对应会话
+    await selectConversation(conversationId);
+  }, [clearSearch]);
+
+  // 清除高亮状态
+  const clearHighlight = useCallback(() => {
+    setHighlightMessageId(null);
   }, []);
 
   useEffect(() => {
@@ -234,49 +357,151 @@ export default function Home() {
               <IconPlus className="h-4 w-4" />
               新对话
             </button>
-            <p className="mb-2 px-1 text-[11px] font-medium uppercase tracking-wider text-[#a3a3a3]">
-              历史会话
-            </p>
-            <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto pr-0.5">
-              {convList.length === 0 && !loadingMain && (
-                <p className="px-2 py-6 text-center text-[13px] leading-relaxed text-[#a3a3a3]">暂无会话记录</p>
+            
+            {/* 搜索框 */}
+            <div className="mb-3 relative">
+              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                <IconSearch className="h-4 w-4 text-[#a3a3a3]" />
+              </div>
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={handleSearchChange}
+                placeholder="搜索会话和消息..."
+                disabled={!deviceId}
+                className="w-full pl-10 pr-10 py-2 text-sm bg-[#fafafa] border border-black/[0.08] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#171717]/20 focus:border-[#171717]/20 placeholder:text-[#a3a3a3] disabled:opacity-40 transition-all"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={clearSearch}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-[#a3a3a3] hover:text-[#171717] transition-colors"
+                  aria-label="清除搜索"
+                >
+                  <IconX className="h-4 w-4" />
+                </button>
               )}
-              {convList.map((c) => {
-                const active = chatPayload?.conversationId === c.id;
-                return (
-                  <div
-                    key={c.id}
-                    className={`group relative flex items-stretch gap-0 overflow-hidden rounded-xl border transition-colors ${
-                      active
-                        ? 'border-black/[0.08] bg-[#f4f4f5]'
-                        : 'border-transparent hover:bg-[#fafafa]'
-                    }`}
-                  >
-                    <button
-                      type="button"
-                      onClick={() => selectConversation(c.id)}
-                      className="min-w-0 flex-1 px-3 py-2.5 text-left"
-                      title={c.title ?? '新对话'}
-                    >
-                      <span className="line-clamp-2 text-[13px] font-medium leading-snug text-[#171717]">
-                        {c.title?.trim() || '新对话'}
-                      </span>
-                      <span className="mt-1 block text-[11px] text-[#a3a3a3]">
-                        {formatRelativeTime(c.updatedAt)}
-                      </span>
-                    </button>
-                    <button
-                      type="button"
-                      aria-label="删除会话"
-                      onClick={(e) => deleteConversation(c.id, e)}
-                      className="flex w-9 shrink-0 items-center justify-center text-[#a3a3a3] opacity-0 transition hover:bg-red-50 hover:text-red-600 group-hover:opacity-100"
-                    >
-                      <IconTrash className="h-4 w-4" />
-                    </button>
-                  </div>
-                );
-              })}
+              {isSearching && (
+                <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
+                  <span className="h-3 w-3 animate-spin rounded-full border-2 border-[#171717]/20 border-t-[#171717]" />
+                </div>
+              )}
             </div>
+
+            {/* 搜索结果或历史会话列表 */}
+            {showSearchResults ? (
+              // 搜索结果展示
+              <div className="flex min-h-0 flex-1 flex-col overflow-y-auto pr-0.5">
+                {isSearching ? (
+                  // 搜索中状态
+                  <div className="flex flex-col items-center justify-center py-8">
+                    <div className="flex gap-1.5 mb-3">
+                      <span className="h-2 w-2 animate-bounce rounded-full bg-[#171717]/70 [animation-delay:-0.2s]" />
+                      <span className="h-2 w-2 animate-bounce rounded-full bg-[#171717]/50" />
+                      <span className="h-2 w-2 animate-bounce rounded-full bg-[#171717]/30 [animation-delay:0.2s]" />
+                    </div>
+                    <p className="text-sm text-[#a3a3a3]">正在搜索...</p>
+                  </div>
+                ) : searchResults.length === 0 ? (
+                  // 无搜索结果状态
+                  <div className="flex flex-col items-center justify-center py-8">
+                    <IconSearch className="h-8 w-8 text-[#d4d4d4] mb-3" />
+                    <p className="text-sm font-medium text-[#737373] mb-1">未找到相关结果</p>
+                    <p className="text-xs text-[#a3a3a3]">尝试使用其他关键词</p>
+                  </div>
+                ) : (
+                  // 搜索结果列表
+                  <div className="flex flex-col gap-0.5">
+                    {searchResults.map((result) => (
+                      <div key={result.conversationId} className="flex flex-col">
+                        {/* 会话标题 */}
+                        <button
+                          type="button"
+                          onClick={() => handleSearchResultClick(result.conversationId)}
+                          className="flex items-center gap-2 px-2 py-1.5 text-xs font-medium text-[#737373] hover:bg-[#fafafa] rounded-lg transition-colors text-left"
+                        >
+                          <span className="truncate">
+                            {result.conversationTitle?.trim() || '新对话'}
+                          </span>
+                          {result.titleMatch && (
+                            <span className="shrink-0 text-[10px] bg-[#fef3c7] text-[#92400e] px-1.5 py-0.5 rounded">
+                              标题匹配
+                            </span>
+                          )}
+                          <span className="shrink-0 text-[#a3a3a3]">
+                            {formatRelativeTime(result.updatedAt)}
+                          </span>
+                        </button>
+                        
+                        {/* 匹配的消息列表 */}
+                        {result.matchedMessages.map((msg) => (
+                          <button
+                            key={msg.id}
+                            type="button"
+                            onClick={() => handleSearchResultClick(result.conversationId, msg.id)}
+                            className="flex flex-col items-start gap-0.5 px-3 py-2 ml-2 text-left hover:bg-[#fafafa] rounded-lg transition-colors border-l-2 border-[#e5e5e5]"
+                          >
+                            <span className="text-[10px] text-[#a3a3a3] font-medium">
+                              {msg.role === 'user' ? '我' : 'AI'}
+                            </span>
+                            <p className="text-xs text-[#525252] leading-relaxed line-clamp-3">
+                              {msg.snippet}
+                            </p>
+                          </button>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ) : (
+              // 历史会话列表（原有逻辑）
+              <>
+                <p className="mb-2 px-1 text-[11px] font-medium uppercase tracking-wider text-[#a3a3a3]">
+                  历史会话
+                </p>
+                <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto pr-0.5">
+                  {convList.length === 0 && !loadingMain && (
+                    <p className="px-2 py-6 text-center text-[13px] leading-relaxed text-[#a3a3a3]">暂无会话记录</p>
+                  )}
+                  {convList.map((c) => {
+                    const active = chatPayload?.conversationId === c.id;
+                    return (
+                      <div
+                        key={c.id}
+                        className={`group relative flex items-stretch gap-0 overflow-hidden rounded-xl border transition-colors ${
+                          active
+                            ? 'border-black/[0.08] bg-[#f4f4f5]'
+                            : 'border-transparent hover:bg-[#fafafa]'
+                        }`}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => selectConversation(c.id)}
+                          className="min-w-0 flex-1 px-3 py-2.5 text-left"
+                          title={c.title ?? '新对话'}
+                        >
+                          <span className="line-clamp-2 text-[13px] font-medium leading-snug text-[#171717]">
+                            {c.title?.trim() || '新对话'}
+                          </span>
+                          <span className="mt-1 block text-[11px] text-[#a3a3a3]">
+                            {formatRelativeTime(c.updatedAt)}
+                          </span>
+                        </button>
+                        <button
+                          type="button"
+                          aria-label="删除会话"
+                          onClick={(e) => deleteConversation(c.id, e)}
+                          className="flex w-9 shrink-0 items-center justify-center text-[#a3a3a3] opacity-0 transition hover:bg-red-50 hover:text-red-600 group-hover:opacity-100"
+                        >
+                          <IconTrash className="h-4 w-4" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
           </div>
         </aside>
 
@@ -350,6 +575,8 @@ export default function Home() {
                 conversationId={chatPayload.conversationId}
                 modelId={DEFAULT_OPENROUTER_MODEL_ID}
                 initialMessages={chatPayload.messages}
+                highlightMessageId={highlightMessageId}
+                onHighlightCleared={clearHighlight}
               />
             </div>
           )}
