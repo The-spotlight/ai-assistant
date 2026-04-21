@@ -2,10 +2,16 @@
 
 import { useChat } from 'ai/react';
 import type { Message } from 'ai';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import MarkdownRenderer from '@/components/MarkdownRenderer';
 import ToolCallCard from '@/components/ToolCallCard';
 import SkillPanel from '@/components/SkillPanel';
+import {
+  calculateMessageCost,
+  formatCost,
+  formatTokens,
+  getModelPricing,
+} from '@/lib/model-pricing';
 
 const SUGGESTIONS = [
   '搜索今日新闻',
@@ -14,6 +20,12 @@ const SUGGESTIONS = [
   '分析一段话的情感倾向',
   '翻译成英文',
 ] as const;
+
+type MessageWithTokens = Message & {
+  promptTokens?: number;
+  completionTokens?: number;
+  totalTokens?: number;
+};
 
 type ChatSessionProps = {
   deviceId: string;
@@ -24,6 +36,26 @@ type ChatSessionProps = {
   onHighlightCleared?: () => void;
 };
 
+function IconRefresh(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      {...props}
+    >
+      <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+      <path d="M3 3v5h5" />
+      <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
+      <path d="M16 16h5v5" />
+    </svg>
+  );
+}
+
 export default function ChatSession({
   deviceId,
   conversationId,
@@ -32,7 +64,15 @@ export default function ChatSession({
   highlightMessageId,
   onHighlightCleared,
 }: ChatSessionProps) {
-  const { messages, input, handleInputChange, handleSubmit, isLoading, append } = useChat({
+  const {
+    messages,
+    input,
+    handleInputChange,
+    handleSubmit,
+    isLoading,
+    append,
+    setMessages,
+  } = useChat({
     api: '/api/chat',
     id: conversationId,
     initialMessages,
@@ -44,6 +84,25 @@ export default function ChatSession({
   const inputRef = useRef<HTMLInputElement>(null);
   const messageRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const [showSkills, setShowSkills] = useState(false);
+
+  // 计算总 token 数和费用
+  const { totalTokens, totalCost } = useMemo(() => {
+    let tokens = 0;
+    let cost = 0;
+    messages.forEach((m) => {
+      const msg = m as MessageWithTokens;
+      if (msg.promptTokens != null) {
+        tokens += msg.promptTokens;
+      }
+      if (msg.completionTokens != null) {
+        tokens += msg.completionTokens;
+      }
+      if (msg.promptTokens != null && msg.completionTokens != null) {
+        cost += calculateMessageCost(msg.promptTokens, msg.completionTokens, modelId);
+      }
+    });
+    return { totalTokens: tokens, totalCost: cost };
+  }, [messages, modelId]);
 
   // 滚动到底部（原有逻辑）
   useEffect(() => {
@@ -83,8 +142,77 @@ export default function ChatSession({
     }
   };
 
+  // 重新生成消息
+  const handleRegenerate = useCallback(
+    (messageIndex: number) => {
+      // 找到目标 AI 消息
+      const targetMessage = messages[messageIndex] as MessageWithTokens;
+      if (targetMessage.role !== 'assistant') return;
+
+      // 向前找对应的用户消息（通常是前一条）
+      let userMessageIndex = -1;
+      for (let i = messageIndex - 1; i >= 0; i--) {
+        if (messages[i].role === 'user') {
+          userMessageIndex = i;
+          break;
+        }
+      }
+
+      if (userMessageIndex === -1) return;
+
+      const userMessage = messages[userMessageIndex];
+
+      // 截断消息列表：保留用户消息之前的所有消息（包括用户消息）
+      const newMessages = messages.slice(0, userMessageIndex + 1);
+      setMessages(newMessages);
+
+      // 重新发送用户消息来触发新的回复
+      // 注意：我们需要使用 append 来触发 API 调用
+      // 但首先需要确保消息列表已更新
+      setTimeout(() => {
+        // 使用 append 会添加新消息，但我们需要的是基于现有上下文重新生成
+        // 更好的方式是使用 reload，但 useChat 可能没有这个方法
+        // 我们可以通过设置一个特殊的标志或者直接使用 API 调用
+
+        // 简单的方案：移除用户消息后重新 append
+        const messagesWithoutUser = newMessages.slice(0, userMessageIndex);
+        setMessages(messagesWithoutUser);
+
+        setTimeout(() => {
+          append({
+            role: 'user',
+            content: userMessage.content,
+            id: userMessage.id,
+          });
+        }, 50);
+      }, 50);
+    },
+    [messages, setMessages, append]
+  );
+
+  const modelPricing = getModelPricing(modelId);
+
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-black/[0.06] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04),0_8px_24px_-4px_rgba(0,0,0,0.06)]">
+      {/* 顶部状态栏：显示 token 和费用 */}
+      {messages.length > 0 && (
+        <div className="shrink-0 border-b border-black/[0.06] bg-white/80 px-4 py-2 text-xs text-[#737373]">
+          <div className="flex items-center justify-between gap-2">
+            <span className="truncate">
+              模型：{modelPricing.label}
+            </span>
+            <span className="flex items-center gap-4">
+              <span title="总 token 数">
+                {formatTokens(totalTokens)} tokens
+              </span>
+              <span title="估算费用">
+                {formatCost(totalCost)}
+              </span>
+            </span>
+          </div>
+        </div>
+      )}
+
       <div className="min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain px-3 py-5 sm:px-6 sm:py-7">
         {messages.length === 0 && (
           <div className="mx-auto max-w-lg px-2 pt-4 text-center sm:pt-14">
@@ -127,8 +255,18 @@ export default function ChatSession({
           </div>
         )}
 
-        {messages.map((m) => {
+        {messages.map((m, index) => {
           const isHighlighted = highlightMessageId === m.id;
+          const msg = m as MessageWithTokens;
+          const isLastAssistant = m.role === 'assistant' && index === messages.length - 1 && !isLoading;
+          const canRegenerate = m.role === 'assistant' && !isLoading;
+
+          // 计算单条消息的费用（如果有 token 数据）
+          const messageCost =
+            msg.promptTokens != null && msg.completionTokens != null
+              ? calculateMessageCost(msg.promptTokens, msg.completionTokens, modelId)
+              : null;
+
           return (
             <div
               key={m.id}
@@ -156,46 +294,75 @@ export default function ChatSession({
               >
                 {m.role === 'user' ? '我' : 'AI'}
               </div>
-              <div
-                className={`min-w-0 max-w-[min(100%,36rem)] ${
-                  m.role === 'user'
-                    ? 'rounded-2xl rounded-br-md bg-[#171717] px-4 py-3 text-[15px] leading-relaxed text-white'
-                    : 'rounded-2xl rounded-tl-md border border-black/[0.06] bg-[#fafafa] px-4 py-3 text-[15px] leading-relaxed text-[#171717]'
-                } ${
-                  isHighlighted ? 'ring-2 ring-[#f59e0b]' : ''
-                }`}
-                style={
-                  m.role === 'assistant'
-                    ? {
-                        boxShadow: 'rgba(0,0,0,0.08) 0px 0px 0px 1px, rgba(0,0,0,0.04) 0px 2px 2px, #fafafa 0px 0px 0px 1px',
+              <div className="min-w-0 max-w-[min(100%,36rem)]">
+                <div
+                  className={`min-w-0 ${
+                    m.role === 'user'
+                      ? 'rounded-2xl rounded-br-md bg-[#171717] px-4 py-3 text-[15px] leading-relaxed text-white'
+                      : 'rounded-2xl rounded-tl-md border border-black/[0.06] bg-[#fafafa] px-4 py-3 text-[15px] leading-relaxed text-[#171717]'
+                  } ${
+                    isHighlighted ? 'ring-2 ring-[#f59e0b]' : ''
+                  }`}
+                  style={
+                    m.role === 'assistant'
+                      ? {
+                          boxShadow: 'rgba(0,0,0,0.08) 0px 0px 0px 1px, rgba(0,0,0,0.04) 0px 2px 2px, #fafafa 0px 0px 0px 1px',
+                        }
+                      : undefined
+                  }
+                >
+                  {m.role === 'assistant' &&
+                    (
+                      m as {
+                        toolInvocations?: Array<{
+                          toolName: string;
+                          args?: Record<string, unknown>;
+                          result?: unknown;
+                        }>;
                       }
-                    : undefined
-                }
-              >
-                {m.role === 'assistant' &&
-                  (
-                    m as {
-                      toolInvocations?: Array<{
-                        toolName: string;
-                        args?: Record<string, unknown>;
-                        result?: unknown;
-                      }>;
-                    }
-                  ).toolInvocations?.map((inv, i) => (
-                    <ToolCallCard
-                      key={i}
-                      toolName={inv.toolName}
-                      args={inv.args || {}}
-                      result={typeof inv.result === 'string' ? inv.result : undefined}
-                    />
-                  ))}
+                    ).toolInvocations?.map((inv, i) => (
+                      <ToolCallCard
+                        key={i}
+                        toolName={inv.toolName}
+                        args={inv.args || {}}
+                        result={typeof inv.result === 'string' ? inv.result : undefined}
+                      />
+                    ))}
 
-                {m.content &&
-                  (m.role === 'user' ? (
-                    <span className="whitespace-pre-wrap">{m.content}</span>
-                  ) : (
-                    <MarkdownRenderer content={m.content} />
-                  ))}
+                  {m.content &&
+                    (m.role === 'user' ? (
+                      <span className="whitespace-pre-wrap">{m.content}</span>
+                    ) : (
+                      <MarkdownRenderer content={m.content} />
+                    ))}
+                </div>
+
+                {/* 消息操作栏：重新生成按钮 + token 信息 */}
+                {m.role === 'assistant' && (
+                  <div className="mt-1.5 flex items-center justify-between gap-2 px-1">
+                    <div className="flex items-center gap-3 text-[10px] text-[#a3a3a3]">
+                      {msg.totalTokens != null && (
+                        <span title={`输入: ${msg.promptTokens} tokens, 输出: ${msg.completionTokens} tokens`}>
+                          {formatTokens(msg.totalTokens)} tokens
+                          {messageCost != null && messageCost > 0 && (
+                            <span className="ml-1">({formatCost(messageCost)})</span>
+                          )}
+                        </span>
+                      )}
+                    </div>
+                    {canRegenerate && (
+                      <button
+                        type="button"
+                        onClick={() => handleRegenerate(index)}
+                        className="inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] text-[#737373] transition-colors hover:bg-[#f5f5f5] hover:text-[#171717]"
+                        title="重新生成此回复"
+                      >
+                        <IconRefresh className="h-3 w-3" />
+                        重新生成
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           );

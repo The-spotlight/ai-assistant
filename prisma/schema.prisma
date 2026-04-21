@@ -36,6 +36,12 @@ model Message {
   toolInvocations Json?
   /// 前端 message.id，用于去重
   clientMessageId String?
+  /// 输入 token 数（仅 assistant 消息）
+  promptTokens    Int?
+  /// 输出 token 数（仅 assistant 消息）
+  completionTokens Int?
+  /// 总 token 数（仅 assistant 消息）
+  totalTokens     Int?
   createdAt       DateTime     @default(now())
 
   @@unique([conversationId, clientMessageId])

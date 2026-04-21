@@ -30,6 +30,9 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
     ...(m.toolInvocations != null
       ? { toolInvocations: m.toolInvocations as unknown[] }
       : {}),
+    ...(m.promptTokens != null ? { promptTokens: m.promptTokens } : {}),
+    ...(m.completionTokens != null ? { completionTokens: m.completionTokens } : {}),
+    ...(m.totalTokens != null ? { totalTokens: m.totalTokens } : {}),
   }));
 
   return NextResponse.json({ messages });
