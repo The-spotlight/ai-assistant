@@ -79,6 +79,14 @@ function IconChevronDown(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
+function IconChevronUp(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden {...props}>
+      <path d="m6 15 6-6 6 6" />
+    </svg>
+  );
+}
+
 function IconSearch(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden {...props}>
@@ -160,6 +168,8 @@ function SidebarContent({
 
   const showTime = !isNarrow;
   const showWideInfo = isWide;
+
+  const [pinnedCollapsed, setPinnedCollapsed] = useState<boolean>(false);
 
   const { pinnedConversations, unpinnedConversations } = useMemo(() => {
     const pinned: ConversationRow[] = [];
@@ -304,13 +314,28 @@ function SidebarContent({
           {/* 置顶会话 */}
           {pinnedConversations.length > 0 && (
             <>
-              <p className={`mb-2 px-1 text-[11px] font-medium uppercase tracking-wider text-[#a3a3a3] ${
-                isNarrow ? 'mb-1 text-[10px]' : ''
+              <div className={`mb-2 flex items-center justify-between px-1 ${
+                isNarrow ? 'mb-1' : ''
               }`}>
-                置顶会话
-              </p>
-              <div className="mb-3 flex flex-col gap-0.5">
-                {pinnedConversations.map((c) => {
+                <p className="text-[11px] font-medium uppercase tracking-wider text-[#a3a3a3]">
+                  置顶会话
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setPinnedCollapsed(!pinnedCollapsed)}
+                  className="flex items-center justify-center rounded px-1 text-[#a3a3a3] transition hover:bg-[#f5f5f5] hover:text-[#171717]"
+                  title={pinnedCollapsed ? '展开置顶会话' : '折叠置顶会话'}
+                >
+                  {pinnedCollapsed ? (
+                    <IconChevronDown className="h-3.5 w-3.5" />
+                  ) : (
+                    <IconChevronUp className="h-3.5 w-3.5" />
+                  )}
+                </button>
+              </div>
+              {!pinnedCollapsed && (
+                <div className="mb-3 flex flex-col gap-0.5">
+                  {pinnedConversations.map((c) => {
                   const active = chatPayload?.conversationId === c.id;
                   return (
                     <div
@@ -375,6 +400,7 @@ function SidebarContent({
                   );
                 })}
               </div>
+              )}
             </>
           )}
 
