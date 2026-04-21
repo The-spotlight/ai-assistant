@@ -90,15 +90,16 @@ function formatTime(timeStr: string): string {
 
 function getWindDirection(degrees: number): string {
   const directions = ['北', '东北', '东', '东南', '南', '西南', '西', '西北'];
-  const index = Math.round(degrees / 45) % 8;
+  const normalizedDegrees = ((degrees % 360) + 360) % 360;
+  const index = Math.floor((normalizedDegrees + 22.5) / 45) % 8;
   return directions[index];
 }
 
 function renderWeatherResult(result: WeatherResult) {
   if (!result.success) {
     return (
-      <div className="rounded-md border border-red-200 bg-red-50 p-3 text-xs text-red-700">
-        <p>❌ {result.error || '查询失败'}</p>
+      <div className="rounded-md border border-[rgba(0,0,0,0.08)] bg-[#fafafa] p-3 text-xs text-[#666]">
+        <p className="text-red-600">{result.error || '查询失败'}</p>
       </div>
     );
   }
@@ -109,16 +110,16 @@ function renderWeatherResult(result: WeatherResult) {
     <div className="space-y-3">
       {location && (
         <div className="flex items-center gap-2 text-xs text-[#666]">
-          <span>📍</span>
+          <span className="text-[#808080]">位置</span>
           <span className="font-medium text-[#171717]">{location.name}</span>
           {location.country && <span className="text-[#808080]">({location.country})</span>}
         </div>
       )}
 
       {current && (
-        <div className="rounded-md border border-[rgba(0,0,0,0.08)] bg-gradient-to-br from-sky-50 to-blue-50 p-4">
+        <div className="rounded-md border border-[rgba(0,0,0,0.08)] bg-[#fafafa] p-4">
           <div className="flex items-center gap-4">
-            <span className="text-4xl">{current.weather_emoji}</span>
+            <div className="text-3xl">{current.weather_emoji}</div>
             <div>
               <div className="text-2xl font-bold text-[#171717]">
                 {current.temperature}°C
@@ -134,27 +135,27 @@ function renderWeatherResult(result: WeatherResult) {
 
           <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
             <div className="flex items-center gap-1 text-[#666]">
-              <span>💧</span>
-              <span>湿度: {current.humidity}%</span>
+              <span className="text-[#808080]">湿度</span>
+              <span className="text-[#171717]">{current.humidity}%</span>
             </div>
             <div className="flex items-center gap-1 text-[#666]">
-              <span>🌬️</span>
-              <span>
-                风速: {current.wind_speed} km/h ({getWindDirection(current.wind_direction)})
+              <span className="text-[#808080]">风速</span>
+              <span className="text-[#171717]">
+                {current.wind_speed} km/h ({getWindDirection(current.wind_direction)})
               </span>
             </div>
             <div className="flex items-center gap-1 text-[#666]">
-              <span>☁️</span>
-              <span>云量: {current.cloud_cover}%</span>
+              <span className="text-[#808080]">云量</span>
+              <span className="text-[#171717]">{current.cloud_cover}%</span>
             </div>
             <div className="flex items-center gap-1 text-[#666]">
-              <span>📊</span>
-              <span>气压: {current.pressure_msl} hPa</span>
+              <span className="text-[#808080]">气压</span>
+              <span className="text-[#171717]">{current.pressure_msl} hPa</span>
             </div>
             {current.precipitation > 0 && (
               <div className="flex items-center gap-1 text-[#666]">
-                <span>🌧️</span>
-                <span>降水: {current.precipitation} mm</span>
+                <span className="text-[#808080]">降水</span>
+                <span className="text-[#171717]">{current.precipitation} mm</span>
               </div>
             )}
           </div>
