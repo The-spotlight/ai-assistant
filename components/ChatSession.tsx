@@ -2,7 +2,7 @@
 
 import { useChat } from 'ai/react';
 import type { Message } from 'ai';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import MarkdownRenderer from '@/components/MarkdownRenderer';
 import ToolCallCard from '@/components/ToolCallCard';
 import SkillPanel from '@/components/SkillPanel';
@@ -20,6 +20,8 @@ type ChatSessionProps = {
   conversationId: string;
   modelId: string;
   initialMessages: Message[];
+  highlightMessageId?: string | null;
+  onHighlightCleared?: () => void;
 };
 
 export default function ChatSession({
@@ -27,6 +29,8 @@ export default function ChatSession({
   conversationId,
   modelId,
   initialMessages,
+  highlightMessageId,
+  onHighlightCleared,
 }: ChatSessionProps) {
   const { messages, input, handleInputChange, handleSubmit, isLoading, append } = useChat({
     api: '/api/chat',
@@ -38,11 +42,35 @@ export default function ChatSession({
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const messageRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const [showSkills, setShowSkills] = useState(false);
 
+  // 滚动到底部（原有逻辑）
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+    if (!highlightMessageId) {
+      bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [messages, highlightMessageId]);
+
+  // 滚动到高亮消息
+  useEffect(() => {
+    if (highlightMessageId) {
+      const messageEl = messageRefs.current.get(highlightMessageId);
+      if (messageEl) {
+        // 延迟一点确保 DOM 已渲染
+        setTimeout(() => {
+          messageEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 100);
+      }
+    }
+  }, [highlightMessageId, messages]);
+
+  // 清除高亮
+  const handleClearHighlight = useCallback(() => {
+    if (onHighlightCleared) {
+      onHighlightCleared();
+    }
+  }, [onHighlightCleared]);
 
   const handleSkillInsert = (text: string) => {
     append({ role: 'user', content: text });
@@ -85,61 +113,93 @@ export default function ChatSession({
           </div>
         )}
 
-        {messages.map((m) => (
-          <div
-            key={m.id}
-            className={`flex w-full gap-3 ${m.role === 'user' ? 'flex-row-reverse' : 'flex-row'}`}
-          >
-            <div
-              className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold ${
-                m.role === 'user'
-                  ? 'bg-[#171717] text-white'
-                  : 'border border-black/[0.06] bg-gradient-to-br from-[#f4f4f5] to-[#e4e4e7] text-[#525252]'
-              }`}
+        {/* 高亮提示条 */}
+        {highlightMessageId && (
+          <div className="sticky top-0 z-10 mb-4 flex items-center justify-between gap-2 rounded-lg bg-[#fef3c7] px-4 py-2.5 text-sm text-[#92400e] shadow-sm">
+            <span className="font-medium">已定位到匹配消息</span>
+            <button
+              type="button"
+              onClick={handleClearHighlight}
+              className="text-[#92400e] hover:text-[#78350f] transition-colors font-medium"
             >
-              {m.role === 'user' ? '我' : 'AI'}
-            </div>
-            <div
-              className={`min-w-0 max-w-[min(100%,36rem)] ${
-                m.role === 'user'
-                  ? 'rounded-2xl rounded-br-md bg-[#171717] px-4 py-3 text-[15px] leading-relaxed text-white'
-                  : 'rounded-2xl rounded-tl-md border border-black/[0.06] bg-[#fafafa] px-4 py-3 text-[15px] leading-relaxed text-[#171717]'
-              }`}
-              style={
-                m.role === 'assistant'
-                  ? {
-                      boxShadow: 'rgba(0,0,0,0.08) 0px 0px 0px 1px, rgba(0,0,0,0.04) 0px 2px 2px, #fafafa 0px 0px 0px 1px',
-                    }
-                  : undefined
-              }
-            >
-              {m.role === 'assistant' &&
-                (
-                  m as {
-                    toolInvocations?: Array<{
-                      toolName: string;
-                      args?: Record<string, unknown>;
-                      result?: unknown;
-                    }>;
-                  }
-                ).toolInvocations?.map((inv, i) => (
-                  <ToolCallCard
-                    key={i}
-                    toolName={inv.toolName}
-                    args={inv.args || {}}
-                    result={typeof inv.result === 'string' ? inv.result : undefined}
-                  />
-                ))}
-
-              {m.content &&
-                (m.role === 'user' ? (
-                  <span className="whitespace-pre-wrap">{m.content}</span>
-                ) : (
-                  <MarkdownRenderer content={m.content} />
-                ))}
-            </div>
+              清除高亮
+            </button>
           </div>
-        ))}
+        )}
+
+        {messages.map((m) => {
+          const isHighlighted = highlightMessageId === m.id;
+          return (
+            <div
+              key={m.id}
+              ref={(el) => {
+                if (el) {
+                  messageRefs.current.set(m.id, el);
+                } else {
+                  messageRefs.current.delete(m.id);
+                }
+              }}
+              className={`flex w-full gap-3 transition-all duration-300 ${
+                m.role === 'user' ? 'flex-row-reverse' : 'flex-row'
+              } ${
+                isHighlighted
+                  ? 'ring-2 ring-[#f59e0b] ring-offset-2 rounded-xl p-1 -mx-1'
+                  : ''
+              }`}
+            >
+              <div
+                className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold ${
+                  m.role === 'user'
+                    ? 'bg-[#171717] text-white'
+                    : 'border border-black/[0.06] bg-gradient-to-br from-[#f4f4f5] to-[#e4e4e7] text-[#525252]'
+                }`}
+              >
+                {m.role === 'user' ? '我' : 'AI'}
+              </div>
+              <div
+                className={`min-w-0 max-w-[min(100%,36rem)] ${
+                  m.role === 'user'
+                    ? 'rounded-2xl rounded-br-md bg-[#171717] px-4 py-3 text-[15px] leading-relaxed text-white'
+                    : 'rounded-2xl rounded-tl-md border border-black/[0.06] bg-[#fafafa] px-4 py-3 text-[15px] leading-relaxed text-[#171717]'
+                } ${
+                  isHighlighted ? 'ring-2 ring-[#f59e0b]' : ''
+                }`}
+                style={
+                  m.role === 'assistant'
+                    ? {
+                        boxShadow: 'rgba(0,0,0,0.08) 0px 0px 0px 1px, rgba(0,0,0,0.04) 0px 2px 2px, #fafafa 0px 0px 0px 1px',
+                      }
+                    : undefined
+                }
+              >
+                {m.role === 'assistant' &&
+                  (
+                    m as {
+                      toolInvocations?: Array<{
+                        toolName: string;
+                        args?: Record<string, unknown>;
+                        result?: unknown;
+                      }>;
+                    }
+                  ).toolInvocations?.map((inv, i) => (
+                    <ToolCallCard
+                      key={i}
+                      toolName={inv.toolName}
+                      args={inv.args || {}}
+                      result={typeof inv.result === 'string' ? inv.result : undefined}
+                    />
+                  ))}
+
+                {m.content &&
+                  (m.role === 'user' ? (
+                    <span className="whitespace-pre-wrap">{m.content}</span>
+                  ) : (
+                    <MarkdownRenderer content={m.content} />
+                  ))}
+              </div>
+            </div>
+          );
+        })}
 
         {isLoading && (
           <div className="flex w-full gap-3">
