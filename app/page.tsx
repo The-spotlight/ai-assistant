@@ -1,9 +1,9 @@
 'use client';
 
 import type { Message } from 'ai';
-import { useCallback, useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useState, useRef, useMemo } from 'react';
 import ChatSession from '@/components/ChatSession';
-import ResizablePanel from '@/components/ResizablePanel';
+import ResizablePanel, { useLayoutContext, AdaptiveText } from '@/components/ResizablePanel';
 import { DEFAULT_OPENROUTER_MODEL_ID, FIXED_OPENROUTER_MODEL_LABEL } from '@/lib/openrouter-models';
 import { CONVERSATION_STORAGE_KEY, getOrCreateDeviceId } from '@/lib/device';
 
@@ -91,6 +91,252 @@ function IconX(props: React.SVGProps<SVGSVGElement>) {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden {...props}>
       <path d="M18 6 6 18M6 6l12 12" />
     </svg>
+  );
+}
+
+interface SidebarContentProps {
+  deviceId: string | null;
+  loadingMain: boolean;
+  newChat: () => Promise<void>;
+  searchQuery: string;
+  handleSearchChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  clearSearch: () => void;
+  isSearching: boolean;
+  showSearchResults: boolean;
+  searchResults: SearchResult[];
+  handleSearchResultClick: (conversationId: string, messageId?: string) => Promise<void>;
+  convList: ConversationRow[];
+  chatPayload: ChatPayload | null;
+  selectConversation: (id: string) => Promise<void>;
+  deleteConversation: (id: string, e: React.MouseEvent) => Promise<void>;
+}
+
+function SidebarContent({
+  deviceId,
+  loadingMain,
+  newChat,
+  searchQuery,
+  handleSearchChange,
+  clearSearch,
+  isSearching,
+  showSearchResults,
+  searchResults,
+  handleSearchResultClick,
+  convList,
+  chatPayload,
+  selectConversation,
+  deleteConversation,
+}: SidebarContentProps) {
+  const { widthCategory, sidebarWidth } = useLayoutContext();
+
+  const isNarrow = widthCategory === 'narrow';
+  const isWide = widthCategory === 'wide';
+
+  const itemPadding = useMemo(() => {
+    if (isNarrow) return 'px-2 py-2';
+    if (isWide) return 'px-4 py-3';
+    return 'px-3 py-2.5';
+  }, [isNarrow, isWide]);
+
+  const titleLines = useMemo(() => {
+    if (isNarrow) return 'line-clamp-1';
+    if (isWide) return 'line-clamp-2';
+    return 'line-clamp-2';
+  }, [isNarrow, isWide]);
+
+  const showTime = !isNarrow;
+  const showWideInfo = isWide;
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => newChat()}
+        disabled={!deviceId || !!loadingMain}
+        className={`mb-3 flex w-full items-center justify-center gap-2 rounded-xl bg-[#171717] px-3 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-black disabled:opacity-40 ${
+          isNarrow ? 'py-2 text-xs' : ''
+        }`}
+      >
+        <IconPlus className={`h-4 w-4 ${isNarrow ? 'h-3.5 w-3.5' : ''}`} />
+        <AdaptiveText narrow="新建" wide="新建对话">
+          新对话
+        </AdaptiveText>
+      </button>
+      
+      {/* 搜索框 */}
+      <div className={`mb-3 relative ${isNarrow ? 'mb-2' : ''}`}>
+        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+          <IconSearch className={`h-4 w-4 text-[#a3a3a3] ${isNarrow ? 'h-3.5 w-3.5' : ''}`} />
+        </div>
+        <input
+          type="text"
+          value={searchQuery}
+          onChange={handleSearchChange}
+          placeholder={isNarrow ? '搜索...' : '搜索会话和消息...'}
+          disabled={!deviceId}
+          className={`w-full pl-10 pr-10 py-2 text-sm bg-[#fafafa] border border-black/[0.08] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#171717]/20 focus:border-[#171717]/20 placeholder:text-[#a3a3a3] disabled:opacity-40 transition-all ${
+            isNarrow ? 'py-1.5 text-xs' : ''
+          }`}
+        />
+        {searchQuery && (
+          <button
+            type="button"
+            onClick={clearSearch}
+            className="absolute inset-y-0 right-0 pr-3 flex items-center text-[#a3a3a3] hover:text-[#171717] transition-colors"
+            aria-label="清除搜索"
+          >
+            <IconX className="h-4 w-4" />
+          </button>
+        )}
+        {isSearching && (
+          <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
+            <span className="h-3 w-3 animate-spin rounded-full border-2 border-[#171717]/20 border-t-[#171717]" />
+          </div>
+        )}
+      </div>
+
+      {/* 搜索结果或历史会话列表 */}
+      {showSearchResults ? (
+        // 搜索结果展示
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto pr-0.5">
+          {isSearching ? (
+            // 搜索中状态
+            <div className="flex flex-col items-center justify-center py-8">
+              <div className="flex gap-1.5 mb-3">
+                <span className="h-2 w-2 animate-bounce rounded-full bg-[#171717]/70 [animation-delay:-0.2s]" />
+                <span className="h-2 w-2 animate-bounce rounded-full bg-[#171717]/50" />
+                <span className="h-2 w-2 animate-bounce rounded-full bg-[#171717]/30 [animation-delay:0.2s]" />
+              </div>
+              <p className="text-sm text-[#a3a3a3]">正在搜索...</p>
+            </div>
+          ) : searchResults.length === 0 ? (
+            // 无搜索结果状态
+            <div className="flex flex-col items-center justify-center py-8">
+              <IconSearch className="h-8 w-8 text-[#d4d4d4] mb-3" />
+              <p className="text-sm font-medium text-[#737373] mb-1">未找到相关结果</p>
+              <p className="text-xs text-[#a3a3a3]">尝试使用其他关键词</p>
+            </div>
+          ) : (
+            // 搜索结果列表
+            <div className="flex flex-col gap-0.5">
+              {searchResults.map((result) => (
+                <div key={result.conversationId} className="flex flex-col">
+                  {/* 会话标题 */}
+                  <button
+                    type="button"
+                    onClick={() => handleSearchResultClick(result.conversationId)}
+                    className={`flex items-center gap-2 px-2 py-1.5 text-xs font-medium text-[#737373] hover:bg-[#fafafa] rounded-lg transition-colors text-left ${
+                      isNarrow ? 'px-1.5 py-1' : ''
+                    }`}
+                  >
+                    <span className="truncate">
+                      {result.conversationTitle?.trim() || '新对话'}
+                    </span>
+                    {result.titleMatch && (
+                      <span className="shrink-0 text-[10px] bg-[#fef3c7] text-[#92400e] px-1.5 py-0.5 rounded">
+                        标题
+                      </span>
+                    )}
+                    {showTime && (
+                      <span className="shrink-0 text-[#a3a3a3]">
+                        {formatRelativeTime(result.updatedAt)}
+                      </span>
+                    )}
+                  </button>
+                  
+                  {/* 匹配的消息列表 */}
+                  {!isNarrow && result.matchedMessages.map((msg) => (
+                    <button
+                      key={msg.id}
+                      type="button"
+                      onClick={() => handleSearchResultClick(result.conversationId, msg.id)}
+                      className={`flex flex-col items-start gap-0.5 px-3 py-2 ml-2 text-left hover:bg-[#fafafa] rounded-lg transition-colors border-l-2 border-[#e5e5e5] ${
+                        isWide ? 'px-4 py-2.5' : ''
+                      }`}
+                    >
+                      <span className="text-[10px] text-[#a3a3a3] font-medium">
+                        {msg.role === 'user' ? '我' : 'AI'}
+                      </span>
+                      <p className={`text-xs text-[#525252] leading-relaxed ${
+                        isWide ? 'line-clamp-4' : 'line-clamp-3'
+                      }`}>
+                        {msg.snippet}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      ) : (
+        // 历史会话列表（原有逻辑）
+        <>
+          <p className={`mb-2 px-1 text-[11px] font-medium uppercase tracking-wider text-[#a3a3a3] ${
+            isNarrow ? 'mb-1 text-[10px]' : ''
+          }`}>
+            <AdaptiveText narrow="会话" wide="历史会话列表">
+              历史会话
+            </AdaptiveText>
+          </p>
+          <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto pr-0.5">
+            {convList.length === 0 && !loadingMain && (
+              <p className="px-2 py-6 text-center text-[13px] leading-relaxed text-[#a3a3a3]">
+                暂无会话记录
+              </p>
+            )}
+            {convList.map((c) => {
+              const active = chatPayload?.conversationId === c.id;
+              return (
+                <div
+                  key={c.id}
+                  className={`group relative flex items-stretch gap-0 overflow-hidden rounded-xl border transition-colors ${
+                    active
+                      ? 'border-black/[0.08] bg-[#f4f4f5]'
+                      : 'border-transparent hover:bg-[#fafafa]'
+                  }`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => selectConversation(c.id)}
+                    className={`min-w-0 flex-1 ${itemPadding} text-left`}
+                    title={c.title ?? '新对话'}
+                  >
+                    <span className={`${titleLines} text-[13px] font-medium leading-snug text-[#171717] ${
+                      isNarrow ? 'text-[12px]' : ''
+                    } ${isWide ? 'text-sm' : ''}`}>
+                      {c.title?.trim() || '新对话'}
+                    </span>
+                    {showTime && (
+                      <span className={`mt-1 block text-[11px] text-[#a3a3a3] ${
+                        isWide ? 'text-xs' : ''
+                      }`}>
+                        {formatRelativeTime(c.updatedAt)}
+                      </span>
+                    )}
+                    {showWideInfo && (
+                      <span className="mt-0.5 block text-[10px] text-[#d4d4d4]">
+                        ID: {c.id.slice(0, 8)}
+                      </span>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="删除会话"
+                    onClick={(e) => deleteConversation(c.id, e)}
+                    className={`flex w-9 shrink-0 items-center justify-center text-[#a3a3a3] opacity-0 transition hover:bg-red-50 hover:text-red-600 group-hover:opacity-100 ${
+                      isNarrow ? 'w-7' : ''
+                    }`}
+                  >
+                    <IconTrash className={`h-4 w-4 ${isNarrow ? 'h-3.5 w-3.5' : ''}`} />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+    </>
   );
 }
 
@@ -348,160 +594,22 @@ export default function Home() {
 
       <div className="mx-auto flex min-h-0 w-full max-w-[1280px] flex-1 flex-col gap-0 overflow-hidden px-3 pb-4 pt-4 sm:flex-row sm:px-5 sm:pb-6 sm:pt-5">
         <ResizablePanel defaultWidth={260} minWidth={200} maxWidth={500}>
-          <button
-            type="button"
-            onClick={() => newChat()}
-            disabled={!deviceId || !!loadingMain}
-            className="mb-3 flex w-full items-center justify-center gap-2 rounded-xl bg-[#171717] px-3 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-black disabled:opacity-40"
-          >
-            <IconPlus className="h-4 w-4" />
-            新对话
-          </button>
-          
-          {/* 搜索框 */}
-          <div className="mb-3 relative">
-            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <IconSearch className="h-4 w-4 text-[#a3a3a3]" />
-            </div>
-            <input
-              type="text"
-              value={searchQuery}
-              onChange={handleSearchChange}
-              placeholder="搜索会话和消息..."
-              disabled={!deviceId}
-              className="w-full pl-10 pr-10 py-2 text-sm bg-[#fafafa] border border-black/[0.08] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#171717]/20 focus:border-[#171717]/20 placeholder:text-[#a3a3a3] disabled:opacity-40 transition-all"
-            />
-            {searchQuery && (
-              <button
-                type="button"
-                onClick={clearSearch}
-                className="absolute inset-y-0 right-0 pr-3 flex items-center text-[#a3a3a3] hover:text-[#171717] transition-colors"
-                aria-label="清除搜索"
-              >
-                <IconX className="h-4 w-4" />
-              </button>
-            )}
-            {isSearching && (
-              <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
-                <span className="h-3 w-3 animate-spin rounded-full border-2 border-[#171717]/20 border-t-[#171717]" />
-              </div>
-            )}
-          </div>
-
-          {/* 搜索结果或历史会话列表 */}
-          {showSearchResults ? (
-            // 搜索结果展示
-            <div className="flex min-h-0 flex-1 flex-col overflow-y-auto pr-0.5">
-              {isSearching ? (
-                // 搜索中状态
-                <div className="flex flex-col items-center justify-center py-8">
-                  <div className="flex gap-1.5 mb-3">
-                    <span className="h-2 w-2 animate-bounce rounded-full bg-[#171717]/70 [animation-delay:-0.2s]" />
-                    <span className="h-2 w-2 animate-bounce rounded-full bg-[#171717]/50" />
-                    <span className="h-2 w-2 animate-bounce rounded-full bg-[#171717]/30 [animation-delay:0.2s]" />
-                  </div>
-                  <p className="text-sm text-[#a3a3a3]">正在搜索...</p>
-                </div>
-              ) : searchResults.length === 0 ? (
-                // 无搜索结果状态
-                <div className="flex flex-col items-center justify-center py-8">
-                  <IconSearch className="h-8 w-8 text-[#d4d4d4] mb-3" />
-                  <p className="text-sm font-medium text-[#737373] mb-1">未找到相关结果</p>
-                  <p className="text-xs text-[#a3a3a3]">尝试使用其他关键词</p>
-                </div>
-              ) : (
-                // 搜索结果列表
-                <div className="flex flex-col gap-0.5">
-                  {searchResults.map((result) => (
-                    <div key={result.conversationId} className="flex flex-col">
-                      {/* 会话标题 */}
-                      <button
-                        type="button"
-                        onClick={() => handleSearchResultClick(result.conversationId)}
-                        className="flex items-center gap-2 px-2 py-1.5 text-xs font-medium text-[#737373] hover:bg-[#fafafa] rounded-lg transition-colors text-left"
-                      >
-                        <span className="truncate">
-                          {result.conversationTitle?.trim() || '新对话'}
-                        </span>
-                        {result.titleMatch && (
-                          <span className="shrink-0 text-[10px] bg-[#fef3c7] text-[#92400e] px-1.5 py-0.5 rounded">
-                            标题匹配
-                          </span>
-                        )}
-                        <span className="shrink-0 text-[#a3a3a3]">
-                          {formatRelativeTime(result.updatedAt)}
-                        </span>
-                      </button>
-                      
-                      {/* 匹配的消息列表 */}
-                      {result.matchedMessages.map((msg) => (
-                        <button
-                          key={msg.id}
-                          type="button"
-                          onClick={() => handleSearchResultClick(result.conversationId, msg.id)}
-                          className="flex flex-col items-start gap-0.5 px-3 py-2 ml-2 text-left hover:bg-[#fafafa] rounded-lg transition-colors border-l-2 border-[#e5e5e5]"
-                        >
-                          <span className="text-[10px] text-[#a3a3a3] font-medium">
-                            {msg.role === 'user' ? '我' : 'AI'}
-                          </span>
-                          <p className="text-xs text-[#525252] leading-relaxed line-clamp-3">
-                            {msg.snippet}
-                          </p>
-                        </button>
-                      ))}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          ) : (
-            // 历史会话列表（原有逻辑）
-            <>
-              <p className="mb-2 px-1 text-[11px] font-medium uppercase tracking-wider text-[#a3a3a3]">
-                历史会话
-              </p>
-              <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto pr-0.5">
-                {convList.length === 0 && !loadingMain && (
-                  <p className="px-2 py-6 text-center text-[13px] leading-relaxed text-[#a3a3a3]">暂无会话记录</p>
-                )}
-                {convList.map((c) => {
-                  const active = chatPayload?.conversationId === c.id;
-                  return (
-                    <div
-                      key={c.id}
-                      className={`group relative flex items-stretch gap-0 overflow-hidden rounded-xl border transition-colors ${
-                        active
-                          ? 'border-black/[0.08] bg-[#f4f4f5]'
-                          : 'border-transparent hover:bg-[#fafafa]'
-                      }`}
-                    >
-                      <button
-                        type="button"
-                        onClick={() => selectConversation(c.id)}
-                        className="min-w-0 flex-1 px-3 py-2.5 text-left"
-                        title={c.title ?? '新对话'}
-                      >
-                        <span className="line-clamp-2 text-[13px] font-medium leading-snug text-[#171717]">
-                          {c.title?.trim() || '新对话'}
-                        </span>
-                        <span className="mt-1 block text-[11px] text-[#a3a3a3]">
-                          {formatRelativeTime(c.updatedAt)}
-                        </span>
-                      </button>
-                      <button
-                        type="button"
-                        aria-label="删除会话"
-                        onClick={(e) => deleteConversation(c.id, e)}
-                        className="flex w-9 shrink-0 items-center justify-center text-[#a3a3a3] opacity-0 transition hover:bg-red-50 hover:text-red-600 group-hover:opacity-100"
-                      >
-                        <IconTrash className="h-4 w-4" />
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            </>
-          )}
+          <SidebarContent
+            deviceId={deviceId}
+            loadingMain={loadingMain}
+            newChat={newChat}
+            searchQuery={searchQuery}
+            handleSearchChange={handleSearchChange}
+            clearSearch={clearSearch}
+            isSearching={isSearching}
+            showSearchResults={showSearchResults}
+            searchResults={searchResults}
+            handleSearchResultClick={handleSearchResultClick}
+            convList={convList}
+            chatPayload={chatPayload}
+            selectConversation={selectConversation}
+            deleteConversation={deleteConversation}
+          />
         </ResizablePanel>
 
         <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
