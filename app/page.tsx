@@ -666,9 +666,9 @@ function SidebarContent({
                               value={editingTitle}
                               onChange={(e) => setEditingTitle(e.target.value)}
                               onClick={(e) => e.stopPropagation()}
-                              className={`w-full min-w-0 bg-transparent outline-none border-b border-[#171717] text-[13px] font-medium leading-snug text-[#171717] ${
-                                isNarrow ? 'text-[12px]' : ''
-                              } ${isWide ? 'text-sm' : ''}`}
+                              className={`w-full min-w-0 bg-white border border-[#171717]/[0.12] rounded-lg px-2 py-1 text-[13px] font-medium leading-snug text-[#171717] shadow-sm focus:outline-none focus:ring-2 focus:ring-[#171717]/20 focus:border-[#171717]/20 transition-all ${
+                                isNarrow ? 'text-[12px] px-1.5 py-0.5' : ''
+                              } ${isWide ? 'text-sm px-2.5 py-1.5' : ''}`}
                               placeholder="输入新标题..."
                             />
                           ) : (
@@ -768,9 +768,9 @@ function SidebarContent({
                         value={editingTitle}
                         onChange={(e) => setEditingTitle(e.target.value)}
                         onClick={(e) => e.stopPropagation()}
-                        className={`w-full min-w-0 bg-transparent outline-none border-b border-[#171717] text-[13px] font-medium leading-snug text-[#171717] ${
-                          isNarrow ? 'text-[12px]' : ''
-                        } ${isWide ? 'text-sm' : ''}`}
+                        className={`w-full min-w-0 bg-white border border-[#171717]/[0.12] rounded-lg px-2 py-1 text-[13px] font-medium leading-snug text-[#171717] shadow-sm focus:outline-none focus:ring-2 focus:ring-[#171717]/20 focus:border-[#171717]/20 transition-all ${
+                          isNarrow ? 'text-[12px] px-1.5 py-0.5' : ''
+                        } ${isWide ? 'text-sm px-2.5 py-1.5' : ''}`}
                         placeholder="输入新标题..."
                       />
                     ) : (
