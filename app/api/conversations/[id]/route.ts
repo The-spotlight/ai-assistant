@@ -22,7 +22,7 @@ export async function DELETE(req: Request, ctx: { params: Promise<{ id: string }
   return NextResponse.json({ ok: true });
 }
 
-/** 更新会话置顶状态 */
+/** 更新会话（置顶状态或标题） */
 export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id: conversationId } = await ctx.params;
   const deviceId = req.headers.get('x-device-id');
@@ -31,12 +31,8 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   }
 
   try {
-    const body = (await req.json()) as { isPinned?: boolean };
-    const { isPinned } = body;
-
-    if (typeof isPinned !== 'boolean') {
-      return NextResponse.json({ error: 'isPinned 必须是布尔值' }, { status: 400 });
-    }
+    const body = (await req.json()) as { isPinned?: boolean; title?: string };
+    const { isPinned, title } = body;
 
     const conversation = await prisma.conversation.findFirst({
       where: { id: conversationId, deviceId },
@@ -46,12 +42,24 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       return NextResponse.json({ error: '会话不存在' }, { status: 404 });
     }
 
+    const updateData: Record<string, unknown> = {};
+
+    if (typeof isPinned === 'boolean') {
+      updateData.isPinned = isPinned;
+      updateData.pinnedAt = isPinned ? new Date() : null;
+    }
+
+    if (typeof title === 'string') {
+      updateData.title = title.trim() || null;
+    }
+
+    if (Object.keys(updateData).length === 0) {
+      return NextResponse.json({ error: '没有提供要更新的字段' }, { status: 400 });
+    }
+
     const updated = await prisma.conversation.update({
       where: { id: conversationId },
-      data: {
-        isPinned,
-        pinnedAt: isPinned ? new Date() : null,
-      },
+      data: updateData,
       select: {
         id: true,
         title: true,
