@@ -3,6 +3,7 @@
 import type { Message } from 'ai';
 import { useCallback, useEffect, useState, useRef, useMemo } from 'react';
 import ChatSession from '@/components/ChatSession';
+import FavoriteToastPanel from '@/components/FavoriteToastPanel';
 import ResizablePanel, { useLayoutContext, AdaptiveText } from '@/components/ResizablePanel';
 import { DEFAULT_OPENROUTER_MODEL_ID, FIXED_OPENROUTER_MODEL_LABEL } from '@/lib/openrouter-models';
 import { CONVERSATION_STORAGE_KEY, getOrCreateDeviceId } from '@/lib/device';
@@ -610,6 +611,15 @@ export default function Home() {
   // 收藏相关状态
   const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
   const [showFavorites, setShowFavorites] = useState<boolean>(false);
+
+  // 收藏成功面板状态
+  const [favoriteToastVisible, setFavoriteToastVisible] = useState<boolean>(false);
+  const [favoriteToastData, setFavoriteToastData] = useState<{
+    messageId: string;
+    conversationTitle: string | null;
+    messageContent: string;
+    createdAt: string;
+  } | null>(null);
   
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -633,6 +643,31 @@ export default function Home() {
     }
   }, []);
 
+  // 关闭收藏成功面板
+  const handleCloseFavoriteToast = useCallback(() => {
+    setFavoriteToastVisible(false);
+    setFavoriteToastData(null);
+  }, []);
+
+  // 从面板中取消收藏
+  const handleUnfavoriteFromToast = useCallback(async () => {
+    if (!favoriteToastData || !deviceId) return;
+
+    const messageId = favoriteToastData.messageId;
+    const favoriteItem = favorites.find(fav => fav.messageId === messageId);
+
+    if (favoriteItem) {
+      const r = await fetch(`/api/favorites/${favoriteItem.id}`, {
+        method: 'DELETE',
+        headers: { 'x-device-id': deviceId },
+      });
+
+      if (r.ok) {
+        await loadFavorites(deviceId);
+      }
+    }
+  }, [favoriteToastData, deviceId, favorites, loadFavorites]);
+
   // 收藏/取消收藏消息
   const handleToggleFavorite = useCallback(async (messageId: string, isFavorite: boolean) => {
     if (!deviceId || !chatPayload) return;
@@ -653,7 +688,34 @@ export default function Home() {
         });
 
         if (r.ok) {
+          const data = (await r.json()) as {
+            id: string;
+            messageId: string;
+            conversationId: string;
+            createdAt: string;
+            isNew: boolean;
+          };
+
           await loadFavorites(deviceId);
+
+          // 只有新收藏的消息才显示面板
+          if (data.isNew) {
+            // 获取对话标题
+            const conversation = convList.find(c => c.id === chatPayload.conversationId);
+            const conversationTitle = conversation?.title ?? null;
+
+            // 获取消息内容
+            const message = chatPayload.messages.find(m => m.id === messageId);
+            const messageContent = message?.content ?? '';
+
+            setFavoriteToastData({
+              messageId: data.messageId,
+              conversationTitle,
+              messageContent,
+              createdAt: data.createdAt,
+            });
+            setFavoriteToastVisible(true);
+          }
         }
       } else {
         // 取消收藏：找到对应的收藏记录并删除
@@ -672,7 +734,7 @@ export default function Home() {
     } catch (error) {
       console.error('收藏操作失败:', error);
     }
-  }, [deviceId, chatPayload, favorites, loadFavorites]);
+  }, [deviceId, chatPayload, favorites, loadFavorites, convList]);
 
   // 处理收藏点击
   const handleFavoriteClick = useCallback(async (conversationId: string, messageId: string) => {
@@ -1055,6 +1117,20 @@ export default function Home() {
           )}
         </main>
       </div>
+
+      {/* 收藏成功面板 */}
+      {favoriteToastVisible && favoriteToastData && (
+        <FavoriteToastPanel
+          visible={favoriteToastVisible}
+          messageId={favoriteToastData.messageId}
+          conversationTitle={favoriteToastData.conversationTitle}
+          messageContent={favoriteToastData.messageContent}
+          createdAt={favoriteToastData.createdAt}
+          onClose={handleCloseFavoriteToast}
+          onUnfavorite={handleUnfavoriteFromToast}
+          autoCloseDuration={3000}
+        />
+      )}
     </div>
   );
 }
