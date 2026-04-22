@@ -160,6 +160,7 @@ interface SidebarContentProps {
   selectConversation: (id: string) => Promise<void>;
   deleteConversation: (id: string, e: React.MouseEvent) => Promise<void>;
   togglePin: (id: string, e: React.MouseEvent) => Promise<void>;
+  renameConversation: (id: string, newTitle: string) => Promise<void>;
   favorites: FavoriteItem[];
   showFavorites: boolean;
   setShowFavorites: (show: boolean) => void;
@@ -183,6 +184,7 @@ function SidebarContent({
   selectConversation,
   deleteConversation,
   togglePin,
+  renameConversation,
   favorites,
   showFavorites,
   setShowFavorites,
@@ -210,6 +212,9 @@ function SidebarContent({
   const showWideInfo = isWide;
 
   const [pinnedCollapsed, setPinnedCollapsed] = useState<boolean>(false);
+  const [editingConversationId, setEditingConversationId] = useState<string | null>(null);
+  const [editingTitle, setEditingTitle] = useState<string>('');
+  const editingInputRef = useRef<HTMLInputElement>(null);
 
   const { pinnedConversations, unpinnedConversations } = useMemo(() => {
     const pinned: ConversationRow[] = [];
@@ -287,6 +292,63 @@ function SidebarContent({
       });
     }
   };
+
+  const startEditing = useCallback((conversationId: string, currentTitle: string | null) => {
+    setEditingConversationId(conversationId);
+    setEditingTitle(currentTitle || '');
+  }, []);
+
+  const saveEditing = useCallback(async () => {
+    if (!editingConversationId) return;
+    
+    const newTitle = editingTitle.trim();
+    if (newTitle) {
+      await renameConversation(editingConversationId, newTitle);
+    }
+    
+    setEditingConversationId(null);
+    setEditingTitle('');
+  }, [editingConversationId, editingTitle, renameConversation]);
+
+  const cancelEditing = useCallback(() => {
+    setEditingConversationId(null);
+    setEditingTitle('');
+  }, []);
+
+  useEffect(() => {
+    if (editingConversationId && editingInputRef.current) {
+      editingInputRef.current.focus();
+      editingInputRef.current.select();
+    }
+  }, [editingConversationId]);
+
+  useEffect(() => {
+    if (!editingConversationId) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        e.preventDefault();
+        void saveEditing();
+      } else if (e.key === 'Escape') {
+        e.preventDefault();
+        cancelEditing();
+      }
+    };
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (editingInputRef.current && !editingInputRef.current.contains(e.target as Node)) {
+        void saveEditing();
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('mousedown', handleClickOutside);
+
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [editingConversationId, saveEditing, cancelEditing]);
 
   return (
     <>
@@ -582,26 +644,49 @@ function SidebarContent({
                       <div className="w-1 shrink-0 bg-[#f59e0b] rounded-l-xl" />
                       <button
                         type="button"
-                        onClick={() => selectConversation(c.id)}
+                        onClick={() => {
+                          if (editingConversationId !== c.id) {
+                            void selectConversation(c.id);
+                          }
+                        }}
+                        onDoubleClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          startEditing(c.id, c.title);
+                        }}
                         className={`min-w-0 flex-1 ${itemPadding} text-left`}
-                        title={c.title ?? '新对话'}
+                        title={editingConversationId === c.id ? '编辑中...' : `双击重命名: ${c.title ?? '新对话'}`}
                       >
                         <div className="flex items-center gap-1.5">
                           <IconPin className={`h-3 w-3 shrink-0 text-[#f59e0b] ${isNarrow ? 'h-2.5 w-2.5' : ''}`} filled />
-                          <span className={`${titleLines} text-[13px] font-medium leading-snug text-[#171717] ${
-                            isNarrow ? 'text-[12px]' : ''
-                          } ${isWide ? 'text-sm' : ''}`}>
-                            {c.title?.trim() || '新对话'}
-                          </span>
+                          {editingConversationId === c.id ? (
+                            <input
+                              ref={editingInputRef}
+                              type="text"
+                              value={editingTitle}
+                              onChange={(e) => setEditingTitle(e.target.value)}
+                              onClick={(e) => e.stopPropagation()}
+                              className={`w-full min-w-0 bg-transparent outline-none border-b border-[#171717] text-[13px] font-medium leading-snug text-[#171717] ${
+                                isNarrow ? 'text-[12px]' : ''
+                              } ${isWide ? 'text-sm' : ''}`}
+                              placeholder="输入新标题..."
+                            />
+                          ) : (
+                            <span className={`${titleLines} text-[13px] font-medium leading-snug text-[#171717] ${
+                              isNarrow ? 'text-[12px]' : ''
+                            } ${isWide ? 'text-sm' : ''}`}>
+                              {c.title?.trim() || '新对话'}
+                            </span>
+                          )}
                         </div>
-                        {showTime && (
+                        {showTime && editingConversationId !== c.id && (
                           <span className={`mt-1 block text-[11px] text-[#a3a3a3] ${
                             isWide ? 'text-xs' : ''
                           }`}>
                             {formatRelativeTime(c.updatedAt)}
                           </span>
                         )}
-                        {showWideInfo && (
+                        {showWideInfo && editingConversationId !== c.id && (
                           <span className="mt-0.5 block text-[10px] text-[#d4d4d4]">
                             ID: {c.id.slice(0, 8)}
                           </span>
@@ -663,26 +748,51 @@ function SidebarContent({
                 >
                   <button
                     type="button"
-                    onClick={() => selectConversation(c.id)}
+                    onClick={() => {
+                      if (editingConversationId !== c.id) {
+                        void selectConversation(c.id);
+                      }
+                    }}
+                    onDoubleClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      startEditing(c.id, c.title);
+                    }}
                     className={`min-w-0 flex-1 ${itemPadding} text-left`}
-                    title={c.title ?? '新对话'}
+                    title={editingConversationId === c.id ? '编辑中...' : `双击重命名: ${c.title ?? '新对话'}`}
                   >
-                    <span className={`${titleLines} text-[13px] font-medium leading-snug text-[#171717] ${
-                      isNarrow ? 'text-[12px]' : ''
-                    } ${isWide ? 'text-sm' : ''}`}>
-                      {c.title?.trim() || '新对话'}
-                    </span>
-                    {showTime && (
-                      <span className={`mt-1 block text-[11px] text-[#a3a3a3] ${
-                        isWide ? 'text-xs' : ''
-                      }`}>
-                        {formatRelativeTime(c.updatedAt)}
-                      </span>
-                    )}
-                    {showWideInfo && (
-                      <span className="mt-0.5 block text-[10px] text-[#d4d4d4]">
-                        ID: {c.id.slice(0, 8)}
-                      </span>
+                    {editingConversationId === c.id ? (
+                      <input
+                        ref={editingInputRef}
+                        type="text"
+                        value={editingTitle}
+                        onChange={(e) => setEditingTitle(e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                        className={`w-full min-w-0 bg-transparent outline-none border-b border-[#171717] text-[13px] font-medium leading-snug text-[#171717] ${
+                          isNarrow ? 'text-[12px]' : ''
+                        } ${isWide ? 'text-sm' : ''}`}
+                        placeholder="输入新标题..."
+                      />
+                    ) : (
+                      <>
+                        <span className={`${titleLines} text-[13px] font-medium leading-snug text-[#171717] ${
+                          isNarrow ? 'text-[12px]' : ''
+                        } ${isWide ? 'text-sm' : ''}`}>
+                          {c.title?.trim() || '新对话'}
+                        </span>
+                        {showTime && (
+                          <span className={`mt-1 block text-[11px] text-[#a3a3a3] ${
+                            isWide ? 'text-xs' : ''
+                          }`}>
+                            {formatRelativeTime(c.updatedAt)}
+                          </span>
+                        )}
+                        {showWideInfo && (
+                          <span className="mt-0.5 block text-[10px] text-[#d4d4d4]">
+                            ID: {c.id.slice(0, 8)}
+                          </span>
+                        )}
+                      </>
                     )}
                   </button>
                   <button
@@ -1130,6 +1240,28 @@ export default function Home() {
     setConvList(list);
   }
 
+  async function renameConversation(id: string, newTitle: string) {
+    if (!deviceId) return;
+
+    const r = await fetch(`/api/conversations/${id}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-device-id': deviceId,
+      },
+      body: JSON.stringify({ title: newTitle }),
+    });
+
+    if (!r.ok) return;
+
+    const listRes = await fetch('/api/conversations', {
+      headers: { 'x-device-id': deviceId },
+    });
+    const data = (await listRes.json()) as { conversations?: ConversationRow[] };
+    const list = data.conversations ?? [];
+    setConvList(list);
+  }
+
   const loadingMain = !!(deviceId && !chatPayload && !bootstrapError);
 
   return (
@@ -1171,6 +1303,7 @@ export default function Home() {
             selectConversation={selectConversation}
             deleteConversation={deleteConversation}
             togglePin={togglePin}
+            renameConversation={renameConversation}
             favorites={favorites}
             showFavorites={showFavorites}
             setShowFavorites={setShowFavorites}
