@@ -111,7 +111,7 @@ export default function FavoriteToastPanel({
   return (
     <div className="fixed top-4 right-4 z-50">
       <div
-        className="w-80 rounded-xl border border-black/[0.08] bg-white shadow-[0_10px_40px_-10px_rgba(0,0,0,0.15)] overflow-hidden"
+        className="w-80 rounded-xl border border-black/[0.06] bg-gradient-to-br from-white via-[#fafafa] to-[#f5f5f5] shadow-[0_4px_24px_-4px_rgba(0,0,0,0.1),0_1px_2px_rgba(0,0,0,0.04)] overflow-hidden"
         style={{ animation: 'slideInRight 0.3s ease-out' }}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
@@ -129,36 +129,36 @@ export default function FavoriteToastPanel({
           }
         `}</style>
 
-        <div className="bg-[#fef3c7] px-4 py-2.5 flex items-center justify-between">
+        <div className="px-4 py-3 flex items-center justify-between border-b border-black/[0.06]">
           <div className="flex items-center gap-2">
-            <IconBookmark className="h-4 w-4 text-[#92400e]" filled />
-            <span className="text-sm font-medium text-[#92400e]">已收藏</span>
+            <IconBookmark className="h-4 w-4 text-[#404040]" filled />
+            <span className="text-sm font-medium text-[#171717]">已收藏</span>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="text-[#92400e] hover:text-[#78350f] transition-colors"
+            className="text-[#737373] hover:text-[#404040] transition-colors"
             aria-label="关闭"
           >
             <IconX className="h-4 w-4" />
           </button>
         </div>
 
-        <div className="p-4 space-y-3">
+        <div className="p-4 space-y-3 bg-white/60">
           <div className="space-y-1">
-            <p className="text-[10px] text-[#a3a3a3] font-medium">收藏时间</p>
+            <p className="text-[10px] text-[#a3a3a3] font-medium uppercase tracking-wider">收藏时间</p>
             <p className="text-sm text-[#525252]">{formatTime(createdAt)}</p>
           </div>
 
           <div className="space-y-1">
-            <p className="text-[10px] text-[#a3a3a3] font-medium">所属对话</p>
+            <p className="text-[10px] text-[#a3a3a3] font-medium uppercase tracking-wider">所属对话</p>
             <p className="text-sm text-[#525252] truncate" title={conversationTitle ?? '新对话'}>
               {conversationTitle?.trim() || '新对话'}
             </p>
           </div>
 
           <div className="space-y-1">
-            <p className="text-[10px] text-[#a3a3a3] font-medium">消息预览</p>
+            <p className="text-[10px] text-[#a3a3a3] font-medium uppercase tracking-wider">消息预览</p>
             <p 
               className="text-sm text-[#737373] leading-relaxed whitespace-pre-wrap"
               title={messageContent}
@@ -168,18 +168,18 @@ export default function FavoriteToastPanel({
           </div>
         </div>
 
-        <div className="border-t border-black/[0.06] px-4 py-2.5 flex justify-end gap-2">
+        <div className="border-t border-black/[0.06] px-4 py-2.5 flex justify-end gap-2 bg-[#fafafa]/80">
           <button
             type="button"
             onClick={handleUnfavorite}
-            className="px-3 py-1.5 text-xs text-[#dc2626] hover:bg-red-50 rounded-lg transition-colors"
+            className="px-3 py-1.5 text-xs text-[#737373] hover:text-[#404040] hover:bg-black/[0.04] rounded-md transition-colors"
           >
             取消收藏
           </button>
           <button
             type="button"
             onClick={onClose}
-            className="px-3 py-1.5 text-xs text-[#737373] hover:bg-[#f5f5f5] rounded-lg transition-colors"
+            className="px-3 py-1.5 text-xs text-[#737373] hover:text-[#404040] hover:bg-black/[0.04] rounded-md transition-colors"
           >
             关闭
           </button>
