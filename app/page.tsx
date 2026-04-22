@@ -269,18 +269,23 @@ function SidebarContent({
     };
   }, [favorites]);
 
-  const [expandedConversationIds, setExpandedConversationIds] = useState<Set<string>>(new Set());
+  const [firstGroupCollapsed, setFirstGroupCollapsed] = useState<boolean>(false);
+  const [otherGroupsExpanded, setOtherGroupsExpanded] = useState<Set<string>>(new Set());
 
   const toggleConversationGroup = (conversationId: string) => {
-    setExpandedConversationIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(conversationId)) {
-        next.delete(conversationId);
-      } else {
-        next.add(conversationId);
-      }
-      return next;
-    });
+    if (conversationId === firstConversationId) {
+      setFirstGroupCollapsed((prev) => !prev);
+    } else {
+      setOtherGroupsExpanded((prev) => {
+        const next = new Set(prev);
+        if (next.has(conversationId)) {
+          next.delete(conversationId);
+        } else {
+          next.add(conversationId);
+        }
+        return next;
+      });
+    }
   };
 
   return (
@@ -367,8 +372,9 @@ function SidebarContent({
           {showFavorites && (
             <div className="mt-2 flex flex-col gap-1">
               {Array.from(favoritesByConversation.entries()).map(([conversationId, conversationData]) => {
-                const isExpanded = expandedConversationIds.has(conversationId) ||
-                  (firstConversationId === conversationId && expandedConversationIds.size === 0);
+                const isExpanded = conversationId === firstConversationId
+                  ? !firstGroupCollapsed
+                  : otherGroupsExpanded.has(conversationId);
 
                 return (
                   <div key={conversationId} className="flex flex-col gap-0.5">
