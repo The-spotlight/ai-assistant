@@ -235,7 +235,7 @@ function SidebarContent({
     }
   >;
 
-  const { favoritesByConversation, expandedConversationIds } = useMemo(() => {
+  const { favoritesByConversation, firstConversationId } = useMemo(() => {
     const grouped: FavoritesByConversation = new Map();
 
     favorites.forEach((fav) => {
@@ -263,21 +263,16 @@ function SidebarContent({
       sortedGrouped.set(id, data);
     });
 
-    const expandedIds = new Set<string>();
-    if (groupedArray.length > 0) {
-      expandedIds.add(groupedArray[0][0]);
-    }
-
     return {
       favoritesByConversation: sortedGrouped,
-      expandedConversationIds: expandedIds,
+      firstConversationId: groupedArray.length > 0 ? groupedArray[0][0] : null,
     };
   }, [favorites]);
 
-  const [collapsedConversationIds, setCollapsedConversationIds] = useState<Set<string>>(new Set());
+  const [expandedConversationIds, setExpandedConversationIds] = useState<Set<string>>(new Set());
 
   const toggleConversationGroup = (conversationId: string) => {
-    setCollapsedConversationIds((prev) => {
+    setExpandedConversationIds((prev) => {
       const next = new Set(prev);
       if (next.has(conversationId)) {
         next.delete(conversationId);
@@ -372,9 +367,8 @@ function SidebarContent({
           {showFavorites && (
             <div className="mt-2 flex flex-col gap-1">
               {Array.from(favoritesByConversation.entries()).map(([conversationId, conversationData]) => {
-                const isCollapsed = collapsedConversationIds.has(conversationId);
-                const isDefaultExpanded = expandedConversationIds.has(conversationId);
-                const isExpanded = isDefaultExpanded ? !isCollapsed : false;
+                const isExpanded = expandedConversationIds.has(conversationId) ||
+                  (firstConversationId === conversationId && expandedConversationIds.size === 0);
 
                 return (
                   <div key={conversationId} className="flex flex-col gap-0.5">
@@ -383,8 +377,8 @@ function SidebarContent({
                       onClick={() => toggleConversationGroup(conversationId)}
                       className={`flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-xs font-medium transition-colors ${
                         isExpanded
-                          ? 'bg-[#fef3c7]/50 text-[#92400e]'
-                          : 'bg-[#f5f5f5]/50 text-[#737373] hover:bg-[#e5e5e5]/50 hover:text-[#525252]'
+                          ? 'bg-[#f5f5f5] text-[#171717]'
+                          : 'bg-[#fafafa] text-[#737373] hover:bg-[#f5f5f5] hover:text-[#525252]'
                       } ${isNarrow ? 'px-1.5 py-1' : ''}`}
                     >
                       <div className="flex items-center gap-2 min-w-0">
@@ -398,7 +392,7 @@ function SidebarContent({
                         </span>
                         <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] ${
                           isExpanded
-                            ? 'bg-[#fcd34d] text-[#92400e]'
+                            ? 'bg-[#e5e5e5] text-[#525252]'
                             : 'bg-[#e5e5e5] text-[#737373]'
                         }`}>
                           {conversationData.favorites.length}
@@ -416,11 +410,7 @@ function SidebarContent({
                         {conversationData.favorites.map((fav) => (
                           <div
                             key={fav.id}
-                            className={`group flex items-stretch gap-0 overflow-hidden rounded-lg border transition-colors ${
-                              isExpanded
-                                ? 'border-[#fcd34d]/50 bg-white'
-                                : 'border-transparent bg-transparent'
-                            }`}
+                            className="group flex items-stretch gap-0 overflow-hidden rounded-lg border border-[#e5e5e5] bg-white transition-colors"
                           >
                             <button
                               type="button"
@@ -450,7 +440,7 @@ function SidebarContent({
                             <button
                               type="button"
                               onClick={(e) => handleUnfavorite(fav.id, e)}
-                              className={`flex w-8 shrink-0 items-center justify-center text-[#a3a3a3] opacity-0 transition hover:bg-red-50 hover:text-red-600 rounded-r-lg group-hover:opacity-100 ${
+                              className={`flex w-8 shrink-0 items-center justify-center text-[#a3a3a3] opacity-0 transition hover:bg-[#f5f5f5] hover:text-[#525252] rounded-r-lg group-hover:opacity-100 ${
                                 isNarrow ? 'w-7' : ''
                               }`}
                               title="取消收藏"
