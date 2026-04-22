@@ -164,6 +164,7 @@ interface SidebarContentProps {
   showFavorites: boolean;
   setShowFavorites: (show: boolean) => void;
   handleFavoriteClick: (conversationId: string, messageId: string) => Promise<void>;
+  handleUnfavorite: (favoriteId: string, e: React.MouseEvent) => Promise<void>;
 }
 
 function SidebarContent({
@@ -186,6 +187,7 @@ function SidebarContent({
   showFavorites,
   setShowFavorites,
   handleFavoriteClick,
+  handleUnfavorite,
 }: SidebarContentProps) {
   const { widthCategory, sidebarWidth } = useLayoutContext();
 
@@ -223,6 +225,68 @@ function SidebarContent({
 
     return { pinnedConversations: pinned, unpinnedConversations: unpinned };
   }, [convList]);
+
+  type FavoritesByConversation = Map<
+    string,
+    {
+      conversationTitle: string | null;
+      favorites: FavoriteItem[];
+      latestFavoriteAt: string;
+    }
+  >;
+
+  const { favoritesByConversation, expandedConversationIds } = useMemo(() => {
+    const grouped: FavoritesByConversation = new Map();
+
+    favorites.forEach((fav) => {
+      const existing = grouped.get(fav.conversationId);
+      if (existing) {
+        existing.favorites.push(fav);
+        if (new Date(fav.createdAt) > new Date(existing.latestFavoriteAt)) {
+          existing.latestFavoriteAt = fav.createdAt;
+        }
+      } else {
+        grouped.set(fav.conversationId, {
+          conversationTitle: fav.conversationTitle,
+          favorites: [fav],
+          latestFavoriteAt: fav.createdAt,
+        });
+      }
+    });
+
+    const groupedArray = Array.from(grouped.entries()).sort(
+      (a, b) => new Date(b[1].latestFavoriteAt).getTime() - new Date(a[1].latestFavoriteAt).getTime()
+    );
+
+    const sortedGrouped: FavoritesByConversation = new Map();
+    groupedArray.forEach(([id, data]) => {
+      sortedGrouped.set(id, data);
+    });
+
+    const expandedIds = new Set<string>();
+    if (groupedArray.length > 0) {
+      expandedIds.add(groupedArray[0][0]);
+    }
+
+    return {
+      favoritesByConversation: sortedGrouped,
+      expandedConversationIds: expandedIds,
+    };
+  }, [favorites]);
+
+  const [collapsedConversationIds, setCollapsedConversationIds] = useState<Set<string>>(new Set());
+
+  const toggleConversationGroup = (conversationId: string) => {
+    setCollapsedConversationIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(conversationId)) {
+        next.delete(conversationId);
+      } else {
+        next.add(conversationId);
+      }
+      return next;
+    });
+  };
 
   return (
     <>
@@ -304,42 +368,103 @@ function SidebarContent({
             )}
           </button>
 
-          {/* 收藏列表 */}
+          {/* 收藏列表（按对话分组） */}
           {showFavorites && (
-            <div className="mt-2 flex flex-col gap-0.5">
-              {favorites.map((fav) => (
-                <button
-                  key={fav.id}
-                  type="button"
-                  onClick={() => handleFavoriteClick(fav.conversationId, fav.messageId)}
-                  className={`flex flex-col items-start gap-0.5 rounded-xl px-3 py-2 text-left transition-colors hover:bg-[#fafafa] border-l-2 border-[#f59e0b] ${
-                    isNarrow ? 'px-2 py-1.5' : ''
-                  } ${isWide ? 'px-4 py-2.5' : ''}`}
-                >
-                  <div className="flex items-center gap-2 w-full">
-                    <span className="text-[10px] font-medium text-[#a3a3a3]">
-                      {fav.messageRole === 'user' ? '我' : 'AI'}
-                    </span>
-                    <span className={`truncate text-xs font-medium text-[#525252] ${
-                      isWide ? 'text-sm' : ''
-                    }`}>
-                      {fav.conversationTitle?.trim() || '新对话'}
-                    </span>
-                    {showTime && (
-                      <span className="shrink-0 text-[10px] text-[#a3a3a3]">
-                        {formatRelativeTime(fav.createdAt)}
-                      </span>
+            <div className="mt-2 flex flex-col gap-1">
+              {Array.from(favoritesByConversation.entries()).map(([conversationId, conversationData]) => {
+                const isCollapsed = collapsedConversationIds.has(conversationId);
+                const isDefaultExpanded = expandedConversationIds.has(conversationId);
+                const isExpanded = isDefaultExpanded ? !isCollapsed : false;
+
+                return (
+                  <div key={conversationId} className="flex flex-col gap-0.5">
+                    <button
+                      type="button"
+                      onClick={() => toggleConversationGroup(conversationId)}
+                      className={`flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-xs font-medium transition-colors ${
+                        isExpanded
+                          ? 'bg-[#fef3c7]/50 text-[#92400e]'
+                          : 'bg-[#f5f5f5]/50 text-[#737373] hover:bg-[#e5e5e5]/50 hover:text-[#525252]'
+                      } ${isNarrow ? 'px-1.5 py-1' : ''}`}
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        {isExpanded ? (
+                          <IconChevronUp className="h-3 w-3 shrink-0" />
+                        ) : (
+                          <IconChevronDown className="h-3 w-3 shrink-0" />
+                        )}
+                        <span className="truncate">
+                          {conversationData.conversationTitle?.trim() || '新对话'}
+                        </span>
+                        <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] ${
+                          isExpanded
+                            ? 'bg-[#fcd34d] text-[#92400e]'
+                            : 'bg-[#e5e5e5] text-[#737373]'
+                        }`}>
+                          {conversationData.favorites.length}
+                        </span>
+                      </div>
+                      {showTime && (
+                        <span className="shrink-0 text-[10px] text-[#a3a3a3]">
+                          {formatRelativeTime(conversationData.latestFavoriteAt)}
+                        </span>
+                      )}
+                    </button>
+
+                    {isExpanded && (
+                      <div className="flex flex-col gap-0.5 ml-2">
+                        {conversationData.favorites.map((fav) => (
+                          <div
+                            key={fav.id}
+                            className={`group flex items-stretch gap-0 overflow-hidden rounded-lg border transition-colors ${
+                              isExpanded
+                                ? 'border-[#fcd34d]/50 bg-white'
+                                : 'border-transparent bg-transparent'
+                            }`}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => handleFavoriteClick(fav.conversationId, fav.messageId)}
+                              className={`min-w-0 flex-1 flex flex-col items-start gap-0.5 rounded-l-lg px-3 py-2 text-left transition-colors hover:bg-[#fafafa] ${
+                                isNarrow ? 'px-2 py-1.5' : ''
+                              } ${isWide ? 'px-4 py-2.5' : ''}`}
+                            >
+                              <div className="flex items-center gap-2 w-full">
+                                <span className="text-[10px] font-medium text-[#a3a3a3]">
+                                  {fav.messageRole === 'user' ? '我' : 'AI'}
+                                </span>
+                                {showTime && (
+                                  <span className="shrink-0 text-[10px] text-[#a3a3a3]">
+                                    {formatRelativeTime(fav.createdAt)}
+                                  </span>
+                                )}
+                              </div>
+                              <p className={`text-xs text-[#737373] leading-relaxed ${
+                                isWide ? 'line-clamp-3' : 'line-clamp-2'
+                              }`}>
+                                {fav.messageContent.length > 100
+                                  ? fav.messageContent.slice(0, 100) + '...'
+                                  : fav.messageContent}
+                              </p>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => handleUnfavorite(fav.id, e)}
+                              className={`flex w-8 shrink-0 items-center justify-center text-[#a3a3a3] opacity-0 transition hover:bg-red-50 hover:text-red-600 rounded-r-lg group-hover:opacity-100 ${
+                                isNarrow ? 'w-7' : ''
+                              }`}
+                              title="取消收藏"
+                              aria-label="取消收藏"
+                            >
+                              <IconX className={`h-3.5 w-3.5 ${isNarrow ? 'h-3 w-3' : ''}`} />
+                            </button>
+                          </div>
+                        ))}
+                      </div>
                     )}
                   </div>
-                  <p className={`text-xs text-[#737373] leading-relaxed ${
-                    isWide ? 'line-clamp-3' : 'line-clamp-2'
-                  }`}>
-                    {fav.messageContent.length > 100
-                      ? fav.messageContent.slice(0, 100) + '...'
-                      : fav.messageContent}
-                  </p>
-                </button>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>
@@ -748,6 +873,25 @@ export default function Home() {
     await selectConversation(conversationId);
   }, []);
 
+  // 处理取消收藏（从收藏列表中）
+  const handleUnfavorite = useCallback(async (favoriteId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!deviceId) return;
+
+    try {
+      const r = await fetch(`/api/favorites/${favoriteId}`, {
+        method: 'DELETE',
+        headers: { 'x-device-id': deviceId },
+      });
+
+      if (r.ok) {
+        await loadFavorites(deviceId);
+      }
+    } catch (error) {
+      console.error('取消收藏失败:', error);
+    }
+  }, [deviceId, loadFavorites]);
+
   // 搜索函数
   const performSearch = useCallback(async (query: string) => {
     if (!deviceId || !query.trim()) {
@@ -1035,6 +1179,7 @@ export default function Home() {
             showFavorites={showFavorites}
             setShowFavorites={setShowFavorites}
             handleFavoriteClick={handleFavoriteClick}
+            handleUnfavorite={handleUnfavorite}
           />
         </ResizablePanel>
 
