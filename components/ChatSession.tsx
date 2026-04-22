@@ -34,6 +34,8 @@ type ChatSessionProps = {
   initialMessages: Message[];
   highlightMessageId?: string | null;
   onHighlightCleared?: () => void;
+  favoriteMessageIds?: Set<string>;
+  onToggleFavorite?: (messageId: string, isFavorite: boolean) => void;
 };
 
 function IconRefresh(props: React.SVGProps<SVGSVGElement>) {
@@ -56,6 +58,24 @@ function IconRefresh(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
+function IconBookmark(props: React.SVGProps<SVGSVGElement> & { filled?: boolean }) {
+  const { filled, ...rest } = props;
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill={filled ? 'currentColor' : 'none'}
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      {...rest}
+    >
+      <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" />
+    </svg>
+  );
+}
+
 export default function ChatSession({
   deviceId,
   conversationId,
@@ -63,6 +83,8 @@ export default function ChatSession({
   initialMessages,
   highlightMessageId,
   onHighlightCleared,
+  favoriteMessageIds = new Set(),
+  onToggleFavorite,
 }: ChatSessionProps) {
   const {
     messages,
@@ -341,7 +363,7 @@ export default function ChatSession({
               </div>
               <div className="min-w-0 max-w-[min(100%,36rem)]">
                 <div
-                  className={`min-w-0 ${
+                  className={`min-w-0 relative ${
                     m.role === 'user'
                       ? 'rounded-2xl rounded-br-md bg-[#171717] px-4 py-3 text-[15px] leading-relaxed text-white'
                       : 'rounded-2xl rounded-tl-md border border-black/[0.06] bg-[#fafafa] px-4 py-3 text-[15px] leading-relaxed text-[#171717]'
@@ -356,6 +378,12 @@ export default function ChatSession({
                       : undefined
                   }
                 >
+                  {m.role === 'assistant' && favoriteMessageIds.has(m.id) && (
+                    <div className="absolute -top-1 -right-1">
+                      <IconBookmark className="h-4 w-4 text-[#f59e0b]" filled />
+                    </div>
+                  )}
+                  
                   {m.role === 'assistant' &&
                     (
                       m as {
@@ -382,7 +410,7 @@ export default function ChatSession({
                     ))}
                 </div>
 
-                {/* 消息操作栏：重新生成按钮 + token 信息 */}
+                {/* 消息操作栏：收藏按钮 + 重新生成按钮 + token 信息 */}
                 {m.role === 'assistant' && (
                   <div className="mt-1.5 flex items-center justify-between gap-2 px-1">
                     <div className="flex items-center gap-3 text-[10px] text-[#a3a3a3]">
@@ -395,17 +423,34 @@ export default function ChatSession({
                         </span>
                       )}
                     </div>
-                    {canRegenerate && (
-                      <button
-                        type="button"
-                        onClick={() => handleRegenerate(index)}
-                        className="inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] text-[#737373] transition-colors hover:bg-[#f5f5f5] hover:text-[#171717]"
-                        title="重新生成此回复"
-                      >
-                        <IconRefresh className="h-3 w-3" />
-                        重新生成
-                      </button>
-                    )}
+                    <div className="flex items-center gap-1">
+                      {onToggleFavorite && (
+                        <button
+                          type="button"
+                          onClick={() => onToggleFavorite(m.id, !favoriteMessageIds.has(m.id))}
+                          className={`inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] transition-colors hover:bg-[#f5f5f5] ${
+                            favoriteMessageIds.has(m.id)
+                              ? 'text-[#f59e0b]'
+                              : 'text-[#737373] hover:text-[#171717]'
+                          }`}
+                          title={favoriteMessageIds.has(m.id) ? '取消收藏' : '收藏此回复'}
+                        >
+                          <IconBookmark className="h-3 w-3" filled={favoriteMessageIds.has(m.id)} />
+                          {favoriteMessageIds.has(m.id) ? '已收藏' : '收藏'}
+                        </button>
+                      )}
+                      {canRegenerate && (
+                        <button
+                          type="button"
+                          onClick={() => handleRegenerate(index)}
+                          className="inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] text-[#737373] transition-colors hover:bg-[#f5f5f5] hover:text-[#171717]"
+                          title="重新生成此回复"
+                        >
+                          <IconRefresh className="h-3 w-3" />
+                          重新生成
+                        </button>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
