@@ -52,6 +52,17 @@ function normalizeTextContent(content: unknown): string {
   return '';
 }
 
+/** 与前端 useChat 最后一条 assistant 的 id 一致，便于收藏用 clientMessageId 命中 */
+function lastAssistantClientIdFromMessages(messages: CoreMessage[]): string | null {
+  for (let i = messages.length - 1; i >= 0; i--) {
+    const m = messages[i] as CoreMessage & { id?: string };
+    if (m.role !== 'assistant') continue;
+    if (typeof m.id === 'string' && m.id.length > 0) return m.id;
+    break;
+  }
+  return null;
+}
+
 function lastUserFromMessages(
   messages: CoreMessage[],
   conversationId: string
@@ -177,12 +188,15 @@ export async function POST(req: Request) {
           totalTokens?: number;
         } | null;
 
+        const assistantClientId =
+          lastAssistantClientIdFromMessages(coreMessages) ?? `asst_${randomUUID()}`;
+
         await prisma.message.create({
           data: {
             conversationId,
             role: 'assistant',
             content: event.text,
-            clientMessageId: `asst_${randomUUID()}`,
+            clientMessageId: assistantClientId,
             ...(inv != null ? { toolInvocations: inv as object } : {}),
             ...(usage?.promptTokens != null ? { promptTokens: usage.promptTokens } : {}),
             ...(usage?.completionTokens != null ? { completionTokens: usage.completionTokens } : {}),
