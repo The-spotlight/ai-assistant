@@ -24,6 +24,7 @@ model Conversation {
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   messages  Message[]
+  favorites Favorite[]
 
   @@index([deviceId, updatedAt(sort: Desc)])
   @@index([updatedAt(sort: Desc)])
