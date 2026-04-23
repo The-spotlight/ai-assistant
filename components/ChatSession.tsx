@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import MarkdownRenderer from '@/components/MarkdownRenderer';
 import ToolCallCard from '@/components/ToolCallCard';
 import SkillPanel from '@/components/SkillPanel';
+import TokenStatsPanel from '@/components/TokenStatsPanel';
 import {
   calculateMessageCost,
   formatCost,
@@ -105,7 +106,9 @@ export default function ChatSession({
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const messageRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const statsTriggerRef = useRef<HTMLDivElement>(null);
   const [showSkills, setShowSkills] = useState(false);
+  const [showTokenStats, setShowTokenStats] = useState(false);
 
   // 重新生成相关的状态和 ref
   // 使用状态机来确保操作的顺序性，避免 React 批量更新的竞态问题
@@ -263,20 +266,49 @@ export default function ChatSession({
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-black/[0.06] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04),0_8px_24px_-4px_rgba(0,0,0,0.06)]">
       {/* 顶部状态栏：显示 token 和费用 */}
       {messages.length > 0 && (
-        <div className="shrink-0 border-b border-black/[0.06] bg-white/80 px-4 py-2 text-xs text-[#737373]">
+        <div className="relative shrink-0 border-b border-black/[0.06] bg-white/80 px-4 py-2 text-xs text-[#737373]">
           <div className="flex items-center justify-between gap-2">
             <span className="truncate">
               模型：{modelPricing.label}
             </span>
-            <span className="flex items-center gap-4">
+            <div
+              ref={statsTriggerRef}
+              className="flex items-center gap-4 cursor-pointer hover:text-[#4d4d4d] transition-colors select-none"
+              onClick={() => setShowTokenStats(!showTokenStats)}
+            >
               <span title="总 token 数">
                 {formatTokens(totalTokens)} tokens
               </span>
-              <span title="估算费用">
+              <span
+                className="inline-flex items-center gap-1"
+                title="点击查看详细消耗"
+              >
                 {formatCost(totalCost)}
+                <svg
+                  className="h-3 w-3 transition-transform"
+                  style={{ transform: showTokenStats ? 'rotate(180deg)' : 'none' }}
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="m6 9 6 6 6-6" />
+                </svg>
               </span>
-            </span>
+            </div>
           </div>
+
+          <TokenStatsPanel
+            visible={showTokenStats}
+            onClose={() => setShowTokenStats(false)}
+            messages={messages}
+            modelId={modelId}
+            totalTokens={totalTokens}
+            totalCost={totalCost}
+            triggerRef={statsTriggerRef}
+          />
         </div>
       )}
 
