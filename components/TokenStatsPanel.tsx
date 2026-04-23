@@ -189,9 +189,9 @@ export default function TokenStatsPanel({
 
       <div className="border-b border-black/[0.04] bg-white px-4 py-3">
         <div className="grid grid-cols-3 gap-3 text-center">
-          <div>
+          <div className="min-w-0">
             <div className="text-[10px] text-[#737373]">模型</div>
-            <div className="mt-0.5 text-sm font-medium text-[#171717]>
+            <div className="mt-0.5 text-sm font-medium text-[#171717] truncate" title={modelPricing.label}>
               {modelPricing.label}
             </div>
           </div>
