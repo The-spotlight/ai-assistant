@@ -3,7 +3,7 @@ import { prisma } from '@/lib/db';
 
 export const runtime = 'nodejs';
 
-/** 删除会话及消息 */
+/** 软删除会话（移至回收站） */
 export async function DELETE(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id: conversationId } = await ctx.params;
   const deviceId = req.headers.get('x-device-id');
@@ -11,13 +11,21 @@ export async function DELETE(req: Request, ctx: { params: Promise<{ id: string }
     return NextResponse.json({ error: '缺少 X-Device-Id' }, { status: 400 });
   }
 
-  const result = await prisma.conversation.deleteMany({
+  const conversation = await prisma.conversation.findFirst({
     where: { id: conversationId, deviceId },
   });
 
-  if (result.count === 0) {
+  if (!conversation) {
     return NextResponse.json({ error: '会话不存在' }, { status: 404 });
   }
+
+  await prisma.conversation.update({
+    where: { id: conversationId },
+    data: {
+      isDeleted: true,
+      deletedAt: new Date(),
+    },
+  });
 
   return NextResponse.json({ ok: true });
 }
