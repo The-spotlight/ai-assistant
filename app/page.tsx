@@ -191,15 +191,9 @@ interface SidebarContentProps {
   togglePin: (id: string, e: React.MouseEvent) => Promise<void>;
   renameConversation: (id: string, newTitle: string) => Promise<void>;
   favorites: FavoriteItem[];
-  showFavorites: boolean;
-  setShowFavorites: (show: boolean) => void;
-  handleFavoriteClick: (conversationId: string, messageId: string) => Promise<void>;
-  handleUnfavorite: (favoriteId: string, e: React.MouseEvent) => Promise<void>;
   trashList: TrashedConversationRow[];
-  showTrash: boolean;
-  setShowTrash: (show: boolean) => void;
-  restoreConversation: (id: string, e: React.MouseEvent) => Promise<void>;
-  deleteFromTrash: (id: string, e: React.MouseEvent) => Promise<void>;
+  onOpenFavorites: () => void;
+  onOpenTrash: () => void;
 }
 
 function SidebarContent({
@@ -220,15 +214,9 @@ function SidebarContent({
   togglePin,
   renameConversation,
   favorites,
-  showFavorites,
-  setShowFavorites,
-  handleFavoriteClick,
-  handleUnfavorite,
   trashList,
-  showTrash,
-  setShowTrash,
-  restoreConversation,
-  deleteFromTrash,
+  onOpenFavorites,
+  onOpenTrash,
 }: SidebarContentProps) {
   const { widthCategory, sidebarWidth } = useLayoutContext();
 
@@ -250,14 +238,9 @@ function SidebarContent({
   const showTime = !isNarrow;
   const showWideInfo = isWide;
 
-  const [pinnedCollapsed, setPinnedCollapsed] = useState<boolean>(false);
   const [editingConversationId, setEditingConversationId] = useState<string | null>(null);
   const [editingTitle, setEditingTitle] = useState<string>('');
   const editingInputRef = useRef<HTMLInputElement>(null);
-
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState<boolean>(false);
-  const [deletingConversationId, setDeletingConversationId] = useState<string | null>(null);
-  const [deletingTitle, setDeletingTitle] = useState<string>('');
 
   const { pinnedConversations, unpinnedConversations } = useMemo(() => {
     const pinned: ConversationRow[] = [];
@@ -274,67 +257,7 @@ function SidebarContent({
     return { pinnedConversations: pinned, unpinnedConversations: unpinned };
   }, [convList]);
 
-  type FavoritesByConversation = Map<
-    string,
-    {
-      conversationTitle: string | null;
-      favorites: FavoriteItem[];
-      latestFavoriteAt: string;
-    }
-  >;
 
-  const { favoritesByConversation, firstConversationId } = useMemo(() => {
-    const grouped: FavoritesByConversation = new Map();
-
-    favorites.forEach((fav) => {
-      const existing = grouped.get(fav.conversationId);
-      if (existing) {
-        existing.favorites.push(fav);
-        if (new Date(fav.createdAt) > new Date(existing.latestFavoriteAt)) {
-          existing.latestFavoriteAt = fav.createdAt;
-        }
-      } else {
-        grouped.set(fav.conversationId, {
-          conversationTitle: fav.conversationTitle,
-          favorites: [fav],
-          latestFavoriteAt: fav.createdAt,
-        });
-      }
-    });
-
-    const groupedArray = Array.from(grouped.entries()).sort(
-      (a, b) => new Date(b[1].latestFavoriteAt).getTime() - new Date(a[1].latestFavoriteAt).getTime()
-    );
-
-    const sortedGrouped: FavoritesByConversation = new Map();
-    groupedArray.forEach(([id, data]) => {
-      sortedGrouped.set(id, data);
-    });
-
-    return {
-      favoritesByConversation: sortedGrouped,
-      firstConversationId: groupedArray.length > 0 ? groupedArray[0][0] : null,
-    };
-  }, [favorites]);
-
-  const [firstGroupCollapsed, setFirstGroupCollapsed] = useState<boolean>(false);
-  const [otherGroupsExpanded, setOtherGroupsExpanded] = useState<Set<string>>(new Set());
-
-  const toggleConversationGroup = (conversationId: string) => {
-    if (conversationId === firstConversationId) {
-      setFirstGroupCollapsed((prev) => !prev);
-    } else {
-      setOtherGroupsExpanded((prev) => {
-        const next = new Set(prev);
-        if (next.has(conversationId)) {
-          next.delete(conversationId);
-        } else {
-          next.add(conversationId);
-        }
-        return next;
-      });
-    }
-  };
 
   const startEditing = useCallback((conversationId: string, currentTitle: string | null) => {
     setEditingConversationId(conversationId);
