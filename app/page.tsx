@@ -1046,6 +1046,43 @@ export default function Home() {
     }
   }, [deviceId, loadTrash]);
 
+  // 批量恢复会话
+  const handlePanelBatchRestore = useCallback(async (ids: string[]) => {
+    if (!deviceId || ids.length === 0) return;
+
+    const r = await fetch('/api/trash/batch-restore', {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-device-id': deviceId,
+      },
+      body: JSON.stringify({ ids }),
+    });
+
+    if (r.ok) {
+      await loadTrash(deviceId);
+      await loadConversations(deviceId);
+    }
+  }, [deviceId, loadTrash, loadConversations]);
+
+  // 批量彻底删除会话
+  const handlePanelBatchDeletePermanently = useCallback(async (ids: string[]) => {
+    if (!deviceId || ids.length === 0) return;
+
+    const r = await fetch('/api/trash/batch-delete', {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-device-id': deviceId,
+      },
+      body: JSON.stringify({ ids }),
+    });
+
+    if (r.ok) {
+      await loadTrash(deviceId);
+    }
+  }, [deviceId, loadTrash]);
+
   useEffect(() => {
     const did = getOrCreateDeviceId();
     if (!did) {
@@ -1392,6 +1429,8 @@ export default function Home() {
         trashList={trashList}
         onRestore={handlePanelRestore}
         onDeletePermanently={handlePanelDeletePermanently}
+        onBatchRestore={handlePanelBatchRestore}
+        onBatchDeletePermanently={handlePanelBatchDeletePermanently}
       />
     </div>
   );

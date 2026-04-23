@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, useMemo } from 'react';
+import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { useLayoutContext } from '@/components/ResizablePanel';
 
 function IconX(props: React.SVGProps<SVGSVGElement>) {
@@ -57,6 +57,22 @@ function IconAlertTriangle(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
+function IconCheck(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden {...props}>
+      <path d="M20 6L9 17l-5-5" />
+    </svg>
+  );
+}
+
+function IconMinus(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden {...props}>
+      <path d="M5 12h14" />
+    </svg>
+  );
+}
+
 function formatRelativeTime(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
@@ -89,6 +105,8 @@ interface TrashPanelProps {
   trashList: TrashedConversationRow[];
   onRestore: (id: string, e: React.MouseEvent) => Promise<void>;
   onDeletePermanently: (id: string) => Promise<void>;
+  onBatchRestore: (ids: string[]) => Promise<void>;
+  onBatchDeletePermanently: (ids: string[]) => Promise<void>;
 }
 
 export default function TrashPanel({
@@ -97,6 +115,8 @@ export default function TrashPanel({
   trashList,
   onRestore,
   onDeletePermanently,
+  onBatchRestore,
+  onBatchDeletePermanently,
 }: TrashPanelProps) {
   const { widthCategory, sidebarWidth } = useLayoutContext();
 
@@ -121,12 +141,57 @@ export default function TrashPanel({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<boolean>(false);
   const [deletingConversationId, setDeletingConversationId] = useState<string | null>(null);
   const [deletingTitle, setDeletingTitle] = useState<string>('');
+  
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showBatchDeleteConfirm, setShowBatchDeleteConfirm] = useState<boolean>(false);
+
+  const allSelected = trashList.length > 0 && selectedIds.size === trashList.length;
+  const someSelected = selectedIds.size > 0 && selectedIds.size < trashList.length;
+
+  const toggleSelectAll = useCallback(() => {
+    if (allSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(trashList.map(c => c.id)));
+    }
+  }, [allSelected, trashList]);
+
+  const toggleSelectOne = useCallback((id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  }, []);
+
+  const handleBatchRestore = useCallback(async () => {
+    if (selectedIds.size === 0) return;
+    await onBatchRestore(Array.from(selectedIds));
+    setSelectedIds(new Set());
+  }, [selectedIds, onBatchRestore]);
+
+  const handleBatchDeleteClick = useCallback(() => {
+    if (selectedIds.size === 0) return;
+    setShowBatchDeleteConfirm(true);
+  }, [selectedIds]);
+
+  const handleConfirmBatchDelete = useCallback(async () => {
+    if (selectedIds.size === 0) return;
+    await onBatchDeletePermanently(Array.from(selectedIds));
+    setSelectedIds(new Set());
+    setShowBatchDeleteConfirm(false);
+  }, [selectedIds, onBatchDeletePermanently]);
 
   useEffect(() => {
     if (!visible) return;
 
     const handleClickOutside = (e: MouseEvent) => {
-      if (showDeleteConfirm) return;
+      if (showDeleteConfirm || showBatchDeleteConfirm) return;
       if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
         onClose();
       }
@@ -138,6 +203,8 @@ export default function TrashPanel({
           setShowDeleteConfirm(false);
           setDeletingConversationId(null);
           setDeletingTitle('');
+        } else if (showBatchDeleteConfirm) {
+          setShowBatchDeleteConfirm(false);
         } else {
           onClose();
         }
@@ -151,7 +218,15 @@ export default function TrashPanel({
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [visible, onClose, showDeleteConfirm]);
+  }, [visible, onClose, showDeleteConfirm, showBatchDeleteConfirm]);
+
+  useEffect(() => {
+    if (!visible) {
+      setSelectedIds(new Set());
+      setShowDeleteConfirm(false);
+      setShowBatchDeleteConfirm(false);
+    }
+  }, [visible]);
 
   const handleDeleteClick = (conversationId: string, title: string | null) => {
     setDeletingConversationId(conversationId);
@@ -218,6 +293,49 @@ export default function TrashPanel({
           </div>
         </div>
 
+        {trashList.length > 0 && (
+          <div className="px-4 py-2 flex items-center justify-between border-b border-black/[0.06] bg-white">
+            <label className="flex items-center gap-2 cursor-pointer select-none">
+              <button
+                type="button"
+                onClick={toggleSelectAll}
+                className="flex h-4 w-4 items-center justify-center rounded border transition-colors"
+                style={{
+                  borderColor: allSelected || someSelected ? '#171717' : '#d4d4d4',
+                  backgroundColor: allSelected || someSelected ? '#171717' : 'transparent',
+                }}
+              >
+                {allSelected && <IconCheck className="h-3 w-3 text-white" />}
+                {someSelected && <IconMinus className="h-3 w-3 text-white" />}
+              </button>
+              <span className="text-xs text-[#737373]">
+                全选 {selectedIds.size > 0 && `(已选 ${selectedIds.size} 项)`}
+              </span>
+            </label>
+
+            {selectedIds.size > 0 && (
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={handleBatchRestore}
+                  className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium text-[#171717] transition-colors hover:bg-[#f5f5f5]"
+                >
+                  <IconRotateCcw className="h-3.5 w-3.5" />
+                  恢复
+                </button>
+                <button
+                  type="button"
+                  onClick={handleBatchDeleteClick}
+                  className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium text-[#ef4444] transition-colors hover:bg-[#fef2f2]"
+                >
+                  <IconTrash className="h-3.5 w-3.5" />
+                  删除
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="flex-1 overflow-y-auto p-3">
           {trashList.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12">
@@ -228,11 +346,31 @@ export default function TrashPanel({
           ) : (
             <div className="flex flex-col gap-1">
               {trashList.map((c) => {
+                const isSelected = selectedIds.has(c.id);
                 return (
                   <div
                     key={c.id}
-                    className="group relative flex items-stretch gap-0 overflow-hidden rounded-xl border border-[#e5e5e5] bg-white transition-colors"
+                    className={`group relative flex items-stretch gap-0 overflow-hidden rounded-xl border transition-colors ${
+                      isSelected ? 'border-[#171717] bg-[#fafafa]' : 'border-[#e5e5e5] bg-white'
+                    }`}
                   >
+                    <button
+                      type="button"
+                      onClick={(e) => toggleSelectOne(c.id, e)}
+                      className="flex w-8 shrink-0 items-center justify-center transition-colors hover:bg-[#f5f5f5]"
+                      aria-label={isSelected ? '取消选择' : '选择'}
+                    >
+                      <div
+                        className="flex h-3.5 w-3.5 items-center justify-center rounded border transition-colors"
+                        style={{
+                          borderColor: isSelected ? '#171717' : '#d4d4d4',
+                          backgroundColor: isSelected ? '#171717' : 'transparent',
+                        }}
+                      >
+                        {isSelected && <IconCheck className="h-2.5 w-2.5 text-white" />}
+                      </div>
+                    </button>
+
                     <button
                       type="button"
                       className={`min-w-0 flex-1 ${itemPadding} text-left`}
@@ -306,6 +444,38 @@ export default function TrashPanel({
                 type="button"
                 onClick={handleConfirmDelete}
                 className="rounded-lg bg-[#171717] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-black"
+              >
+                彻底删除
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showBatchDeleteConfirm && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50">
+          <div className="mx-4 w-full max-w-xs rounded-2xl border border-black/[0.08] bg-white p-5 shadow-lg">
+            <h3 className="mb-2 text-sm font-semibold text-[#171717]">批量删除确认</h3>
+            <p className="mb-5 text-sm text-[#737373]">
+              确定要彻底删除选中的 <span className="font-medium text-[#171717]">{selectedIds.size}</span> 项吗？
+            </p>
+            <p className="mb-5 text-xs text-[#a3a3a3]">
+              此操作不可恢复，删除后将无法找回这些会话。
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowBatchDeleteConfirm(false);
+                }}
+                className="rounded-lg px-4 py-2 text-sm text-[#737373] transition-colors hover:bg-[#f5f5f5] hover:text-[#171717]"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmBatchDelete}
+                className="rounded-lg bg-[#ef4444] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#dc2626]"
               >
                 彻底删除
               </button>
