@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -13,28 +13,74 @@ interface CodeBlockProps {
 
 function CodeBlock({ language, code }: CodeBlockProps) {
   const [copied, setCopied] = useState(false);
+  const [error, setError] = useState(false);
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+    };
+  }, []);
 
   const handleCopy = useCallback(async () => {
+    setError(false);
     try {
       await navigator.clipboard.writeText(code);
       setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
+      
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+      
+      timeoutRef.current = setTimeout(() => {
+        setCopied(false);
+        timeoutRef.current = null;
+      }, 2000);
     } catch (err) {
       console.error('Failed to copy:', err);
+      setError(true);
+      
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+      
+      timeoutRef.current = setTimeout(() => {
+        setError(false);
+        timeoutRef.current = null;
+      }, 2000);
     }
   }, [code]);
+
+  const getButtonText = () => {
+    if (copied) return '已复制';
+    if (error) return '复制失败';
+    return '复制';
+  };
+
+  const getButtonClasses = () => {
+    let baseClasses = "absolute top-2 right-2 px-2 py-1 text-xs font-medium rounded border transition-all duration-200 opacity-0 group-hover:opacity-100 focus:outline-none focus:ring-1";
+    
+    if (error) {
+      return `${baseClasses} bg-red-50 text-red-600 border-red-200 focus:ring-red-400`;
+    }
+    
+    if (copied) {
+      return `${baseClasses} bg-green-50 text-green-600 border-green-200 focus:ring-green-400`;
+    }
+    
+    return `${baseClasses} bg-white text-[#737373] border-black/[0.08] hover:bg-[#fafafa] hover:text-[#171717] focus:ring-[#404040]/45`;
+  };
 
   return (
     <div className="relative group !my-3">
       <button
         onClick={handleCopy}
-        className="absolute top-2 right-2 px-2 py-1 text-xs font-medium rounded
-                   bg-[#2a2a2a] text-[#a0a0a0] border border-[rgba(255,255,255,0.1)]
-                   opacity-0 group-hover:opacity-100 transition-opacity duration-200
-                   hover:bg-[#3a3a3a] hover:text-[#e0e0e0]
-                   focus:outline-none focus:ring-1 focus:ring-[#555]"
+        className={getButtonClasses()}
       >
-        {copied ? '已复制' : '复制'}
+        {getButtonText()}
       </button>
       <SyntaxHighlighter
         style={oneDark as any}
