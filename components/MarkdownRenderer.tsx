@@ -1,9 +1,52 @@
 'use client';
 
+import { useState, useCallback } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
+
+interface CodeBlockProps {
+  language: string;
+  code: string;
+}
+
+function CodeBlock({ language, code }: CodeBlockProps) {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopy = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  }, [code]);
+
+  return (
+    <div className="relative group !my-3">
+      <button
+        onClick={handleCopy}
+        className="absolute top-2 right-2 px-2 py-1 text-xs font-medium rounded
+                   bg-[#2a2a2a] text-[#a0a0a0] border border-[rgba(255,255,255,0.1)]
+                   opacity-0 group-hover:opacity-100 transition-opacity duration-200
+                   hover:bg-[#3a3a3a] hover:text-[#e0e0e0]
+                   focus:outline-none focus:ring-1 focus:ring-[#555]"
+      >
+        {copied ? '已复制' : '复制'}
+      </button>
+      <SyntaxHighlighter
+        style={oneDark as any}
+        language={language}
+        PreTag="div"
+        className="!my-0 !rounded-lg !border !border-[rgba(0,0,0,0.08)] !bg-[#1a1a1a] text-sm"
+      >
+        {code}
+      </SyntaxHighlighter>
+    </div>
+  );
+}
 
 interface MarkdownRendererProps {
   content: string;
@@ -19,14 +62,10 @@ export default function MarkdownRenderer({ content }: MarkdownRendererProps) {
             const match = /language-(\w+)/.exec(className || '');
             const isInline = !match;
             return !isInline ? (
-              <SyntaxHighlighter
-                style={oneDark as any}
+              <CodeBlock
                 language={match[1]}
-                PreTag="div"
-                className="!my-3 !rounded-lg !border !border-[rgba(0,0,0,0.08)] !bg-[#1a1a1a] text-sm"
-              >
-                {String(children).replace(/\n$/, '')}
-              </SyntaxHighlighter>
+                code={String(children).replace(/\n$/, '')}
+              />
             ) : (
               <code className={className} {...props}>
                 {children}
