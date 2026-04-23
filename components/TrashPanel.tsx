@@ -126,6 +126,7 @@ export default function TrashPanel({
     if (!visible) return;
 
     const handleClickOutside = (e: MouseEvent) => {
+      if (showDeleteConfirm) return;
       if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
         onClose();
       }
@@ -133,7 +134,13 @@ export default function TrashPanel({
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        onClose();
+        if (showDeleteConfirm) {
+          setShowDeleteConfirm(false);
+          setDeletingConversationId(null);
+          setDeletingTitle('');
+        } else {
+          onClose();
+        }
       }
     };
 
@@ -144,7 +151,7 @@ export default function TrashPanel({
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [visible, onClose]);
+  }, [visible, onClose, showDeleteConfirm]);
 
   const handleDeleteClick = (conversationId: string, title: string | null) => {
     setDeletingConversationId(conversationId);
@@ -201,12 +208,12 @@ export default function TrashPanel({
           </button>
         </div>
 
-        <div className="px-4 py-2 border-b border-black/[0.06] bg-[#fefce8]">
+        <div className="px-4 py-2 border-b border-black/[0.06] bg-[#fafafa]">
           <div className="flex items-start gap-2">
-            <IconAlertTriangle className="h-4 w-4 text-[#ca8a04] shrink-0 mt-0.5" />
+            <IconAlertTriangle className="h-4 w-4 text-[#737373] shrink-0 mt-0.5" />
             <div>
-              <p className="text-[11px] font-medium text-[#854d0e]">删除后保留 7 天</p>
-              <p className="text-[10px] text-[#a16207]">可在 7 天内恢复，7 天后将永久删除</p>
+              <p className="text-[11px] font-medium text-[#525252]">删除后保留 7 天</p>
+              <p className="text-[10px] text-[#a3a3a3]">可在 7 天内恢复，7 天后将永久删除</p>
             </div>
           </div>
         </div>
@@ -258,7 +265,7 @@ export default function TrashPanel({
                       type="button"
                       aria-label="彻底删除"
                       onClick={() => handleDeleteClick(c.id, c.title)}
-                      className={`flex w-9 shrink-0 items-center justify-center text-[#a3a3a3] opacity-0 transition hover:bg-[#fef2f2] hover:text-red-600 group-hover:opacity-100 ${
+                      className={`flex w-9 shrink-0 items-center justify-center text-[#a3a3a3] opacity-0 transition hover:bg-[#f5f5f5] hover:text-[#171717] group-hover:opacity-100 ${
                         isNarrow ? 'w-7' : ''
                       }`}
                       title="彻底删除（不可恢复）"
@@ -298,7 +305,7 @@ export default function TrashPanel({
               <button
                 type="button"
                 onClick={handleConfirmDelete}
-                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-red-700"
+                className="rounded-lg bg-[#171717] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-black"
               >
                 彻底删除
               </button>
