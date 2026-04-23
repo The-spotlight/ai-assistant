@@ -51,6 +51,17 @@ type FavoriteItem = {
   createdAt: string;
 };
 
+type TrashedConversationRow = {
+  id: string;
+  title: string | null;
+  modelId: string | null;
+  isPinned: boolean | null;
+  pinnedAt: string | null;
+  deletedAt: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
 function formatRelativeTime(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
@@ -144,6 +155,24 @@ function IconBookmark(props: React.SVGProps<SVGSVGElement> & { filled?: boolean 
   );
 }
 
+function IconRotateCcw(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      {...props}
+    >
+      <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+      <path d="M3 3v5h5" />
+    </svg>
+  );
+}
+
 interface SidebarContentProps {
   deviceId: string | null;
   loadingMain: boolean;
@@ -166,6 +195,11 @@ interface SidebarContentProps {
   setShowFavorites: (show: boolean) => void;
   handleFavoriteClick: (conversationId: string, messageId: string) => Promise<void>;
   handleUnfavorite: (favoriteId: string, e: React.MouseEvent) => Promise<void>;
+  trashList: TrashedConversationRow[];
+  showTrash: boolean;
+  setShowTrash: (show: boolean) => void;
+  restoreConversation: (id: string, e: React.MouseEvent) => Promise<void>;
+  deleteFromTrash: (id: string, e: React.MouseEvent) => Promise<void>;
 }
 
 function SidebarContent({
@@ -190,6 +224,11 @@ function SidebarContent({
   setShowFavorites,
   handleFavoriteClick,
   handleUnfavorite,
+  trashList,
+  showTrash,
+  setShowTrash,
+  restoreConversation,
+  deleteFromTrash,
 }: SidebarContentProps) {
   const { widthCategory, sidebarWidth } = useLayoutContext();
 
@@ -528,6 +567,97 @@ function SidebarContent({
         </div>
       )}
 
+      {/* 回收站入口 */}
+      {!showSearchResults && trashList.length > 0 && (
+        <div className={`mb-3 ${isNarrow ? 'mb-2' : ''}`}>
+          <button
+            type="button"
+            onClick={() => setShowTrash(!showTrash)}
+            className={`flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
+              showTrash
+                ? 'bg-[#fef3c7] text-[#92400e]'
+                : 'bg-[#fafafa] text-[#737373] hover:bg-[#f5f5f5] hover:text-[#171717]'
+            } ${isNarrow ? 'px-2 py-1.5 text-xs' : ''}`}
+          >
+            <div className="flex items-center gap-2">
+              <IconTrash className={`h-4 w-4 ${isNarrow ? 'h-3.5 w-3.5' : ''}`} />
+              <AdaptiveText narrow="回收站" wide="回收站">
+                回收站
+              </AdaptiveText>
+              <span className={`rounded-full px-2 py-0.5 text-xs ${
+                showTrash
+                  ? 'bg-[#fcd34d] text-[#92400e]'
+                  : 'bg-[#e5e5e5] text-[#737373]'
+              }`}>
+                {trashList.length}
+              </span>
+            </div>
+            {showTrash ? (
+              <IconChevronUp className="h-4 w-4" />
+            ) : (
+              <IconChevronDown className="h-4 w-4" />
+            )}
+          </button>
+
+          {/* 回收站列表 */}
+          {showTrash && (
+            <div className="mt-2 flex flex-col gap-0.5">
+              <p className="px-1 text-[10px] text-[#a3a3a3]">
+                删除后保留 7 天，可恢复或彻底删除
+              </p>
+              {trashList.map((c) => {
+                return (
+                  <div
+                    key={c.id}
+                    className={`group relative flex items-stretch gap-0 overflow-hidden rounded-xl border border-[#e5e5e5] bg-white transition-colors`}
+                  >
+                    <button
+                      type="button"
+                      className={`min-w-0 flex-1 ${itemPadding} text-left`}
+                    >
+                      <span className={`${titleLines} text-[13px] font-medium leading-snug text-[#737373] ${
+                        isNarrow ? 'text-[12px]' : ''
+                      } ${isWide ? 'text-sm' : ''}`}>
+                        {c.title?.trim() || '新对话'}
+                      </span>
+                      {showTime && (
+                        <span className={`mt-1 block text-[11px] text-[#a3a3a3] ${
+                          isWide ? 'text-xs' : ''
+                        }`}>
+                          删除于 {formatRelativeTime(c.deletedAt)}
+                        </span>
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="恢复会话"
+                      onClick={(e) => restoreConversation(c.id, e)}
+                      className={`flex w-9 shrink-0 items-center justify-center text-[#a3a3a3] opacity-0 transition hover:bg-emerald-50 hover:text-emerald-600 group-hover:opacity-100 ${
+                        isNarrow ? 'w-7' : ''
+                      }`}
+                      title="恢复会话"
+                    >
+                      <IconRotateCcw className={`h-4 w-4 ${isNarrow ? 'h-3.5 w-3.5' : ''}`} />
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="彻底删除"
+                      onClick={(e) => deleteFromTrash(c.id, e)}
+                      className={`flex w-9 shrink-0 items-center justify-center text-[#a3a3a3] opacity-0 transition hover:bg-red-50 hover:text-red-600 group-hover:opacity-100 ${
+                        isNarrow ? 'w-7' : ''
+                      }`}
+                      title="彻底删除（不可恢复）"
+                    >
+                      <IconTrash className={`h-4 w-4 ${isNarrow ? 'h-3.5 w-3.5' : ''}`} />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* 搜索结果或历史会话列表 */}
       {showSearchResults ? (
         // 搜索结果展示
@@ -843,6 +973,10 @@ export default function Home() {
   const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
   const [showFavorites, setShowFavorites] = useState<boolean>(false);
 
+  // 回收站相关状态
+  const [trashList, setTrashList] = useState<TrashedConversationRow[]>([]);
+  const [showTrash, setShowTrash] = useState<boolean>(false);
+
   // 收藏成功面板状态
   const [favoriteToastVisible, setFavoriteToastVisible] = useState<boolean>(false);
   const [favoriteToastData, setFavoriteToastData] = useState<{
@@ -873,6 +1007,50 @@ export default function Home() {
       setFavorites([]);
     }
   }, []);
+
+  // 加载回收站列表
+  const loadTrash = useCallback(async (did: string) => {
+    try {
+      const r = await fetch('/api/trash', { headers: { 'x-device-id': did } });
+      if (!r.ok) return;
+      const data = (await r.json()) as { conversations?: TrashedConversationRow[] };
+      setTrashList(data.conversations ?? []);
+    } catch (error) {
+      console.error('加载回收站列表失败:', error);
+      setTrashList([]);
+    }
+  }, []);
+
+  // 恢复会话
+  const restoreConversation = useCallback(async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!deviceId) return;
+
+    const r = await fetch(`/api/trash/${id}/restore`, {
+      method: 'PATCH',
+      headers: { 'x-device-id': deviceId },
+    });
+
+    if (r.ok) {
+      await loadTrash(deviceId);
+      await loadConversations(deviceId);
+    }
+  }, [deviceId, loadTrash, loadConversations]);
+
+  // 从回收站彻底删除
+  const deleteFromTrash = useCallback(async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!deviceId) return;
+
+    const r = await fetch(`/api/trash/${id}`, {
+      method: 'DELETE',
+      headers: { 'x-device-id': deviceId },
+    });
+
+    if (r.ok) {
+      await loadTrash(deviceId);
+    }
+  }, [deviceId, loadTrash]);
 
   // 关闭收藏成功面板
   const handleCloseFavoriteToast = useCallback(() => {
@@ -1103,6 +1281,7 @@ export default function Home() {
             });
             await loadConversations(did);
             await loadFavorites(did);
+            await loadTrash(did);
             return;
           }
         }
@@ -1122,6 +1301,7 @@ export default function Home() {
         setChatPayload({ conversationId: id, messages: [] });
         await loadConversations(did);
         await loadFavorites(did);
+        await loadTrash(did);
       } catch (e) {
         if (!cancelled) {
           setBootstrapError(e instanceof Error ? e.message : '初始化失败');
@@ -1168,6 +1348,7 @@ export default function Home() {
       setChatPayload({ conversationId: id, messages: [] });
       await loadConversations(deviceId);
       await loadFavorites(deviceId);
+      await loadTrash(deviceId);
     } catch {
       /* ignore */
     }
@@ -1189,7 +1370,7 @@ export default function Home() {
     const list = data.conversations ?? [];
     setConvList(list);
     
-    // 重新加载收藏列表（因为删除会话可能会同时删除相关收藏）
+    await loadTrash(deviceId);
     await loadFavorites(deviceId);
 
     if (chatPayload?.conversationId !== id) return;
@@ -1309,6 +1490,11 @@ export default function Home() {
             setShowFavorites={setShowFavorites}
             handleFavoriteClick={handleFavoriteClick}
             handleUnfavorite={handleUnfavorite}
+            trashList={trashList}
+            showTrash={showTrash}
+            setShowTrash={setShowTrash}
+            restoreConversation={restoreConversation}
+            deleteFromTrash={deleteFromTrash}
           />
         </ResizablePanel>
 
