@@ -572,7 +572,7 @@ export default function ChatSession({
                           handleCancelEdit();
                         }
                       }}
-                      className="w-full resize-none border-0 bg-transparent text-[15px] leading-relaxed text-white placeholder:text-[#808080] focus:outline-none focus:ring-0"
+                      className="w-full resize-none rounded-lg border border-white/10 bg-[#262626] px-3 py-2 text-[15px] leading-relaxed text-white placeholder:text-[#808080] focus:outline-none focus:ring-2 focus:ring-white/20"
                       rows={Math.max(3, editingContent.split('\n').length)}
                     />
                   ) : (
