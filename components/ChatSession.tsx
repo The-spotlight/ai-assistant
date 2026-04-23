@@ -77,6 +77,59 @@ function IconBookmark(props: React.SVGProps<SVGSVGElement> & { filled?: boolean 
   );
 }
 
+function IconEdit(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      {...props}
+    >
+      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+    </svg>
+  );
+}
+
+function IconCheck(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      {...props}
+    >
+      <path d="M20 6 9 17l-5-5" />
+    </svg>
+  );
+}
+
+function IconX(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      {...props}
+    >
+      <path d="M18 6 6 18" />
+      <path d="m6 6 12 12" />
+    </svg>
+  );
+}
+
 export default function ChatSession({
   deviceId,
   conversationId,
@@ -109,6 +162,13 @@ export default function ChatSession({
   const statsTriggerRef = useRef<HTMLDivElement>(null);
   const [showSkills, setShowSkills] = useState(false);
   const [showTokenStats, setShowTokenStats] = useState(false);
+
+  // 编辑消息相关状态
+  const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
+  const [editingContent, setEditingContent] = useState('');
+
+  // 编辑模式下的 ref
+  const editInputRef = useRef<HTMLTextAreaElement>(null);
 
   // 重新生成相关的状态和 ref
   // 使用状态机来确保操作的顺序性，避免 React 批量更新的竞态问题
@@ -213,6 +273,70 @@ export default function ChatSession({
       return () => clearTimeout(timer);
     }
   }, [isLoading, regeneratePhase]);
+
+  // 编辑模式下自动聚焦输入框
+  useEffect(() => {
+    if (editingMessageId && editInputRef.current) {
+      setTimeout(() => {
+        editInputRef.current?.focus();
+        editInputRef.current?.select();
+      }, 50);
+    }
+  }, [editingMessageId]);
+
+  // 开始编辑消息
+  const handleEditMessage = useCallback(
+    (messageId: string, content: string) => {
+      if (isLoading || regeneratePhase !== 'idle') return;
+      setEditingMessageId(messageId);
+      setEditingContent(content);
+    },
+    [isLoading, regeneratePhase]
+  );
+
+  // 取消编辑
+  const handleCancelEdit = useCallback(() => {
+    setEditingMessageId(null);
+    setEditingContent('');
+  }, []);
+
+  // 确认编辑并重新发送
+  const handleConfirmEdit = useCallback(
+    (messageId: string) => {
+      if (isLoading || regeneratePhase !== 'idle') return;
+      if (!editingContent.trim()) return;
+
+      // 找到该用户消息的索引
+      const messageIndex = messages.findIndex((m) => m.id === messageId);
+      if (messageIndex === -1) return;
+
+      const message = messages[messageIndex];
+      if (message.role !== 'user') return;
+
+      // 保存编辑后的用户消息信息到 ref
+      regenerateDataRef.current = {
+        userMessageId: messageId,
+        userMessageContent: editingContent.trim(),
+      };
+
+      // 保存截断后期望的消息长度
+      expectedMessageCountRef.current = messageIndex;
+
+      // 第一阶段：截断消息列表到用户消息之前（不包含用户消息）
+      const messagesBeforeUser = messages.slice(0, messageIndex);
+      setMessages(messagesBeforeUser);
+
+      // 重置编辑状态
+      setEditingMessageId(null);
+      setEditingContent('');
+
+      // 设置阶段为 truncated，触发 useEffect 执行下一步
+      setTimeout(() => {
+        setRegeneratePhase('truncated');
+      }, 0);
+    },
+    [messages, isLoading, regeneratePhase, editingContent, setMessages]
+  );
 
   // 重新生成消息
   const handleRegenerate = useCallback(
@@ -434,15 +558,57 @@ export default function ChatSession({
                       />
                     ))}
 
-                  {m.content &&
+                  {m.role === 'user' && editingMessageId === m.id ? (
+                    <textarea
+                      ref={editInputRef}
+                      value={editingContent}
+                      onChange={(e) => setEditingContent(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' && !e.shiftKey) {
+                          e.preventDefault();
+                          handleConfirmEdit(m.id);
+                        }
+                        if (e.key === 'Escape') {
+                          handleCancelEdit();
+                        }
+                      }}
+                      className="w-full resize-none border-0 bg-transparent text-[15px] leading-relaxed text-white placeholder:text-[#808080] focus:outline-none focus:ring-0"
+                      rows={Math.max(3, editingContent.split('\n').length)}
+                    />
+                  ) : (
+                    m.content &&
                     (m.role === 'user' ? (
                       <span className="whitespace-pre-wrap">{m.content}</span>
                     ) : (
                       <MarkdownRenderer content={m.content} />
-                    ))}
+                    ))
+                  )}
+
+                  {/* 编辑模式下的按钮 */}
+                  {m.role === 'user' && editingMessageId === m.id && (
+                    <div className="mt-2 flex items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        onClick={handleCancelEdit}
+                        className="inline-flex items-center gap-1 rounded px-3 py-1.5 text-[12px] text-white/80 transition-colors hover:bg-white/10"
+                      >
+                        <IconX className="h-3 w-3" />
+                        取消
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleConfirmEdit(m.id)}
+                        disabled={!editingContent.trim()}
+                        className="inline-flex items-center gap-1 rounded bg-white px-3 py-1.5 text-[12px] font-medium text-[#171717] transition-colors hover:bg-white/90 disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        <IconCheck className="h-3 w-3" />
+                        确认
+                      </button>
+                    </div>
+                  )}
                 </div>
 
-                {/* 消息操作栏：收藏按钮 + 重新生成按钮 + token 信息 */}
+                {/* 消息操作栏：收藏按钮 + 重新生成按钮 + token 信息 + 编辑按钮 */}
                 {m.role === 'assistant' && (
                   <div className="mt-1.5 flex items-center justify-between gap-2 px-1">
                     <div className="flex items-center gap-3 text-[10px] text-[#a3a3a3]">
@@ -483,6 +649,23 @@ export default function ChatSession({
                         </button>
                       )}
                     </div>
+                  </div>
+                )}
+
+                {/* 用户消息操作栏：编辑按钮 */}
+                {m.role === 'user' && editingMessageId !== m.id && (
+                  <div className="mt-1.5 flex items-center justify-end gap-1 px-1">
+                    {!isLoading && regeneratePhase === 'idle' && (
+                      <button
+                        type="button"
+                        onClick={() => handleEditMessage(m.id, m.content)}
+                        className="inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] text-[#737373] transition-colors hover:bg-[#f5f5f5] hover:text-[#171717]"
+                        title="编辑此消息"
+                      >
+                        <IconEdit className="h-3 w-3" />
+                        编辑
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
