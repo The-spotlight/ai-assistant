@@ -294,8 +294,8 @@ export default function TrashPanel({
         </div>
 
         {trashList.length > 0 && (
-          <div className="px-4 py-2 flex items-center justify-between border-b border-black/[0.06] bg-white">
-            <label className="flex items-center gap-2 cursor-pointer select-none">
+          <div className="px-4 py-2.5 flex items-center justify-between border-b border-black/[0.06] bg-white">
+            <label className="flex items-center gap-2.5 cursor-pointer select-none">
               <button
                 type="button"
                 onClick={toggleSelectAll}
@@ -305,8 +305,8 @@ export default function TrashPanel({
                   backgroundColor: allSelected || someSelected ? '#171717' : 'transparent',
                 }}
               >
-                {allSelected && <IconCheck className="h-3 w-3 text-white" />}
-                {someSelected && <IconMinus className="h-3 w-3 text-white" />}
+                {allSelected && <IconCheck className="h-2.5 w-2.5 text-white" />}
+                {someSelected && <IconMinus className="h-2.5 w-2.5 text-white" />}
               </button>
               <span className="text-xs text-[#737373]">
                 全选 {selectedIds.size > 0 && `(已选 ${selectedIds.size} 项)`}
@@ -314,11 +314,11 @@ export default function TrashPanel({
             </label>
 
             {selectedIds.size > 0 && (
-              <div className="flex items-center gap-1">
+              <div className="flex items-center gap-1.5">
                 <button
                   type="button"
                   onClick={handleBatchRestore}
-                  className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium text-[#171717] transition-colors hover:bg-[#f5f5f5]"
+                  className="flex h-7 items-center gap-1 rounded-lg px-2.5 text-xs font-medium text-[#171717] transition-colors hover:bg-[#f5f5f5]"
                 >
                   <IconRotateCcw className="h-3.5 w-3.5" />
                   恢复
@@ -326,7 +326,7 @@ export default function TrashPanel({
                 <button
                   type="button"
                   onClick={handleBatchDeleteClick}
-                  className="flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium text-[#ef4444] transition-colors hover:bg-[#fef2f2]"
+                  className="flex h-7 items-center gap-1 rounded-lg px-2.5 text-xs font-medium text-[#737373] transition-colors hover:bg-[#f5f5f5] hover:text-[#171717]"
                 >
                   <IconTrash className="h-3.5 w-3.5" />
                   删除
@@ -361,7 +361,7 @@ export default function TrashPanel({
                       aria-label={isSelected ? '取消选择' : '选择'}
                     >
                       <div
-                        className="flex h-3.5 w-3.5 items-center justify-center rounded border transition-colors"
+                        className="flex h-4 w-4 items-center justify-center rounded border transition-colors"
                         style={{
                           borderColor: isSelected ? '#171717' : '#d4d4d4',
                           backgroundColor: isSelected ? '#171717' : 'transparent',
@@ -475,7 +475,7 @@ export default function TrashPanel({
               <button
                 type="button"
                 onClick={handleConfirmBatchDelete}
-                className="rounded-lg bg-[#ef4444] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#dc2626]"
+                className="rounded-lg bg-[#171717] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-black"
               >
                 彻底删除
               </button>
