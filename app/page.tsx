@@ -636,17 +636,13 @@ function SidebarContent({
         <button
           type="button"
           onClick={onOpenFavorites}
-          className={`relative flex items-center justify-center rounded-lg p-2 transition-colors ${
-            favorites.length > 0
-              ? 'text-[#f59e0b] hover:bg-[#fef3c7]'
-              : 'text-[#a3a3a3] hover:bg-[#f5f5f5] hover:text-[#171717]'
-          } ${isNarrow ? 'p-1.5' : ''}`}
+          className={`relative flex items-center justify-center rounded-lg p-2 transition-colors text-[#a3a3a3] hover:bg-[#f5f5f5] hover:text-[#171717] ${isNarrow ? 'p-1.5' : ''}`}
           title="我的收藏"
           aria-label="打开收藏列表"
         >
           <IconBookmark className={`h-5 w-5 ${isNarrow ? 'h-4 w-4' : ''}`} filled={favorites.length > 0} />
           {favorites.length > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-[#f59e0b] text-[10px] font-medium text-white">
+            <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-[#171717] text-[10px] font-medium text-white">
               {favorites.length > 99 ? '99+' : favorites.length}
             </span>
           )}
@@ -654,17 +650,13 @@ function SidebarContent({
         <button
           type="button"
           onClick={onOpenTrash}
-          className={`relative flex items-center justify-center rounded-lg p-2 transition-colors ${
-            trashList.length > 0
-              ? 'text-[#dc2626] hover:bg-[#fef2f2]'
-              : 'text-[#a3a3a3] hover:bg-[#f5f5f5] hover:text-[#171717]'
-          } ${isNarrow ? 'p-1.5' : ''}`}
+          className={`relative flex items-center justify-center rounded-lg p-2 transition-colors text-[#a3a3a3] hover:bg-[#f5f5f5] hover:text-[#171717] ${isNarrow ? 'p-1.5' : ''}`}
           title="回收站"
           aria-label="打开回收站"
         >
           <IconTrash className={`h-5 w-5 ${isNarrow ? 'h-4 w-4' : ''}`} />
           {trashList.length > 0 && (
-            <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-[#dc2626] text-[10px] font-medium text-white">
+            <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-[#171717] text-[10px] font-medium text-white">
               {trashList.length > 99 ? '99+' : trashList.length}
             </span>
           )}
