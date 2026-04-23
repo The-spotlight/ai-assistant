@@ -255,6 +255,10 @@ function SidebarContent({
   const [editingTitle, setEditingTitle] = useState<string>('');
   const editingInputRef = useRef<HTMLInputElement>(null);
 
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<boolean>(false);
+  const [deletingConversationId, setDeletingConversationId] = useState<string | null>(null);
+  const [deletingTitle, setDeletingTitle] = useState<string>('');
+
   const { pinnedConversations, unpinnedConversations } = useMemo(() => {
     const pinned: ConversationRow[] = [];
     const unpinned: ConversationRow[] = [];
@@ -437,6 +441,108 @@ function SidebarContent({
         )}
       </div>
 
+      {/* 回收站入口 */}
+      {!showSearchResults && trashList.length > 0 && (
+        <div className={`mb-3 ${isNarrow ? 'mb-2' : ''}`}>
+          <button
+            type="button"
+            onClick={() => {
+              setShowTrash(!showTrash);
+              if (!showTrash) {
+                setShowFavorites(false);
+              }
+            }}
+            className={`flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
+              showTrash
+                ? 'bg-[#f5f5f5] text-[#171717]'
+                : 'bg-[#fafafa] text-[#737373] hover:bg-[#f5f5f5] hover:text-[#171717]'
+            } ${isNarrow ? 'px-2 py-1.5 text-xs' : ''}`}
+          >
+            <div className="flex items-center gap-2">
+              <IconTrash className={`h-4 w-4 ${isNarrow ? 'h-3.5 w-3.5' : ''}`} />
+              <AdaptiveText narrow="回收站" wide="回收站">
+                回收站
+              </AdaptiveText>
+              <span className={`rounded-full px-2 py-0.5 text-xs ${
+                showTrash
+                  ? 'bg-[#e5e5e5] text-[#525252]'
+                  : 'bg-[#e5e5e5] text-[#737373]'
+              }`}>
+                {trashList.length}
+              </span>
+            </div>
+            {showTrash ? (
+              <IconChevronUp className="h-4 w-4" />
+            ) : (
+              <IconChevronDown className="h-4 w-4" />
+            )}
+          </button>
+
+          {showTrash && (
+            <div className="mt-2 flex flex-col gap-0.5">
+              <p className="px-1 text-[10px] text-[#a3a3a3]">
+                删除后保留 7 天，可恢复或彻底删除
+              </p>
+              {trashList.map((c) => {
+                const handleDeleteClick = (e: React.MouseEvent) => {
+                  e.stopPropagation();
+                  setDeletingConversationId(c.id);
+                  setDeletingTitle(c.title?.trim() || '新对话');
+                  setShowDeleteConfirm(true);
+                };
+
+                return (
+                  <div
+                    key={c.id}
+                    className={`group relative flex items-stretch gap-0 overflow-hidden rounded-xl border border-[#e5e5e5] bg-white transition-colors`}
+                  >
+                    <button
+                      type="button"
+                      className={`min-w-0 flex-1 ${itemPadding} text-left`}
+                    >
+                      <span className={`${titleLines} text-[13px] font-medium leading-snug text-[#737373] ${
+                        isNarrow ? 'text-[12px]' : ''
+                      } ${isWide ? 'text-sm' : ''}`}>
+                        {c.title?.trim() || '新对话'}
+                      </span>
+                      {showTime && (
+                        <span className={`mt-1 block text-[11px] text-[#a3a3a3] ${
+                          isWide ? 'text-xs' : ''
+                        }`}>
+                          删除于 {formatRelativeTime(c.deletedAt)}
+                        </span>
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="恢复会话"
+                      onClick={(e) => restoreConversation(c.id, e)}
+                      className={`flex w-9 shrink-0 items-center justify-center text-[#a3a3a3] opacity-0 transition hover:bg-[#f5f5f5] hover:text-[#171717] group-hover:opacity-100 ${
+                        isNarrow ? 'w-7' : ''
+                      }`}
+                      title="恢复会话"
+                    >
+                      <IconRotateCcw className={`h-4 w-4 ${isNarrow ? 'h-3.5 w-3.5' : ''}`} />
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="彻底删除"
+                      onClick={handleDeleteClick}
+                      className={`flex w-9 shrink-0 items-center justify-center text-[#a3a3a3] opacity-0 transition hover:bg-[#e5e5e5] hover:text-[#171717] group-hover:opacity-100 ${
+                        isNarrow ? 'w-7' : ''
+                      }`}
+                      title="彻底删除（不可恢复）"
+                    >
+                      <IconTrash className={`h-4 w-4 ${isNarrow ? 'h-3.5 w-3.5' : ''}`} />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* 我的收藏入口 */}
       {!showSearchResults && favorites.length > 0 && (
         <div className={`mb-3 ${isNarrow ? 'mb-2' : ''}`}>
@@ -559,97 +665,6 @@ function SidebarContent({
                         ))}
                       </div>
                     )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* 回收站入口 */}
-      {!showSearchResults && trashList.length > 0 && (
-        <div className={`mb-3 ${isNarrow ? 'mb-2' : ''}`}>
-          <button
-            type="button"
-            onClick={() => setShowTrash(!showTrash)}
-            className={`flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
-              showTrash
-                ? 'bg-[#fef3c7] text-[#92400e]'
-                : 'bg-[#fafafa] text-[#737373] hover:bg-[#f5f5f5] hover:text-[#171717]'
-            } ${isNarrow ? 'px-2 py-1.5 text-xs' : ''}`}
-          >
-            <div className="flex items-center gap-2">
-              <IconTrash className={`h-4 w-4 ${isNarrow ? 'h-3.5 w-3.5' : ''}`} />
-              <AdaptiveText narrow="回收站" wide="回收站">
-                回收站
-              </AdaptiveText>
-              <span className={`rounded-full px-2 py-0.5 text-xs ${
-                showTrash
-                  ? 'bg-[#fcd34d] text-[#92400e]'
-                  : 'bg-[#e5e5e5] text-[#737373]'
-              }`}>
-                {trashList.length}
-              </span>
-            </div>
-            {showTrash ? (
-              <IconChevronUp className="h-4 w-4" />
-            ) : (
-              <IconChevronDown className="h-4 w-4" />
-            )}
-          </button>
-
-          {/* 回收站列表 */}
-          {showTrash && (
-            <div className="mt-2 flex flex-col gap-0.5">
-              <p className="px-1 text-[10px] text-[#a3a3a3]">
-                删除后保留 7 天，可恢复或彻底删除
-              </p>
-              {trashList.map((c) => {
-                return (
-                  <div
-                    key={c.id}
-                    className={`group relative flex items-stretch gap-0 overflow-hidden rounded-xl border border-[#e5e5e5] bg-white transition-colors`}
-                  >
-                    <button
-                      type="button"
-                      className={`min-w-0 flex-1 ${itemPadding} text-left`}
-                    >
-                      <span className={`${titleLines} text-[13px] font-medium leading-snug text-[#737373] ${
-                        isNarrow ? 'text-[12px]' : ''
-                      } ${isWide ? 'text-sm' : ''}`}>
-                        {c.title?.trim() || '新对话'}
-                      </span>
-                      {showTime && (
-                        <span className={`mt-1 block text-[11px] text-[#a3a3a3] ${
-                          isWide ? 'text-xs' : ''
-                        }`}>
-                          删除于 {formatRelativeTime(c.deletedAt)}
-                        </span>
-                      )}
-                    </button>
-                    <button
-                      type="button"
-                      aria-label="恢复会话"
-                      onClick={(e) => restoreConversation(c.id, e)}
-                      className={`flex w-9 shrink-0 items-center justify-center text-[#a3a3a3] opacity-0 transition hover:bg-emerald-50 hover:text-emerald-600 group-hover:opacity-100 ${
-                        isNarrow ? 'w-7' : ''
-                      }`}
-                      title="恢复会话"
-                    >
-                      <IconRotateCcw className={`h-4 w-4 ${isNarrow ? 'h-3.5 w-3.5' : ''}`} />
-                    </button>
-                    <button
-                      type="button"
-                      aria-label="彻底删除"
-                      onClick={(e) => deleteFromTrash(c.id, e)}
-                      className={`flex w-9 shrink-0 items-center justify-center text-[#a3a3a3] opacity-0 transition hover:bg-red-50 hover:text-red-600 group-hover:opacity-100 ${
-                        isNarrow ? 'w-7' : ''
-                      }`}
-                      title="彻底删除（不可恢复）"
-                    >
-                      <IconTrash className={`h-4 w-4 ${isNarrow ? 'h-3.5 w-3.5' : ''}`} />
-                    </button>
                   </div>
                 );
               })}
@@ -951,6 +966,50 @@ function SidebarContent({
             })}
           </div>
         </>
+      )}
+
+      {/* 确认弹窗 */}
+      {showDeleteConfirm && deletingConversationId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
+          <div className="mx-4 w-full max-w-xs rounded-2xl border border-black/[0.08] bg-white p-5 shadow-lg">
+            <h3 className="mb-2 text-sm font-semibold text-[#171717]">彻底删除确认</h3>
+            <p className="mb-5 text-sm text-[#737373]">
+              确定要彻底删除「<span className="font-medium text-[#171717]">{deletingTitle}</span>」吗？
+            </p>
+            <p className="mb-5 text-xs text-[#a3a3a3]">
+              此操作不可恢复，删除后将无法找回此会话。
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  setDeletingConversationId(null);
+                  setDeletingTitle('');
+                }}
+                className="rounded-lg px-4 py-2 text-sm text-[#737373] transition-colors hover:bg-[#f5f5f5] hover:text-[#171717]"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (deletingConversationId) {
+                    await deleteFromTrash(deletingConversationId, {
+                      stopPropagation: () => {},
+                    } as React.MouseEvent);
+                  }
+                  setShowDeleteConfirm(false);
+                  setDeletingConversationId(null);
+                  setDeletingTitle('');
+                }}
+                className="rounded-lg bg-[#171717] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-black"
+              >
+                彻底删除
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </>
   );
