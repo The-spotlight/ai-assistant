@@ -4,6 +4,8 @@ import type { Message } from 'ai';
 import { useCallback, useEffect, useState, useRef, useMemo } from 'react';
 import ChatSession from '@/components/ChatSession';
 import FavoriteToastPanel from '@/components/FavoriteToastPanel';
+import FavoritePanel from '@/components/FavoritePanel';
+import TrashPanel from '@/components/TrashPanel';
 import ResizablePanel, { useLayoutContext, AdaptiveText } from '@/components/ResizablePanel';
 import { DEFAULT_OPENROUTER_MODEL_ID, FIXED_OPENROUTER_MODEL_LABEL } from '@/lib/openrouter-models';
 import { CONVERSATION_STORAGE_KEY, getOrCreateDeviceId } from '@/lib/device';
@@ -318,6 +320,7 @@ function SidebarContent({
 
   return (
     <>
+      {/* 新对话按钮 */}
       <button
         type="button"
         onClick={() => newChat()}
@@ -332,6 +335,102 @@ function SidebarContent({
         </AdaptiveText>
       </button>
       
+      {/* 置顶会话（固定在最上面） */}
+      {!showSearchResults && pinnedConversations.length > 0 && (
+        <>
+          <div className={`mb-2 flex items-center justify-between px-1 ${
+            isNarrow ? 'mb-1' : ''
+          }`}>
+            <p className="text-[11px] font-medium uppercase tracking-wider text-[#a3a3a3]">
+              置顶会话
+            </p>
+          </div>
+          <div className="mb-3 flex flex-col gap-0.5">
+            {pinnedConversations.map((c) => {
+              const active = chatPayload?.conversationId === c.id;
+              return (
+                <div
+                  key={c.id}
+                  className={`group relative flex items-stretch gap-0 overflow-hidden rounded-xl border transition-colors ${
+                    active
+                      ? 'border-black/[0.08] bg-[#f4f4f5]'
+                      : 'border-transparent hover:bg-[#fafafa]'
+                  }`}
+                >
+                  <div className="w-1 shrink-0 bg-[#f59e0b] rounded-l-xl" />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (editingConversationId !== c.id) {
+                        void selectConversation(c.id);
+                      }
+                    }}
+                    onDoubleClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      startEditing(c.id, c.title);
+                    }}
+                    className={`min-w-0 flex-1 ${itemPadding} text-left`}
+                    title={editingConversationId === c.id ? '编辑中...' : `双击重命名: ${c.title ?? '新对话'}`}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <IconPin className={`h-3 w-3 shrink-0 text-[#f59e0b] ${isNarrow ? 'h-2.5 w-2.5' : ''}`} filled />
+                      {editingConversationId === c.id ? (
+                        <input
+                          ref={editingInputRef}
+                          type="text"
+                          value={editingTitle}
+                          onChange={(e) => setEditingTitle(e.target.value)}
+                          onClick={(e) => e.stopPropagation()}
+                          className={`w-full min-w-0 bg-white border border-[#171717]/[0.12] rounded-lg px-2 py-1 text-[13px] font-medium leading-snug text-[#171717] shadow-sm focus:outline-none focus:ring-2 focus:ring-[#171717]/20 focus:border-[#171717]/20 transition-all ${
+                            isNarrow ? 'text-[12px] px-1.5 py-0.5' : ''
+                          } ${isWide ? 'text-sm px-2.5 py-1.5' : ''}`}
+                          placeholder="输入新标题..."
+                        />
+                      ) : (
+                        <span className={`${titleLines} text-[13px] font-medium leading-snug text-[#171717] ${
+                          isNarrow ? 'text-[12px]' : ''
+                        } ${isWide ? 'text-sm' : ''}`}>
+                          {c.title?.trim() || '新对话'}
+                        </span>
+                      )}
+                    </div>
+                    {showTime && editingConversationId !== c.id && (
+                      <span className={`mt-1 block text-[11px] text-[#a3a3a3] ${
+                        isWide ? 'text-xs' : ''
+                      }`}>
+                        {formatRelativeTime(c.updatedAt)}
+                      </span>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="取消置顶"
+                    onClick={(e) => togglePin(c.id, e)}
+                    className={`flex w-9 shrink-0 items-center justify-center text-[#f59e0b] opacity-0 transition hover:bg-amber-50 group-hover:opacity-100 ${
+                      isNarrow ? 'w-7' : ''
+                    }`}
+                    title="取消置顶"
+                  >
+                    <IconPin className={`h-4 w-4 ${isNarrow ? 'h-3.5 w-3.5' : ''}`} filled />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="删除会话"
+                    onClick={(e) => deleteConversation(c.id, e)}
+                    className={`flex w-9 shrink-0 items-center justify-center text-[#a3a3a3] opacity-0 transition hover:bg-red-50 hover:text-red-600 group-hover:opacity-100 ${
+                      isNarrow ? 'w-7' : ''
+                    }`}
+                  >
+                    <IconTrash className={`h-4 w-4 ${isNarrow ? 'h-3.5 w-3.5' : ''}`} />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+
       {/* 搜索框 */}
       <div className={`mb-3 relative ${isNarrow ? 'mb-2' : ''}`}>
         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -364,244 +463,10 @@ function SidebarContent({
         )}
       </div>
 
-      {/* 回收站入口 */}
-      {!showSearchResults && trashList.length > 0 && (
-        <div className={`mb-3 ${isNarrow ? 'mb-2' : ''}`}>
-          <button
-            type="button"
-            onClick={() => {
-              setShowTrash(!showTrash);
-              if (!showTrash) {
-                setShowFavorites(false);
-              }
-            }}
-            className={`flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
-              showTrash
-                ? 'bg-[#f5f5f5] text-[#171717]'
-                : 'bg-[#fafafa] text-[#737373] hover:bg-[#f5f5f5] hover:text-[#171717]'
-            } ${isNarrow ? 'px-2 py-1.5 text-xs' : ''}`}
-          >
-            <div className="flex items-center gap-2">
-              <IconTrash className={`h-4 w-4 ${isNarrow ? 'h-3.5 w-3.5' : ''}`} />
-              <AdaptiveText narrow="回收站" wide="回收站">
-                回收站
-              </AdaptiveText>
-              <span className={`rounded-full px-2 py-0.5 text-xs ${
-                showTrash
-                  ? 'bg-[#e5e5e5] text-[#525252]'
-                  : 'bg-[#e5e5e5] text-[#737373]'
-              }`}>
-                {trashList.length}
-              </span>
-            </div>
-            {showTrash ? (
-              <IconChevronUp className="h-4 w-4" />
-            ) : (
-              <IconChevronDown className="h-4 w-4" />
-            )}
-          </button>
-
-          {showTrash && (
-            <div className="mt-2 flex flex-col gap-0.5">
-              <p className="px-1 text-[10px] text-[#a3a3a3]">
-                删除后保留 7 天，可恢复或彻底删除
-              </p>
-              {trashList.map((c) => {
-                const handleDeleteClick = (e: React.MouseEvent) => {
-                  e.stopPropagation();
-                  setDeletingConversationId(c.id);
-                  setDeletingTitle(c.title?.trim() || '新对话');
-                  setShowDeleteConfirm(true);
-                };
-
-                return (
-                  <div
-                    key={c.id}
-                    className={`group relative flex items-stretch gap-0 overflow-hidden rounded-xl border border-[#e5e5e5] bg-white transition-colors`}
-                  >
-                    <button
-                      type="button"
-                      className={`min-w-0 flex-1 ${itemPadding} text-left`}
-                    >
-                      <span className={`${titleLines} text-[13px] font-medium leading-snug text-[#737373] ${
-                        isNarrow ? 'text-[12px]' : ''
-                      } ${isWide ? 'text-sm' : ''}`}>
-                        {c.title?.trim() || '新对话'}
-                      </span>
-                      {showTime && (
-                        <span className={`mt-1 block text-[11px] text-[#a3a3a3] ${
-                          isWide ? 'text-xs' : ''
-                        }`}>
-                          删除于 {formatRelativeTime(c.deletedAt)}
-                        </span>
-                      )}
-                    </button>
-                    <button
-                      type="button"
-                      aria-label="恢复会话"
-                      onClick={(e) => restoreConversation(c.id, e)}
-                      className={`flex w-9 shrink-0 items-center justify-center text-[#a3a3a3] opacity-0 transition hover:bg-[#f5f5f5] hover:text-[#171717] group-hover:opacity-100 ${
-                        isNarrow ? 'w-7' : ''
-                      }`}
-                      title="恢复会话"
-                    >
-                      <IconRotateCcw className={`h-4 w-4 ${isNarrow ? 'h-3.5 w-3.5' : ''}`} />
-                    </button>
-                    <button
-                      type="button"
-                      aria-label="彻底删除"
-                      onClick={handleDeleteClick}
-                      className={`flex w-9 shrink-0 items-center justify-center text-[#a3a3a3] opacity-0 transition hover:bg-[#e5e5e5] hover:text-[#171717] group-hover:opacity-100 ${
-                        isNarrow ? 'w-7' : ''
-                      }`}
-                      title="彻底删除（不可恢复）"
-                    >
-                      <IconTrash className={`h-4 w-4 ${isNarrow ? 'h-3.5 w-3.5' : ''}`} />
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* 我的收藏入口 */}
-      {!showSearchResults && favorites.length > 0 && (
-        <div className={`mb-3 ${isNarrow ? 'mb-2' : ''}`}>
-          <button
-            type="button"
-            onClick={() => setShowFavorites(!showFavorites)}
-            className={`flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
-              showFavorites
-                ? 'bg-[#fef3c7] text-[#92400e]'
-                : 'bg-[#fafafa] text-[#737373] hover:bg-[#f5f5f5] hover:text-[#171717]'
-            } ${isNarrow ? 'px-2 py-1.5 text-xs' : ''}`}
-          >
-            <div className="flex items-center gap-2">
-              <IconBookmark className={`h-4 w-4 ${isNarrow ? 'h-3.5 w-3.5' : ''}`} filled={showFavorites} />
-              <AdaptiveText narrow="收藏" wide="我的收藏">
-                我的收藏
-              </AdaptiveText>
-              <span className={`rounded-full px-2 py-0.5 text-xs ${
-                showFavorites
-                  ? 'bg-[#fcd34d] text-[#92400e]'
-                  : 'bg-[#e5e5e5] text-[#737373]'
-              }`}>
-                {favorites.length}
-              </span>
-            </div>
-            {showFavorites ? (
-              <IconChevronUp className="h-4 w-4" />
-            ) : (
-              <IconChevronDown className="h-4 w-4" />
-            )}
-          </button>
-
-          {/* 收藏列表（按对话分组） */}
-          {showFavorites && (
-            <div className="mt-2 flex flex-col gap-1">
-              {Array.from(favoritesByConversation.entries()).map(([conversationId, conversationData]) => {
-                const isExpanded = conversationId === firstConversationId
-                  ? !firstGroupCollapsed
-                  : otherGroupsExpanded.has(conversationId);
-
-                return (
-                  <div key={conversationId} className="flex flex-col gap-0.5">
-                    <button
-                      type="button"
-                      onClick={() => toggleConversationGroup(conversationId)}
-                      className={`flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-xs font-medium transition-colors ${
-                        isExpanded
-                          ? 'bg-[#f5f5f5] text-[#171717]'
-                          : 'bg-[#fafafa] text-[#737373] hover:bg-[#f5f5f5] hover:text-[#525252]'
-                      } ${isNarrow ? 'px-1.5 py-1' : ''}`}
-                    >
-                      <div className="flex items-center gap-2 min-w-0">
-                        {isExpanded ? (
-                          <IconChevronUp className="h-3 w-3 shrink-0" />
-                        ) : (
-                          <IconChevronDown className="h-3 w-3 shrink-0" />
-                        )}
-                        <span className="truncate">
-                          {conversationData.conversationTitle?.trim() || '新对话'}
-                        </span>
-                        <span className={`shrink-0 rounded-full px-1.5 py-0.5 text-[10px] ${
-                          isExpanded
-                            ? 'bg-[#e5e5e5] text-[#525252]'
-                            : 'bg-[#e5e5e5] text-[#737373]'
-                        }`}>
-                          {conversationData.favorites.length}
-                        </span>
-                      </div>
-                      {showTime && (
-                        <span className="shrink-0 text-[10px] text-[#a3a3a3]">
-                          {formatRelativeTime(conversationData.latestFavoriteAt)}
-                        </span>
-                      )}
-                    </button>
-
-                    {isExpanded && (
-                      <div className="flex flex-col gap-0.5 ml-2">
-                        {conversationData.favorites.map((fav) => (
-                          <div
-                            key={fav.id}
-                            className="group flex items-stretch gap-0 overflow-hidden rounded-lg border border-[#e5e5e5] bg-white transition-colors"
-                          >
-                            <button
-                              type="button"
-                              onClick={() => handleFavoriteClick(fav.conversationId, fav.messageId)}
-                              className={`min-w-0 flex-1 flex flex-col items-start gap-0.5 rounded-l-lg px-3 py-2 text-left transition-colors hover:bg-[#fafafa] ${
-                                isNarrow ? 'px-2 py-1.5' : ''
-                              } ${isWide ? 'px-4 py-2.5' : ''}`}
-                            >
-                              <div className="flex items-center gap-2 w-full">
-                                <span className="text-[10px] font-medium text-[#a3a3a3]">
-                                  {fav.messageRole === 'user' ? '我' : 'AI'}
-                                </span>
-                                {showTime && (
-                                  <span className="shrink-0 text-[10px] text-[#a3a3a3]">
-                                    {formatRelativeTime(fav.createdAt)}
-                                  </span>
-                                )}
-                              </div>
-                              <p className={`text-xs text-[#737373] leading-relaxed ${
-                                isWide ? 'line-clamp-3' : 'line-clamp-2'
-                              }`}>
-                                {fav.messageContent.length > 100
-                                  ? fav.messageContent.slice(0, 100) + '...'
-                                  : fav.messageContent}
-                              </p>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(e) => handleUnfavorite(fav.id, e)}
-                              className={`flex w-8 shrink-0 items-center justify-center text-[#a3a3a3] opacity-0 transition hover:bg-[#f5f5f5] hover:text-[#525252] rounded-r-lg group-hover:opacity-100 ${
-                                isNarrow ? 'w-7' : ''
-                              }`}
-                              title="取消收藏"
-                              aria-label="取消收藏"
-                            >
-                              <IconX className={`h-3.5 w-3.5 ${isNarrow ? 'h-3 w-3' : ''}`} />
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* 搜索结果或历史会话列表 */}
+      {/* 搜索结果或普通会话列表 */}
       {showSearchResults ? (
-        // 搜索结果展示
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto pr-0.5">
           {isSearching ? (
-            // 搜索中状态
             <div className="flex flex-col items-center justify-center py-8">
               <div className="flex gap-1.5 mb-3">
                 <span className="h-2 w-2 animate-bounce rounded-full bg-[#171717]/70 [animation-delay:-0.2s]" />
@@ -611,18 +476,15 @@ function SidebarContent({
               <p className="text-sm text-[#a3a3a3]">正在搜索...</p>
             </div>
           ) : searchResults.length === 0 ? (
-            // 无搜索结果状态
             <div className="flex flex-col items-center justify-center py-8">
               <IconSearch className="h-8 w-8 text-[#d4d4d4] mb-3" />
               <p className="text-sm font-medium text-[#737373] mb-1">未找到相关结果</p>
               <p className="text-xs text-[#a3a3a3]">尝试使用其他关键词</p>
             </div>
           ) : (
-            // 搜索结果列表
             <div className="flex flex-col gap-0.5">
               {searchResults.map((result) => (
                 <div key={result.conversationId} className="flex flex-col">
-                  {/* 会话标题 */}
                   <button
                     type="button"
                     onClick={() => handleSearchResultClick(result.conversationId)}
@@ -645,7 +507,6 @@ function SidebarContent({
                     )}
                   </button>
                   
-                  {/* 匹配的消息列表 */}
                   {!isNarrow && result.matchedMessages.map((msg) => (
                     <button
                       key={msg.id}
@@ -671,132 +532,16 @@ function SidebarContent({
           )}
         </div>
       ) : (
-        // 历史会话列表
         <>
-          {/* 置顶会话 */}
-          {pinnedConversations.length > 0 && (
-            <>
-              <div className={`mb-2 flex items-center justify-between px-1 ${
-                isNarrow ? 'mb-1' : ''
-              }`}>
-                <p className="text-[11px] font-medium uppercase tracking-wider text-[#a3a3a3]">
-                  置顶会话
-                </p>
-                <button
-                  type="button"
-                  onClick={() => setPinnedCollapsed(!pinnedCollapsed)}
-                  className="flex items-center justify-center rounded px-1 text-[#a3a3a3] transition hover:bg-[#f5f5f5] hover:text-[#171717]"
-                  title={pinnedCollapsed ? '展开置顶会话' : '折叠置顶会话'}
-                >
-                  {pinnedCollapsed ? (
-                    <IconChevronDown className="h-3.5 w-3.5" />
-                  ) : (
-                    <IconChevronUp className="h-3.5 w-3.5" />
-                  )}
-                </button>
-              </div>
-              {!pinnedCollapsed && (
-                <div className="mb-3 flex flex-col gap-0.5">
-                  {pinnedConversations.map((c) => {
-                  const active = chatPayload?.conversationId === c.id;
-                  return (
-                    <div
-                      key={c.id}
-                      className={`group relative flex items-stretch gap-0 overflow-hidden rounded-xl border transition-colors ${
-                        active
-                          ? 'border-black/[0.08] bg-[#f4f4f5]'
-                          : 'border-transparent hover:bg-[#fafafa]'
-                      }`}
-                    >
-                      {/* 置顶视觉区分：左侧竖条 */}
-                      <div className="w-1 shrink-0 bg-[#f59e0b] rounded-l-xl" />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (editingConversationId !== c.id) {
-                            void selectConversation(c.id);
-                          }
-                        }}
-                        onDoubleClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          startEditing(c.id, c.title);
-                        }}
-                        className={`min-w-0 flex-1 ${itemPadding} text-left`}
-                        title={editingConversationId === c.id ? '编辑中...' : `双击重命名: ${c.title ?? '新对话'}`}
-                      >
-                        <div className="flex items-center gap-1.5">
-                          <IconPin className={`h-3 w-3 shrink-0 text-[#f59e0b] ${isNarrow ? 'h-2.5 w-2.5' : ''}`} filled />
-                          {editingConversationId === c.id ? (
-                            <input
-                              ref={editingInputRef}
-                              type="text"
-                              value={editingTitle}
-                              onChange={(e) => setEditingTitle(e.target.value)}
-                              onClick={(e) => e.stopPropagation()}
-                              className={`w-full min-w-0 bg-white border border-[#171717]/[0.12] rounded-lg px-2 py-1 text-[13px] font-medium leading-snug text-[#171717] shadow-sm focus:outline-none focus:ring-2 focus:ring-[#171717]/20 focus:border-[#171717]/20 transition-all ${
-                                isNarrow ? 'text-[12px] px-1.5 py-0.5' : ''
-                              } ${isWide ? 'text-sm px-2.5 py-1.5' : ''}`}
-                              placeholder="输入新标题..."
-                            />
-                          ) : (
-                            <span className={`${titleLines} text-[13px] font-medium leading-snug text-[#171717] ${
-                              isNarrow ? 'text-[12px]' : ''
-                            } ${isWide ? 'text-sm' : ''}`}>
-                              {c.title?.trim() || '新对话'}
-                            </span>
-                          )}
-                        </div>
-                        {showTime && editingConversationId !== c.id && (
-                          <span className={`mt-1 block text-[11px] text-[#a3a3a3] ${
-                            isWide ? 'text-xs' : ''
-                          }`}>
-                            {formatRelativeTime(c.updatedAt)}
-                          </span>
-                        )}
-                        {showWideInfo && editingConversationId !== c.id && (
-                          <span className="mt-0.5 block text-[10px] text-[#d4d4d4]">
-                            ID: {c.id.slice(0, 8)}
-                          </span>
-                        )}
-                      </button>
-                      <button
-                        type="button"
-                        aria-label="取消置顶"
-                        onClick={(e) => togglePin(c.id, e)}
-                        className={`flex w-9 shrink-0 items-center justify-center text-[#f59e0b] opacity-0 transition hover:bg-amber-50 group-hover:opacity-100 ${
-                          isNarrow ? 'w-7' : ''
-                        }`}
-                        title="取消置顶"
-                      >
-                        <IconPin className={`h-4 w-4 ${isNarrow ? 'h-3.5 w-3.5' : ''}`} filled />
-                      </button>
-                      <button
-                        type="button"
-                        aria-label="删除会话"
-                        onClick={(e) => deleteConversation(c.id, e)}
-                        className={`flex w-9 shrink-0 items-center justify-center text-[#a3a3a3] opacity-0 transition hover:bg-red-50 hover:text-red-600 group-hover:opacity-100 ${
-                          isNarrow ? 'w-7' : ''
-                        }`}
-                      >
-                        <IconTrash className={`h-4 w-4 ${isNarrow ? 'h-3.5 w-3.5' : ''}`} />
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-              )}
-            </>
+          {unpinnedConversations.length > 0 && (
+            <p className={`mb-2 px-1 text-[11px] font-medium uppercase tracking-wider text-[#a3a3a3] ${
+              isNarrow ? 'mb-1 text-[10px]' : ''
+            }`}>
+              <AdaptiveText narrow="会话" wide="历史会话列表">
+                历史会话
+              </AdaptiveText>
+            </p>
           )}
-
-          {/* 普通会话 */}
-          <p className={`mb-2 px-1 text-[11px] font-medium uppercase tracking-wider text-[#a3a3a3] ${
-            isNarrow ? 'mb-1 text-[10px]' : ''
-          }`}>
-            <AdaptiveText narrow="会话" wide="历史会话列表">
-              历史会话
-            </AdaptiveText>
-          </p>
           <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto pr-0.5">
             {unpinnedConversations.length === 0 && pinnedConversations.length === 0 && !loadingMain && (
               <p className="px-2 py-6 text-center text-[13px] leading-relaxed text-[#a3a3a3]">
@@ -855,11 +600,6 @@ function SidebarContent({
                             {formatRelativeTime(c.updatedAt)}
                           </span>
                         )}
-                        {showWideInfo && (
-                          <span className="mt-0.5 block text-[10px] text-[#d4d4d4]">
-                            ID: {c.id.slice(0, 8)}
-                          </span>
-                        )}
                       </>
                     )}
                   </button>
@@ -891,49 +631,45 @@ function SidebarContent({
         </>
       )}
 
-      {/* 确认弹窗 */}
-      {showDeleteConfirm && deletingConversationId && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-          <div className="mx-4 w-full max-w-xs rounded-2xl border border-black/[0.08] bg-white p-5 shadow-lg">
-            <h3 className="mb-2 text-sm font-semibold text-[#171717]">彻底删除确认</h3>
-            <p className="mb-5 text-sm text-[#737373]">
-              确定要彻底删除「<span className="font-medium text-[#171717]">{deletingTitle}</span>」吗？
-            </p>
-            <p className="mb-5 text-xs text-[#a3a3a3]">
-              此操作不可恢复，删除后将无法找回此会话。
-            </p>
-            <div className="flex justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setShowDeleteConfirm(false);
-                  setDeletingConversationId(null);
-                  setDeletingTitle('');
-                }}
-                className="rounded-lg px-4 py-2 text-sm text-[#737373] transition-colors hover:bg-[#f5f5f5] hover:text-[#171717]"
-              >
-                取消
-              </button>
-              <button
-                type="button"
-                onClick={async () => {
-                  if (deletingConversationId) {
-                    await deleteFromTrash(deletingConversationId, {
-                      stopPropagation: () => {},
-                    } as React.MouseEvent);
-                  }
-                  setShowDeleteConfirm(false);
-                  setDeletingConversationId(null);
-                  setDeletingTitle('');
-                }}
-                className="rounded-lg bg-[#171717] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-black"
-              >
-                彻底删除
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* 底部图标按钮：收藏和回收站 */}
+      <div className="flex items-center justify-center gap-2 pt-3 border-t border-black/[0.08]">
+        <button
+          type="button"
+          onClick={onOpenFavorites}
+          className={`relative flex items-center justify-center rounded-lg p-2 transition-colors ${
+            favorites.length > 0
+              ? 'text-[#f59e0b] hover:bg-[#fef3c7]'
+              : 'text-[#a3a3a3] hover:bg-[#f5f5f5] hover:text-[#171717]'
+          } ${isNarrow ? 'p-1.5' : ''}`}
+          title="我的收藏"
+          aria-label="打开收藏列表"
+        >
+          <IconBookmark className={`h-5 w-5 ${isNarrow ? 'h-4 w-4' : ''}`} filled={favorites.length > 0} />
+          {favorites.length > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-[#f59e0b] text-[10px] font-medium text-white">
+              {favorites.length > 99 ? '99+' : favorites.length}
+            </span>
+          )}
+        </button>
+        <button
+          type="button"
+          onClick={onOpenTrash}
+          className={`relative flex items-center justify-center rounded-lg p-2 transition-colors ${
+            trashList.length > 0
+              ? 'text-[#dc2626] hover:bg-[#fef2f2]'
+              : 'text-[#a3a3a3] hover:bg-[#f5f5f5] hover:text-[#171717]'
+          } ${isNarrow ? 'p-1.5' : ''}`}
+          title="回收站"
+          aria-label="打开回收站"
+        >
+          <IconTrash className={`h-5 w-5 ${isNarrow ? 'h-4 w-4' : ''}`} />
+          {trashList.length > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-[#dc2626] text-[10px] font-medium text-white">
+              {trashList.length > 99 ? '99+' : trashList.length}
+            </span>
+          )}
+        </button>
+      </div>
     </>
   );
 }
@@ -967,6 +703,10 @@ export default function Home() {
     messageContent: string;
     createdAt: string;
   } | null>(null);
+  
+  // 浮层面板显示状态
+  const [showFavoritePanel, setShowFavoritePanel] = useState<boolean>(false);
+  const [showTrashPanel, setShowTrashPanel] = useState<boolean>(false);
   
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -1238,6 +978,82 @@ export default function Home() {
     setHighlightMessageId(null);
   }, []);
 
+  // 打开收藏浮层面板
+  const handleOpenFavorites = useCallback(() => {
+    setShowFavoritePanel(true);
+  }, []);
+
+  // 关闭收藏浮层面板
+  const handleCloseFavorites = useCallback(() => {
+    setShowFavoritePanel(false);
+  }, []);
+
+  // 打开回收站浮层面板
+  const handleOpenTrash = useCallback(() => {
+    setShowTrashPanel(true);
+  }, []);
+
+  // 关闭回收站浮层面板
+  const handleCloseTrash = useCallback(() => {
+    setShowTrashPanel(false);
+  }, []);
+
+  // 处理浮层面板中收藏项的点击
+  const handlePanelFavoriteClick = useCallback(async (conversationId: string, messageId: string) => {
+    handleCloseFavorites();
+    setHighlightMessageId(messageId);
+    await selectConversation(conversationId);
+  }, [handleCloseFavorites]);
+
+  // 处理浮层面板中取消收藏
+  const handlePanelUnfavorite = useCallback(async (favoriteId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!deviceId) return;
+
+    try {
+      const r = await fetch(`/api/favorites/${favoriteId}`, {
+        method: 'DELETE',
+        headers: { 'x-device-id': deviceId },
+      });
+
+      if (r.ok) {
+        await loadFavorites(deviceId);
+      }
+    } catch (error) {
+      console.error('取消收藏失败:', error);
+    }
+  }, [deviceId, loadFavorites]);
+
+  // 处理浮层面板中恢复会话
+  const handlePanelRestore = useCallback(async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!deviceId) return;
+
+    const r = await fetch(`/api/trash/${id}/restore`, {
+      method: 'PATCH',
+      headers: { 'x-device-id': deviceId },
+    });
+
+    if (r.ok) {
+      await loadTrash(deviceId);
+      await loadConversations(deviceId);
+    }
+  }, [deviceId, loadTrash, loadConversations]);
+
+  // 处理浮层面板中彻底删除会话
+  const handlePanelDeletePermanently = useCallback(async (id: string) => {
+    if (!deviceId) return;
+
+    const r = await fetch(`/api/trash/${id}`, {
+      method: 'DELETE',
+      headers: { 'x-device-id': deviceId },
+    });
+
+    if (r.ok) {
+      await loadTrash(deviceId);
+    }
+  }, [deviceId, loadTrash]);
+
   useEffect(() => {
     const did = getOrCreateDeviceId();
     if (!did) {
@@ -1468,15 +1284,9 @@ export default function Home() {
             togglePin={togglePin}
             renameConversation={renameConversation}
             favorites={favorites}
-            showFavorites={showFavorites}
-            setShowFavorites={setShowFavorites}
-            handleFavoriteClick={handleFavoriteClick}
-            handleUnfavorite={handleUnfavorite}
             trashList={trashList}
-            showTrash={showTrash}
-            setShowTrash={setShowTrash}
-            restoreConversation={restoreConversation}
-            deleteFromTrash={deleteFromTrash}
+            onOpenFavorites={handleOpenFavorites}
+            onOpenTrash={handleOpenTrash}
           />
         </ResizablePanel>
 
@@ -1573,6 +1383,24 @@ export default function Home() {
           autoCloseDuration={3000}
         />
       )}
+
+      {/* 收藏浮层面板 */}
+      <FavoritePanel
+        visible={showFavoritePanel}
+        onClose={handleCloseFavorites}
+        favorites={favorites}
+        onFavoriteClick={handlePanelFavoriteClick}
+        onUnfavorite={handlePanelUnfavorite}
+      />
+
+      {/* 回收站浮层面板 */}
+      <TrashPanel
+        visible={showTrashPanel}
+        onClose={handleCloseTrash}
+        trashList={trashList}
+        onRestore={handlePanelRestore}
+        onDeletePermanently={handlePanelDeletePermanently}
+      />
     </div>
   );
 }
