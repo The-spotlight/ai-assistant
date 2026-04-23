@@ -5,7 +5,7 @@ export const runtime = 'nodejs';
 
 const TRASH_RETENTION_DAYS = 7;
 
-/** 获取回收站列表（最近删除在前，7天后自动清理） */
+/** 获取回收站列表（最近删除在前，过期数据由定时任务清理） */
 export async function GET(req: Request) {
   const deviceId = req.headers.get('x-device-id');
   if (!deviceId) {
@@ -14,14 +14,6 @@ export async function GET(req: Request) {
 
   const cutoffDate = new Date();
   cutoffDate.setDate(cutoffDate.getDate() - TRASH_RETENTION_DAYS);
-
-  await prisma.conversation.deleteMany({
-    where: {
-      deviceId,
-      isDeleted: true,
-      deletedAt: { lt: cutoffDate },
-    },
-  });
 
   const trashedConversations = await prisma.conversation.findMany({
     where: {
