@@ -109,6 +109,9 @@ async function persistUserMessage(
 }
 
 async function generateTitleFromMessages(messages: { role: string; content: string }[]): Promise<string | null> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10000);
+
   try {
     const modelId = resolveOpenRouterModelId(undefined, process.env.OPENROUTER_MODEL);
     
@@ -121,7 +124,7 @@ async function generateTitleFromMessages(messages: { role: string; content: stri
       system: `你是一个标题生成助手。根据用户提供的对话内容，生成一个简洁、准确、有概括性的标题。
 
 要求：
-1. 标题长度控制在 4-20 个汉字之间
+1. 标题长度控制在 4-15 个汉字之间
 2. 标题要能准确概括对话的主要内容
 3. 使用简洁的中文表达
 4. 不要使用特殊符号或格式
@@ -138,17 +141,25 @@ async function generateTitleFromMessages(messages: { role: string; content: stri
           content: `请为以下对话生成一个简洁的标题：\n\n${conversationContent}\n\n标题：`,
         },
       ],
-      maxTokens: 50,
+      maxTokens: 30,
       temperature: 0.3,
+      abortSignal: controller.signal,
     });
 
     const generatedTitle = (await result.text).trim();
-    if (generatedTitle && generatedTitle.length > 0 && generatedTitle.length <= 48) {
+    clearTimeout(timeoutId);
+    
+    if (generatedTitle && generatedTitle.length > 0 && generatedTitle.length <= 30) {
       return generatedTitle;
     }
     return null;
   } catch (error) {
-    console.error('[generateTitleFromMessages] 生成标题失败:', error);
+    clearTimeout(timeoutId);
+    if (error instanceof Error && error.name === 'AbortError') {
+      console.error('[generateTitleFromMessages] 生成标题超时');
+    } else {
+      console.error('[generateTitleFromMessages] 生成标题失败:', error);
+    }
     return null;
   }
 }
