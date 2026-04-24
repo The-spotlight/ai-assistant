@@ -190,6 +190,8 @@ export default function ChatSession({
   // 使用状态机来确保操作的顺序性，避免 React 批量更新的竞态问题
   type RegeneratePhase = 'idle' | 'truncated' | 'appending';
   const [regeneratePhase, setRegeneratePhase] = useState<RegeneratePhase>('idle');
+  // 记录正在重新生成的消息ID，用于在UI中显示加载状态
+  const [regeneratingMessageId, setRegeneratingMessageId] = useState<string | null>(null);
   const regenerateDataRef = useRef<{
     userMessageId: string;
     userMessageContent: string;
@@ -382,6 +384,7 @@ export default function ChatSession({
       // 等待一小段时间确保状态稳定
       const timer = setTimeout(() => {
         setRegeneratePhase('idle');
+        setRegeneratingMessageId(null);
         regenerateDataRef.current = null;
         expectedMessageCountRef.current = -1;
       }, 100);
@@ -462,6 +465,9 @@ export default function ChatSession({
       // 找到目标 AI 消息
       const targetMessage = messages[messageIndex] as MessageWithTokens;
       if (targetMessage.role !== 'assistant') return;
+
+      // 记录正在重新生成的消息ID，用于在UI中显示加载状态
+      setRegeneratingMessageId(targetMessage.id);
 
       // 向前找对应的用户消息（通常是前一条）
       let userMessageIndex = -1;
@@ -598,7 +604,12 @@ export default function ChatSession({
           const msg = m as MessageWithTokens;
           const isLastAssistant = m.role === 'assistant' && index === messages.length - 1 && !isLoading;
           const canRegenerate = m.role === 'assistant';
-          const isRegenerating = isLoading || regeneratePhase !== 'idle';
+          // 只有当前消息是正在重新生成的消息时，才显示加载状态
+          // 这样用户可以明确知道是哪条消息在重新生成
+          const isThisMessageRegenerating = m.id === regeneratingMessageId;
+          // 全局重新生成状态：当任何消息在重新生成时，其他消息的按钮应该被禁用
+          // 但是不显示加载状态，只有正在重新生成的那条消息显示加载状态
+          const isGlobalRegenerating = isLoading || regeneratePhase !== 'idle';
 
           // 计算单条消息的费用（如果有 token 数据）
           const messageCost =
@@ -757,16 +768,16 @@ export default function ChatSession({
                         <button
                           type="button"
                           onClick={() => handleRegenerate(index)}
-                          disabled={isRegenerating}
+                          disabled={isGlobalRegenerating}
                           className={`inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] transition-colors ${
-                            isRegenerating
+                            isGlobalRegenerating
                               ? 'text-[#a3a3a3] cursor-not-allowed'
                               : 'text-[#737373] hover:bg-[#f5f5f5] hover:text-[#171717]'
                           }`}
-                          title={isRegenerating ? '正在生成，请稍候...' : '重新生成此回复'}
+                          title={isThisMessageRegenerating ? '正在生成，请稍候...' : '重新生成此回复'}
                         >
-                          <IconRefresh className={`h-3 w-3 ${isRegenerating ? 'animate-spin' : ''}`} />
-                          {isRegenerating ? '正在生成…' : '重新生成'}
+                          <IconRefresh className={`h-3 w-3 ${isThisMessageRegenerating ? 'animate-spin' : ''}`} />
+                          {isThisMessageRegenerating ? '正在生成…' : '重新生成'}
                         </button>
                       )}
                     </div>
