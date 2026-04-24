@@ -108,15 +108,76 @@ async function persistUserMessage(
   }
 }
 
+async function generateTitleFromMessages(messages: { role: string; content: string }[]): Promise<string | null> {
+  try {
+    const modelId = resolveOpenRouterModelId(undefined, process.env.OPENROUTER_MODEL);
+    
+    const conversationContent = messages
+      .map(m => `${m.role === 'user' ? '用户' : 'AI'}: ${m.content}`)
+      .join('\n');
+
+    const result = await streamText({
+      model: openrouter(modelId),
+      system: `你是一个标题生成助手。根据用户提供的对话内容，生成一个简洁、准确、有概括性的标题。
+
+要求：
+1. 标题长度控制在 4-20 个汉字之间
+2. 标题要能准确概括对话的主要内容
+3. 使用简洁的中文表达
+4. 不要使用特殊符号或格式
+5. 直接输出标题，不要有任何解释或说明
+
+示例：
+- 如果对话是关于天气查询，标题可以是"天气查询"
+- 如果对话是关于 Python 代码问题，标题可以是"Python 代码问题"
+- 如果对话是关于翻译，标题可以是"翻译需求"
+- 如果对话是关于搜索信息，标题可以是"信息搜索"`,
+      messages: [
+        {
+          role: 'user',
+          content: `请为以下对话生成一个简洁的标题：\n\n${conversationContent}\n\n标题：`,
+        },
+      ],
+      maxTokens: 50,
+      temperature: 0.3,
+    });
+
+    const generatedTitle = (await result.text).trim();
+    if (generatedTitle && generatedTitle.length > 0 && generatedTitle.length <= 48) {
+      return generatedTitle;
+    }
+    return null;
+  } catch (error) {
+    console.error('[generateTitleFromMessages] 生成标题失败:', error);
+    return null;
+  }
+}
+
 async function ensureConversationTitle(conversationId: string): Promise<void> {
   const conv = await prisma.conversation.findUnique({ where: { id: conversationId } });
   if (!conv || (conv.title && conv.title !== '新对话')) return;
-  const first = await prisma.message.findFirst({
-    where: { conversationId, role: 'user' },
+
+  const messages = await prisma.message.findMany({
+    where: { conversationId },
     orderBy: { createdAt: 'asc' },
+    take: 4,
+    select: { role: true, content: true },
   });
-  if (!first?.content) return;
-  const t = first.content.trim().slice(0, 48);
+
+  if (messages.length === 0) return;
+
+  const generatedTitle = await generateTitleFromMessages(messages);
+  if (generatedTitle) {
+    await prisma.conversation.update({
+      where: { id: conversationId },
+      data: { title: generatedTitle },
+    });
+    return;
+  }
+
+  const firstUserMessage = messages.find(m => m.role === 'user');
+  if (!firstUserMessage?.content) return;
+  const t = firstUserMessage.content.trim().slice(0, 48);
   if (!t) return;
   await prisma.conversation.update({
     where: { id: conversationId },
