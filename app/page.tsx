@@ -664,111 +664,154 @@ function SidebarContent({
               </AdaptiveText>
             </p>
           )}
-          <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto pr-0.5">
-            {unpinnedConversations.length === 0 && pinnedConversations.length === 0 && !loadingMain && (
-              <p className="px-2 py-6 text-center text-[13px] leading-relaxed text-[#a3a3a3]">
-                暂无会话记录
-              </p>
-            )}
-            {unpinnedConversations.map((c) => {
-              const active = chatPayload?.conversationId === c.id;
-              const isDragging = draggedId === c.id;
-              const isDragOver = dragOverId === c.id;
-              return (
-                <div
-                  key={c.id}
-                  draggable
-                  onDragStart={(e) => handleDragStart(e, c.id)}
-                  onDragEnd={handleDragEnd}
-                  onDragOver={(e) => handleDragOver(e, c.id)}
-                  onDragLeave={handleDragLeave}
-                  onDrop={(e) => handleDrop(e, c.id)}
-                  className={`group relative flex items-stretch gap-0 overflow-hidden rounded-xl border transition-all duration-150 ${
-                    isDragging
-                      ? 'opacity-50 scale-98'
-                      : isDragOver
-                      ? 'border-[#171717]/30 bg-[#f5f5f5] shadow-sm'
-                      : active
-                      ? 'border-black/[0.08] bg-[#f4f4f5]'
-                      : 'border-transparent hover:bg-[#fafafa]'
-                  }`}
-                  style={{ cursor: 'grab' }}
-                >
-                  <div
-                    className="flex shrink-0 items-center justify-center px-1.5 text-[#d4d4d4] opacity-0 group-hover:opacity-100 transition-opacity"
-                    title="拖动排序"
-                  >
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragStart={handleDragStart}
+            onDragEnd={handleDragEnd}
+          >
+            <SortableContext
+              items={unpinnedIds}
+              strategy={verticalListSortingStrategy}
+            >
+              <div className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto pr-0.5">
+                {unpinnedConversations.length === 0 && pinnedConversations.length === 0 && !loadingMain && (
+                  <p className="px-2 py-6 text-center text-[13px] leading-relaxed text-[#a3a3a3]">
+                    暂无会话记录
+                  </p>
+                )}
+                {unpinnedConversations.map((conversation) => {
+                  const {
+                    attributes,
+                    listeners,
+                    setNodeRef,
+                    transform,
+                    transition,
+                    isDragging,
+                  } = useSortable({ id: conversation.id });
+
+                  const style: React.CSSProperties = {
+                    transform: CSS.Transform.toString(transform),
+                    transition,
+                    opacity: isDragging ? 0.5 : 1,
+                    zIndex: isDragging ? 999 : 'auto',
+                  };
+
+                  const active = chatPayload?.conversationId === conversation.id;
+
+                  return (
+                    <div
+                      key={conversation.id}
+                      ref={setNodeRef}
+                      style={style}
+                      className={`group relative flex items-stretch gap-0 overflow-hidden rounded-xl border transition-all duration-150 ${
+                        active
+                          ? 'border-black/[0.08] bg-[#f4f4f5]'
+                          : 'border-transparent hover:bg-[#fafafa]'
+                      }`}
+                    >
+                      <div
+                        {...attributes}
+                        {...listeners}
+                        className="flex shrink-0 items-center justify-center px-1.5 text-[#d4d4d4] opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing"
+                        title="拖动排序"
+                      >
+                        <IconGripVertical className={`h-4 w-4 ${isNarrow ? 'h-3.5 w-3.5' : ''}`} />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (editingConversationId !== conversation.id) {
+                            void selectConversation(conversation.id);
+                          }
+                        }}
+                        onDoubleClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          startEditing(conversation.id, conversation.title);
+                        }}
+                        className={`min-w-0 flex-1 ${itemPadding} text-left`}
+                        title={editingConversationId === conversation.id ? '编辑中...' : `双击重命名: ${conversation.title ?? '新对话'}`}
+                      >
+                        {editingConversationId === conversation.id ? (
+                          <input
+                            ref={editingInputRef}
+                            type="text"
+                            value={editingTitle}
+                            onChange={(e) => setEditingTitle(e.target.value)}
+                            onClick={(e) => e.stopPropagation()}
+                            className={`w-full min-w-0 bg-white border border-[#171717]/[0.12] rounded-lg px-2 py-1 text-[13px] font-medium leading-snug text-[#171717] shadow-sm focus:outline-none focus:ring-2 focus:ring-[#171717]/20 focus:border-[#171717]/20 transition-all ${
+                              isNarrow ? 'text-[12px] px-1.5 py-0.5' : ''
+                            } ${isWide ? 'text-sm px-2.5 py-1.5' : ''}`}
+                            placeholder="输入新标题..."
+                          />
+                        ) : (
+                          <>
+                            <span className={`${titleLines} text-[13px] font-medium leading-snug text-[#171717] ${
+                              isNarrow ? 'text-[12px]' : ''
+                            } ${isWide ? 'text-sm' : ''}`}>
+                              {conversation.title?.trim() || '新对话'}
+                            </span>
+                            {showTime && (
+                              <span className={`mt-1 block text-[11px] text-[#a3a3a3] ${
+                                isWide ? 'text-xs' : ''
+                              }`}>
+                                {formatRelativeTime(conversation.updatedAt)}
+                              </span>
+                            )}
+                          </>
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="置顶会话"
+                        onClick={(e) => togglePin(conversation.id, e)}
+                        className={`flex w-9 shrink-0 items-center justify-center text-[#a3a3a3] opacity-0 transition hover:bg-amber-50 hover:text-[#f59e0b] group-hover:opacity-100 ${
+                          isNarrow ? 'w-7' : ''
+                        }`}
+                        title="置顶会话"
+                      >
+                        <IconPin className={`h-4 w-4 ${isNarrow ? 'h-3.5 w-3.5' : ''}`} />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label="删除会话"
+                        onClick={(e) => deleteConversation(conversation.id, e)}
+                        className={`flex w-9 shrink-0 items-center justify-center text-[#a3a3a3] opacity-0 transition hover:bg-red-50 hover:text-red-600 group-hover:opacity-100 ${
+                          isNarrow ? 'w-7' : ''
+                        }`}
+                      >
+                        <IconTrash className={`h-4 w-4 ${isNarrow ? 'h-3.5 w-3.5' : ''}`} />
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            </SortableContext>
+            <DragOverlay>
+              {activeConversation ? (
+                <div className="flex items-stretch gap-0 overflow-hidden rounded-xl border border-[#171717]/20 bg-white shadow-lg">
+                  <div className="flex shrink-0 items-center justify-center px-1.5 text-[#a3a3a3]">
                     <IconGripVertical className={`h-4 w-4 ${isNarrow ? 'h-3.5 w-3.5' : ''}`} />
                   </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (editingConversationId !== c.id) {
-                        void selectConversation(c.id);
-                      }
-                    }}
-                    onDoubleClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      startEditing(c.id, c.title);
-                    }}
-                    className={`min-w-0 flex-1 ${itemPadding} text-left`}
-                    title={editingConversationId === c.id ? '编辑中...' : `双击重命名: ${c.title ?? '新对话'}`}
-                  >
-                    {editingConversationId === c.id ? (
-                      <input
-                        ref={editingInputRef}
-                        type="text"
-                        value={editingTitle}
-                        onChange={(e) => setEditingTitle(e.target.value)}
-                        onClick={(e) => e.stopPropagation()}
-                        className={`w-full min-w-0 bg-white border border-[#171717]/[0.12] rounded-lg px-2 py-1 text-[13px] font-medium leading-snug text-[#171717] shadow-sm focus:outline-none focus:ring-2 focus:ring-[#171717]/20 focus:border-[#171717]/20 transition-all ${
-                          isNarrow ? 'text-[12px] px-1.5 py-0.5' : ''
-                        } ${isWide ? 'text-sm px-2.5 py-1.5' : ''}`}
-                        placeholder="输入新标题..."
-                      />
-                    ) : (
-                      <>
-                        <span className={`${titleLines} text-[13px] font-medium leading-snug text-[#171717] ${
-                          isNarrow ? 'text-[12px]' : ''
-                        } ${isWide ? 'text-sm' : ''}`}>
-                          {c.title?.trim() || '新对话'}
-                        </span>
-                        {showTime && (
-                          <span className={`mt-1 block text-[11px] text-[#a3a3a3] ${
-                            isWide ? 'text-xs' : ''
-                          }`}>
-                            {formatRelativeTime(c.updatedAt)}
-                          </span>
-                        )}
-                      </>
+                  <div className={`min-w-0 flex-1 ${itemPadding}`}>
+                    <span className={`${titleLines} text-[13px] font-medium leading-snug text-[#171717] ${
+                      isNarrow ? 'text-[12px]' : ''
+                    } ${isWide ? 'text-sm' : ''}`}>
+                      {activeConversation.title?.trim() || '新对话'}
+                    </span>
+                    {showTime && (
+                      <span className={`mt-1 block text-[11px] text-[#a3a3a3] ${
+                        isWide ? 'text-xs' : ''
+                      }`}>
+                        {formatRelativeTime(activeConversation.updatedAt)}
+                      </span>
                     )}
-                  </button>
-                  <button
-                    type="button"
-                    aria-label="置顶会话"
-                    onClick={(e) => togglePin(c.id, e)}
-                    className={`flex w-9 shrink-0 items-center justify-center text-[#a3a3a3] opacity-0 transition hover:bg-amber-50 hover:text-[#f59e0b] group-hover:opacity-100 ${
-                      isNarrow ? 'w-7' : ''
-                    }`}
-                    title="置顶会话"
-                  >
-                    <IconPin className={`h-4 w-4 ${isNarrow ? 'h-3.5 w-3.5' : ''}`} />
-                  </button>
-                  <button
-                    type="button"
-                    aria-label="删除会话"
-                    onClick={(e) => deleteConversation(c.id, e)}
-                    className={`flex w-9 shrink-0 items-center justify-center text-[#a3a3a3] opacity-0 transition hover:bg-red-50 hover:text-red-600 group-hover:opacity-100 ${
-                      isNarrow ? 'w-7' : ''
-                    }`}
-                  >
-                    <IconTrash className={`h-4 w-4 ${isNarrow ? 'h-3.5 w-3.5' : ''}`} />
-                  </button>
+                  </div>
                 </div>
-              );
-            })}
-          </div>
+              ) : null}
+            </DragOverlay>
+          </DndContext>
         </>
       )}
 
