@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import MarkdownRenderer from '@/components/MarkdownRenderer';
 import ToolCallCard from '@/components/ToolCallCard';
 import SkillPanel from '@/components/SkillPanel';
+import QuickCommandPanel from '@/components/QuickCommandPanel';
 import TokenStatsPanel from '@/components/TokenStatsPanel';
 import {
   calculateMessageCost,
@@ -13,6 +14,11 @@ import {
   formatTokens,
   getModelPricing,
 } from '@/lib/model-pricing';
+import {
+  parseQuickCommand,
+  getMatchingCommands,
+} from '@/lib/tools/quick-commands';
+import type { QuickCommand } from '@/lib/tools/quick-commands';
 
 const SUGGESTIONS = [
   '搜索今日新闻',
@@ -168,6 +174,11 @@ export default function ChatSession({
   const [showSkills, setShowSkills] = useState(false);
   const [showTokenStats, setShowTokenStats] = useState(false);
 
+  // 快捷指令相关状态
+  const [matchingCommands, setMatchingCommands] = useState<QuickCommand[]>([]);
+  const [selectedCommandIndex, setSelectedCommandIndex] = useState(0);
+  const showQuickCommands = matchingCommands.length > 0;
+
   // 编辑消息相关状态
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
   const [editingContent, setEditingContent] = useState('');
@@ -247,7 +258,97 @@ export default function ChatSession({
     append({ role: 'user', content: text });
   };
 
+  // 生成快捷指令的提示文本
+  const generateQuickCommandPrompt = useCallback((command: QuickCommand, argument: string): string => {
+    switch (command.toolName) {
+      case 'web_search':
+        return `请搜索：${argument}`;
+      case 'weather':
+        return `请查询${argument}的天气`;
+      case 'calculator':
+        return `请计算：${argument}`;
+      case 'translator':
+        return `请翻译：${argument}`;
+      case 'text_analyzer':
+        return `请分析这段文本：${argument}`;
+      case 'code_execution':
+        return `请执行以下 Python 代码：\n\`\`\`python\n${argument}\n\`\`\``;
+      default:
+        return argument;
+    }
+  }, []);
+
+  // 处理快捷指令选择
+  const handleQuickCommandSelect = useCallback((command: QuickCommand) => {
+    setInput(`/${command.command} `);
+    setMatchingCommands([]);
+    setSelectedCommandIndex(0);
+    inputRef.current?.focus();
+  }, [setInput]);
+
+  // 监听输入变化，更新匹配的快捷指令
+  useEffect(() => {
+    const matching = getMatchingCommands(input);
+    setMatchingCommands(matching);
+    if (matching.length > 0 && selectedCommandIndex >= matching.length) {
+      setSelectedCommandIndex(0);
+    }
+  }, [input, selectedCommandIndex]);
+
+  // 自定义表单提交处理
+  const handleFormSubmit = useCallback((e: React.FormEvent) => {
+    e.preventDefault();
+    
+    // 解析快捷指令
+    const { command, argument } = parseQuickCommand(input);
+    
+    if (command && argument) {
+      // 如果是有效的快捷指令且有参数，生成对应的提示文本
+      const prompt = generateQuickCommandPrompt(command, argument);
+      append({ role: 'user', content: prompt });
+      setInput('');
+    } else if (command && !argument) {
+      // 如果有指令但没有参数，不提交，等待用户输入参数
+      return;
+    } else {
+      // 正常提交
+      handleSubmit(e);
+    }
+  }, [input, append, setInput, handleSubmit, generateQuickCommandPrompt]);
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    // 快捷指令导航
+    if (showQuickCommands) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSelectedCommandIndex((prev) => 
+          prev < matchingCommands.length - 1 ? prev + 1 : 0
+        );
+        return;
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSelectedCommandIndex((prev) => 
+          prev > 0 ? prev - 1 : matchingCommands.length - 1
+        );
+        return;
+      }
+      if (e.key === 'Enter' && matchingCommands.length > 0) {
+        e.preventDefault();
+        const selectedCmd = matchingCommands[selectedCommandIndex];
+        if (selectedCmd) {
+          handleQuickCommandSelect(selectedCmd);
+        }
+        return;
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setMatchingCommands([]);
+        return;
+      }
+    }
+
+    // 原有逻辑：输入为空时按 / 显示技能面板
     if (e.key === '/' && input === '') {
       e.preventDefault();
       setShowSkills(true);
@@ -719,9 +820,16 @@ export default function ChatSession({
             onClose={() => setShowSkills(false)}
             onInsertPrompt={handleSkillInsert}
           />
+          <QuickCommandPanel
+            visible={showQuickCommands}
+            commands={matchingCommands}
+            onSelectCommand={handleQuickCommandSelect}
+            selectedIndex={selectedCommandIndex}
+            onClose={() => setMatchingCommands([])}
+          />
 
           <form
-            onSubmit={handleSubmit}
+            onSubmit={handleFormSubmit}
             className="flex flex-col gap-3 rounded-lg bg-white p-2 sm:flex-row sm:items-center sm:gap-2 sm:p-2"
             style={{ boxShadow: 'rgba(0,0,0,0.08) 0px 0px 0px 1px' }}
           >
@@ -730,7 +838,7 @@ export default function ChatSession({
               value={input}
               onChange={handleInputChange}
               onKeyDown={handleKeyDown}
-              placeholder="有问题，尽管问…"
+              placeholder="有问题，尽管问… 输入 / 查看快捷指令"
               disabled={isLoading}
               className="min-h-[44px] flex-1 border-0 bg-transparent px-3 text-[15px] text-[#171717] placeholder:text-[#808080] focus:outline-none focus:ring-0 disabled:opacity-60"
             />
