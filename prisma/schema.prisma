@@ -76,3 +76,18 @@ model Favorite {
   @@unique([messageId, deviceId])
   @@index([deviceId, createdAt(sort: Desc)])
 }
+
+/// 聊天模板
+model Template {
+  id          String   @id @default(cuid())
+  deviceId    String
+  title       String
+  content     String   @db.Text
+  category    String   @default("其他")
+  orderIndex  Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([deviceId, category, orderIndex(sort: Asc), createdAt(sort: Desc)])
+  @@index([deviceId, orderIndex(sort: Asc), createdAt(sort: Desc)])
+}
