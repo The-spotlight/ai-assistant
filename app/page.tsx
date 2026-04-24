@@ -6,6 +6,7 @@ import ChatSession from '@/components/ChatSession';
 import FavoriteToastPanel from '@/components/FavoriteToastPanel';
 import FavoritePanel from '@/components/FavoritePanel';
 import TrashPanel from '@/components/TrashPanel';
+import TemplatePanel from '@/components/TemplatePanel';
 import ResizablePanel, { useLayoutContext, AdaptiveText } from '@/components/ResizablePanel';
 import { DEFAULT_OPENROUTER_MODEL_ID, FIXED_OPENROUTER_MODEL_LABEL } from '@/lib/openrouter-models';
 import { CONVERSATION_STORAGE_KEY, getOrCreateDeviceId } from '@/lib/device';
@@ -60,6 +61,16 @@ type TrashedConversationRow = {
   isPinned: boolean | null;
   pinnedAt: string | null;
   deletedAt: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+type TemplateItem = {
+  id: string;
+  title: string;
+  content: string;
+  category: string;
+  orderIndex: number;
   createdAt: string;
   updatedAt: string;
 };
@@ -175,6 +186,25 @@ function IconRotateCcw(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
+function IconTemplate(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      {...props}
+    >
+      <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+      <line x1="3" y1="9" x2="21" y2="9" />
+      <line x1="9" y1="21" x2="9" y2="9" />
+    </svg>
+  );
+}
+
 interface SidebarContentProps {
   deviceId: string | null;
   loadingMain: boolean;
@@ -194,8 +224,10 @@ interface SidebarContentProps {
   renameConversation: (id: string, newTitle: string) => Promise<void>;
   favorites: FavoriteItem[];
   trashList: TrashedConversationRow[];
+  templates: TemplateItem[];
   onOpenFavorites: () => void;
   onOpenTrash: () => void;
+  onOpenTemplates: () => void;
 }
 
 function SidebarContent({
@@ -217,8 +249,10 @@ function SidebarContent({
   renameConversation,
   favorites,
   trashList,
+  templates,
   onOpenFavorites,
   onOpenTrash,
+  onOpenTemplates,
 }: SidebarContentProps) {
   const { widthCategory, sidebarWidth } = useLayoutContext();
 
@@ -631,8 +665,22 @@ function SidebarContent({
         </>
       )}
 
-      {/* 底部图标按钮：收藏和回收站 */}
+      {/* 底部图标按钮：模板、收藏和回收站 */}
       <div className="flex items-center justify-center gap-2 pt-3 border-t border-black/[0.08]">
+        <button
+          type="button"
+          onClick={onOpenTemplates}
+          className={`relative flex items-center justify-center rounded-lg p-2 transition-colors text-[#a3a3a3] hover:bg-[#f5f5f5] hover:text-[#171717] ${isNarrow ? 'p-1.5' : ''}`}
+          title="我的模板"
+          aria-label="打开模板列表"
+        >
+          <IconTemplate className={`h-5 w-5 ${isNarrow ? 'h-4 w-4' : ''}`} />
+          {templates.length > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-[#171717] text-[10px] font-medium text-white">
+              {templates.length > 99 ? '99+' : templates.length}
+            </span>
+          )}
+        </button>
         <button
           type="button"
           onClick={onOpenFavorites}
@@ -699,7 +747,12 @@ export default function Home() {
   // 浮层面板显示状态
   const [showFavoritePanel, setShowFavoritePanel] = useState<boolean>(false);
   const [showTrashPanel, setShowTrashPanel] = useState<boolean>(false);
-  
+  const [showTemplatePanel, setShowTemplatePanel] = useState<boolean>(false);
+
+  // 模板相关状态
+  const [templates, setTemplates] = useState<TemplateItem[]>([]);
+  const [pendingTemplateContent, setPendingTemplateContent] = useState<string | null>(null);
+
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const loadConversations = useCallback(async (did: string) => {
@@ -719,6 +772,19 @@ export default function Home() {
     } catch (error) {
       console.error('加载收藏列表失败:', error);
       setFavorites([]);
+    }
+  }, []);
+
+  // 加载模板列表
+  const loadTemplates = useCallback(async (did: string) => {
+    try {
+      const r = await fetch('/api/templates', { headers: { 'x-device-id': did } });
+      if (!r.ok) return;
+      const data = (await r.json()) as { templates?: TemplateItem[] };
+      setTemplates(data.templates ?? []);
+    } catch (error) {
+      console.error('加载模板列表失败:', error);
+      setTemplates([]);
     }
   }, []);
 
@@ -1109,6 +1175,7 @@ export default function Home() {
             await loadConversations(did);
             await loadFavorites(did);
             await loadTrash(did);
+            await loadTemplates(did);
             return;
           }
         }
@@ -1129,6 +1196,7 @@ export default function Home() {
         await loadConversations(did);
         await loadFavorites(did);
         await loadTrash(did);
+        await loadTemplates(did);
       } catch (e) {
         if (!cancelled) {
           setBootstrapError(e instanceof Error ? e.message : '初始化失败');
@@ -1176,10 +1244,93 @@ export default function Home() {
       await loadConversations(deviceId);
       await loadFavorites(deviceId);
       await loadTrash(deviceId);
+      await loadTemplates(deviceId);
     } catch {
       /* ignore */
     }
   }
+
+  // 模板操作函数
+  const handleOpenTemplates = useCallback(() => {
+    setShowTemplatePanel(true);
+  }, []);
+
+  const handleCloseTemplates = useCallback(() => {
+    setShowTemplatePanel(false);
+  }, []);
+
+  const handleAddTemplate = useCallback(
+    async (template: { title: string; content: string; category: string }) => {
+      if (!deviceId) return;
+      try {
+        const r = await fetch('/api/templates', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-device-id': deviceId,
+          },
+          body: JSON.stringify(template),
+        });
+        if (r.ok) {
+          await loadTemplates(deviceId);
+        }
+      } catch (error) {
+        console.error('添加模板失败:', error);
+      }
+    },
+    [deviceId, loadTemplates]
+  );
+
+  const handleUpdateTemplate = useCallback(
+    async (id: string, template: { title?: string; content?: string; category?: string }) => {
+      if (!deviceId) return;
+      try {
+        const r = await fetch(`/api/templates/${id}`, {
+          method: 'PATCH',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-device-id': deviceId,
+          },
+          body: JSON.stringify(template),
+        });
+        if (r.ok) {
+          await loadTemplates(deviceId);
+        }
+      } catch (error) {
+        console.error('更新模板失败:', error);
+      }
+    },
+    [deviceId, loadTemplates]
+  );
+
+  const handleDeleteTemplate = useCallback(
+    async (id: string) => {
+      if (!deviceId) return;
+      try {
+        const r = await fetch(`/api/templates/${id}`, {
+          method: 'DELETE',
+          headers: { 'x-device-id': deviceId },
+        });
+        if (r.ok) {
+          await loadTemplates(deviceId);
+        }
+      } catch (error) {
+        console.error('删除模板失败:', error);
+      }
+    },
+    [deviceId, loadTemplates]
+  );
+
+  const handleTemplateClick = useCallback(
+    async (content: string) => {
+      setPendingTemplateContent(content);
+    },
+    []
+  );
+
+  const handleTemplateUsed = useCallback(() => {
+    setPendingTemplateContent(null);
+  }, []);
 
   async function deleteConversation(id: string, e: React.MouseEvent) {
     e.stopPropagation();
@@ -1314,8 +1465,10 @@ export default function Home() {
             renameConversation={renameConversation}
             favorites={favorites}
             trashList={trashList}
+            templates={templates}
             onOpenFavorites={handleOpenFavorites}
             onOpenTrash={handleOpenTrash}
+            onOpenTemplates={handleOpenTemplates}
           />
         </ResizablePanel>
 
@@ -1393,6 +1546,8 @@ export default function Home() {
                 onHighlightCleared={clearHighlight}
                 favoriteMessageIds={new Set(favorites.map(fav => fav.messageId))}
                 onToggleFavorite={handleToggleFavorite}
+                templateContent={pendingTemplateContent}
+                onTemplateUsed={handleTemplateUsed}
               />
             </div>
           )}
@@ -1431,6 +1586,17 @@ export default function Home() {
         onDeletePermanently={handlePanelDeletePermanently}
         onBatchRestore={handlePanelBatchRestore}
         onBatchDeletePermanently={handlePanelBatchDeletePermanently}
+      />
+
+      {/* 模板浮层面板 */}
+      <TemplatePanel
+        visible={showTemplatePanel}
+        onClose={handleCloseTemplates}
+        templates={templates}
+        onTemplateClick={handleTemplateClick}
+        onAddTemplate={handleAddTemplate}
+        onUpdateTemplate={handleUpdateTemplate}
+        onDeleteTemplate={handleDeleteTemplate}
       />
     </div>
   );

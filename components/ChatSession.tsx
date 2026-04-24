@@ -37,6 +37,8 @@ type ChatSessionProps = {
   onHighlightCleared?: () => void;
   favoriteMessageIds?: Set<string>;
   onToggleFavorite?: (messageId: string, isFavorite: boolean) => void;
+  templateContent?: string | null;
+  onTemplateUsed?: () => void;
 };
 
 function IconRefresh(props: React.SVGProps<SVGSVGElement>) {
@@ -139,6 +141,8 @@ export default function ChatSession({
   onHighlightCleared,
   favoriteMessageIds = new Set(),
   onToggleFavorite,
+  templateContent,
+  onTemplateUsed,
 }: ChatSessionProps) {
   const {
     messages,
@@ -148,6 +152,7 @@ export default function ChatSession({
     isLoading,
     append,
     setMessages,
+    setInput,
   } = useChat({
     api: '/api/chat',
     id: conversationId,
@@ -226,6 +231,17 @@ export default function ChatSession({
       onHighlightCleared();
     }
   }, [onHighlightCleared]);
+
+  // 处理模板内容
+  useEffect(() => {
+    if (templateContent) {
+      setInput(templateContent);
+      inputRef.current?.focus();
+      if (onTemplateUsed) {
+        onTemplateUsed();
+      }
+    }
+  }, [templateContent, setInput, onTemplateUsed]);
 
   const handleSkillInsert = (text: string) => {
     append({ role: 'user', content: text });
