@@ -597,7 +597,8 @@ export default function ChatSession({
           const isHighlighted = highlightMessageId === m.id;
           const msg = m as MessageWithTokens;
           const isLastAssistant = m.role === 'assistant' && index === messages.length - 1 && !isLoading;
-          const canRegenerate = m.role === 'assistant' && !isLoading;
+          const canRegenerate = m.role === 'assistant';
+          const isRegenerating = isLoading || regeneratePhase !== 'idle';
 
           // 计算单条消息的费用（如果有 token 数据）
           const messageCost =
@@ -756,11 +757,16 @@ export default function ChatSession({
                         <button
                           type="button"
                           onClick={() => handleRegenerate(index)}
-                          className="inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] text-[#737373] transition-colors hover:bg-[#f5f5f5] hover:text-[#171717]"
-                          title="重新生成此回复"
+                          disabled={isRegenerating}
+                          className={`inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] transition-colors ${
+                            isRegenerating
+                              ? 'text-[#a3a3a3] cursor-not-allowed'
+                              : 'text-[#737373] hover:bg-[#f5f5f5] hover:text-[#171717]'
+                          }`}
+                          title={isRegenerating ? '正在生成，请稍候...' : '重新生成此回复'}
                         >
-                          <IconRefresh className="h-3 w-3" />
-                          重新生成
+                          <IconRefresh className={`h-3 w-3 ${isRegenerating ? 'animate-spin' : ''}`} />
+                          {isRegenerating ? '正在生成…' : '重新生成'}
                         </button>
                       )}
                     </div>
