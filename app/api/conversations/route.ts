@@ -15,6 +15,7 @@ export async function GET(req: Request) {
     orderBy: [
       { isPinned: 'desc' },
       { pinnedAt: 'desc' },
+      { orderIndex: 'asc' },
       { updatedAt: 'desc' },
     ],
     select: {
@@ -23,6 +24,7 @@ export async function GET(req: Request) {
       modelId: true,
       isPinned: true,
       pinnedAt: true,
+      orderIndex: true,
       createdAt: true,
       updatedAt: true,
     },
