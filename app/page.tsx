@@ -17,6 +17,7 @@ type ConversationRow = {
   modelId: string | null;
   isPinned: boolean | null;
   pinnedAt: string | null;
+  orderIndex: number | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -140,6 +141,19 @@ function IconX(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
+function IconGripVertical(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden {...props}>
+      <circle cx="9" cy="5" r="1" />
+      <circle cx="9" cy="12" r="1" />
+      <circle cx="9" cy="19" r="1" />
+      <circle cx="15" cy="5" r="1" />
+      <circle cx="15" cy="12" r="1" />
+      <circle cx="15" cy="19" r="1" />
+    </svg>
+  );
+}
+
 function IconPin(props: React.SVGProps<SVGSVGElement> & { filled?: boolean }) {
   const { filled, ...rest } = props;
   return (
@@ -222,6 +236,7 @@ interface SidebarContentProps {
   deleteConversation: (id: string, e: React.MouseEvent) => Promise<void>;
   togglePin: (id: string, e: React.MouseEvent) => Promise<void>;
   renameConversation: (id: string, newTitle: string) => Promise<void>;
+  reorderConversations: (order: { id: string; orderIndex: number }[]) => Promise<void>;
   favorites: FavoriteItem[];
   trashList: TrashedConversationRow[];
   templates: TemplateItem[];
@@ -247,6 +262,7 @@ function SidebarContent({
   deleteConversation,
   togglePin,
   renameConversation,
+  reorderConversations,
   favorites,
   trashList,
   templates,
@@ -278,6 +294,9 @@ function SidebarContent({
   const [editingTitle, setEditingTitle] = useState<string>('');
   const editingInputRef = useRef<HTMLInputElement>(null);
 
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
+
   const { pinnedConversations, unpinnedConversations } = useMemo(() => {
     const pinned: ConversationRow[] = [];
     const unpinned: ConversationRow[] = [];
@@ -292,6 +311,60 @@ function SidebarContent({
 
     return { pinnedConversations: pinned, unpinnedConversations: unpinned };
   }, [convList]);
+
+  const handleDragStart = useCallback((e: React.DragEvent, id: string) => {
+    setDraggedId(id);
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', id);
+  }, []);
+
+  const handleDragEnd = useCallback(() => {
+    setDraggedId(null);
+    setDragOverId(null);
+  }, []);
+
+  const handleDragOver = useCallback((e: React.DragEvent, id: string) => {
+    e.preventDefault();
+    if (draggedId && draggedId !== id) {
+      setDragOverId(id);
+    }
+  }, [draggedId]);
+
+  const handleDragLeave = useCallback(() => {
+    setDragOverId(null);
+  }, []);
+
+  const handleDrop = useCallback(async (e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    if (!draggedId || draggedId === targetId) {
+      setDraggedId(null);
+      setDragOverId(null);
+      return;
+    }
+
+    const draggedIndex = unpinnedConversations.findIndex((c) => c.id === draggedId);
+    const targetIndex = unpinnedConversations.findIndex((c) => c.id === targetId);
+
+    if (draggedIndex === -1 || targetIndex === -1) {
+      setDraggedId(null);
+      setDragOverId(null);
+      return;
+    }
+
+    const newOrder = [...unpinnedConversations];
+    const [removed] = newOrder.splice(draggedIndex, 1);
+    newOrder.splice(targetIndex, 0, removed);
+
+    const orderData = newOrder.map((c, index) => ({
+      id: c.id,
+      orderIndex: index,
+    }));
+
+    await reorderConversations(orderData);
+
+    setDraggedId(null);
+    setDragOverId(null);
+  }, [draggedId, unpinnedConversations, reorderConversations]);
 
 
 
@@ -584,15 +657,34 @@ function SidebarContent({
             )}
             {unpinnedConversations.map((c) => {
               const active = chatPayload?.conversationId === c.id;
+              const isDragging = draggedId === c.id;
+              const isDragOver = dragOverId === c.id;
               return (
                 <div
                   key={c.id}
-                  className={`group relative flex items-stretch gap-0 overflow-hidden rounded-xl border transition-colors ${
-                    active
+                  draggable
+                  onDragStart={(e) => handleDragStart(e, c.id)}
+                  onDragEnd={handleDragEnd}
+                  onDragOver={(e) => handleDragOver(e, c.id)}
+                  onDragLeave={handleDragLeave}
+                  onDrop={(e) => handleDrop(e, c.id)}
+                  className={`group relative flex items-stretch gap-0 overflow-hidden rounded-xl border transition-all duration-150 ${
+                    isDragging
+                      ? 'opacity-50 scale-98'
+                      : isDragOver
+                      ? 'border-[#171717]/30 bg-[#f5f5f5] shadow-sm'
+                      : active
                       ? 'border-black/[0.08] bg-[#f4f4f5]'
                       : 'border-transparent hover:bg-[#fafafa]'
                   }`}
+                  style={{ cursor: 'grab' }}
                 >
+                  <div
+                    className="flex shrink-0 items-center justify-center px-1.5 text-[#d4d4d4] opacity-0 group-hover:opacity-100 transition-opacity"
+                    title="拖动排序"
+                  >
+                    <IconGripVertical className={`h-4 w-4 ${isNarrow ? 'h-3.5 w-3.5' : ''}`} />
+                  </div>
                   <button
                     type="button"
                     onClick={() => {
@@ -1421,6 +1513,30 @@ export default function Home() {
     setConvList(list);
   }
 
+  const reorderConversations = useCallback(
+    async (order: { id: string; orderIndex: number }[]) => {
+      if (!deviceId || order.length === 0) return;
+
+      try {
+        const r = await fetch('/api/conversations/reorder', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-device-id': deviceId,
+          },
+          body: JSON.stringify({ order }),
+        });
+
+        if (r.ok) {
+          await loadConversations(deviceId);
+        }
+      } catch (error) {
+        console.error('重新排序会话失败:', error);
+      }
+    },
+    [deviceId, loadConversations]
+  );
+
   const loadingMain = !!(deviceId && !chatPayload && !bootstrapError);
 
   return (
@@ -1463,6 +1579,7 @@ export default function Home() {
             deleteConversation={deleteConversation}
             togglePin={togglePin}
             renameConversation={renameConversation}
+            reorderConversations={reorderConversations}
             favorites={favorites}
             trashList={trashList}
             templates={templates}

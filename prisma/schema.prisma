@@ -25,6 +25,8 @@ model Conversation {
   isDeleted Boolean   @default(false)
   /// 删除时间（用于回收站，7天后自动清理）
   deletedAt DateTime?
+  /// 自定义排序索引（用于拖拽排序）
+  orderIndex Int      @default(0)
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   messages  Message[]
@@ -32,9 +34,9 @@ model Conversation {
 
   @@index([deviceId, updatedAt(sort: Desc)])
   @@index([updatedAt(sort: Desc)])
-  @@index([deviceId, isPinned(sort: Desc), pinnedAt(sort: Desc), updatedAt(sort: Desc)])
+  @@index([deviceId, isPinned(sort: Desc), pinnedAt(sort: Desc), orderIndex(sort: Asc), updatedAt(sort: Desc)])
   @@index([deviceId, isDeleted(sort: Asc), updatedAt(sort: Desc)])
-  @@index([deviceId, isDeleted(sort: Asc), isPinned(sort: Desc), pinnedAt(sort: Desc), updatedAt(sort: Desc)])
+  @@index([deviceId, isDeleted(sort: Asc), isPinned(sort: Desc), pinnedAt(sort: Desc), orderIndex(sort: Asc), updatedAt(sort: Desc)])
   @@index([deviceId, isDeleted(sort: Desc), deletedAt(sort: Desc)])
 }
 
