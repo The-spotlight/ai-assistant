@@ -2,6 +2,25 @@
 
 import type { Message } from 'ai';
 import { useCallback, useEffect, useState, useRef, useMemo } from 'react';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragOverlay,
+  type DragStartEvent,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import ChatSession from '@/components/ChatSession';
 import FavoriteToastPanel from '@/components/FavoriteToastPanel';
 import FavoritePanel from '@/components/FavoritePanel';
@@ -294,9 +313,6 @@ function SidebarContent({
   const [editingTitle, setEditingTitle] = useState<string>('');
   const editingInputRef = useRef<HTMLInputElement>(null);
 
-  const [draggedId, setDraggedId] = useState<string | null>(null);
-  const [dragOverId, setDragOverId] = useState<string | null>(null);
-
   const { pinnedConversations, unpinnedConversations } = useMemo(() => {
     const pinned: ConversationRow[] = [];
     const unpinned: ConversationRow[] = [];
@@ -312,59 +328,58 @@ function SidebarContent({
     return { pinnedConversations: pinned, unpinnedConversations: unpinned };
   }, [convList]);
 
-  const handleDragStart = useCallback((e: React.DragEvent, id: string) => {
-    setDraggedId(id);
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', id);
+  const [activeId, setActiveId] = useState<string | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const unpinnedIds = useMemo(
+    () => unpinnedConversations.map((c) => c.id),
+    [unpinnedConversations]
+  );
+
+  const handleDragStart = useCallback((event: DragStartEvent) => {
+    setActiveId(event.active.id as string);
   }, []);
 
-  const handleDragEnd = useCallback(() => {
-    setDraggedId(null);
-    setDragOverId(null);
-  }, []);
+  const handleDragEnd = useCallback(
+    async (event: DragEndEvent) => {
+      const { active, over } = event;
+      setActiveId(null);
 
-  const handleDragOver = useCallback((e: React.DragEvent, id: string) => {
-    e.preventDefault();
-    if (draggedId && draggedId !== id) {
-      setDragOverId(id);
-    }
-  }, [draggedId]);
+      if (!over || active.id === over.id) {
+        return;
+      }
 
-  const handleDragLeave = useCallback(() => {
-    setDragOverId(null);
-  }, []);
+      const oldIndex = unpinnedConversations.findIndex((c) => c.id === active.id);
+      const newIndex = unpinnedConversations.findIndex((c) => c.id === over.id);
 
-  const handleDrop = useCallback(async (e: React.DragEvent, targetId: string) => {
-    e.preventDefault();
-    if (!draggedId || draggedId === targetId) {
-      setDraggedId(null);
-      setDragOverId(null);
-      return;
-    }
+      if (oldIndex === -1 || newIndex === -1) {
+        return;
+      }
 
-    const draggedIndex = unpinnedConversations.findIndex((c) => c.id === draggedId);
-    const targetIndex = unpinnedConversations.findIndex((c) => c.id === targetId);
+      const newOrder = arrayMove(unpinnedConversations, oldIndex, newIndex);
+      const orderData = newOrder.map((c, index) => ({
+        id: c.id,
+        orderIndex: index,
+      }));
 
-    if (draggedIndex === -1 || targetIndex === -1) {
-      setDraggedId(null);
-      setDragOverId(null);
-      return;
-    }
+      await reorderConversations(orderData);
+    },
+    [unpinnedConversations, reorderConversations]
+  );
 
-    const newOrder = [...unpinnedConversations];
-    const [removed] = newOrder.splice(draggedIndex, 1);
-    newOrder.splice(targetIndex, 0, removed);
-
-    const orderData = newOrder.map((c, index) => ({
-      id: c.id,
-      orderIndex: index,
-    }));
-
-    await reorderConversations(orderData);
-
-    setDraggedId(null);
-    setDragOverId(null);
-  }, [draggedId, unpinnedConversations, reorderConversations]);
+  const activeConversation = activeId
+    ? unpinnedConversations.find((c) => c.id === activeId)
+    : null;
 
 
 
