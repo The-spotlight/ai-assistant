@@ -302,13 +302,14 @@ export default function ChatSession({
     // 解析快捷指令
     const { command, argument } = parseQuickCommand(input);
     
-    if (command && argument) {
-      // 如果是有效的快捷指令且有参数，生成对应的提示文本
+    if (command && argument !== null) {
+      // 如果是有效的快捷指令且有参数（有空格），即使参数为空字符串也允许提交
+      // 这样用户可以搜索空格或其他特殊字符
       const prompt = generateQuickCommandPrompt(command, argument);
       append({ role: 'user', content: prompt });
       setInput('');
-    } else if (command && !argument) {
-      // 如果有指令但没有参数，不提交，等待用户输入参数
+    } else if (command && argument === null) {
+      // 如果有指令但没有参数（没有空格，如 /搜索），不提交，等待用户输入参数
       return;
     } else {
       // 正常提交
@@ -348,11 +349,8 @@ export default function ChatSession({
       }
     }
 
-    // 原有逻辑：输入为空时按 / 显示技能面板
-    if (e.key === '/' && input === '') {
-      e.preventDefault();
-      setShowSkills(true);
-    }
+    // 输入 / 时，快捷指令面板会自动显示，不再显示技能面板
+    // 技能面板只在点击"技能"按钮时显示
   };
 
   // 使用 useEffect 来处理重新生成的第二阶段：截断后发送消息

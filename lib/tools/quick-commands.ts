@@ -67,18 +67,18 @@ export function parseQuickCommand(input: string): {
     return { command: null, argument: null, isCommand: false };
   }
 
-  const commandPart = input.slice(1).trim();
+  const commandPart = input.slice(1);
   if (!commandPart) {
     return { command: null, argument: null, isCommand: true };
   }
 
   const firstSpaceIndex = commandPart.indexOf(' ');
   const commandName = firstSpaceIndex === -1 
-    ? commandPart 
-    : commandPart.slice(0, firstSpaceIndex);
+    ? commandPart.trim() 
+    : commandPart.slice(0, firstSpaceIndex).trim();
   const argument = firstSpaceIndex === -1 
-    ? '' 
-    : commandPart.slice(firstSpaceIndex + 1).trim();
+    ? null 
+    : commandPart.slice(firstSpaceIndex + 1);
 
   const matchedCommand = QUICK_COMMANDS.find(
     (cmd) => cmd.command === commandName || cmd.name === commandName
@@ -86,7 +86,7 @@ export function parseQuickCommand(input: string): {
 
   return { 
     command: matchedCommand || null, 
-    argument: argument || null,
+    argument: argument,
     isCommand: true
   };
 }
