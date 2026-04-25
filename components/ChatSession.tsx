@@ -210,6 +210,7 @@ export default function ChatSession({
   const messageRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const statsTriggerRef = useRef<HTMLDivElement>(null);
   const menuTriggerRef = useRef<HTMLButtonElement>(null);
+  const menuContainerRef = useRef<HTMLDivElement>(null);
   const [showSkills, setShowSkills] = useState(false);
   const [showTokenStats, setShowTokenStats] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
@@ -329,15 +330,15 @@ export default function ChatSession({
 
     const handleClickOutside = (e: MouseEvent) => {
       if (
-        menuTriggerRef.current &&
-        !menuTriggerRef.current.contains(e.target as Node)
+        menuContainerRef.current &&
+        !menuContainerRef.current.contains(e.target as Node)
       ) {
         setShowMenu(false);
       }
     };
 
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
   }, [showMenu]);
 
   // 处理模板内容
@@ -639,7 +640,7 @@ export default function ChatSession({
                   </svg>
                 </span>
               </div>
-              <div className="relative">
+              <div className="relative" ref={menuContainerRef}>
                 <button
                   ref={menuTriggerRef}
                   type="button"
