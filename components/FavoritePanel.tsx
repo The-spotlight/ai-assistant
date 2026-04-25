@@ -63,6 +63,38 @@ function IconLoader(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
+function IconAlertTriangle(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden {...props}>
+      <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
+      <path d="M12 9v4" />
+      <path d="M12 17h.01" />
+    </svg>
+  );
+}
+
+function escapeMarkdownContent(content: string): string {
+  return content
+    .replace(/\\/g, '\\\\')
+    .replace(/`/g, '\\`')
+    .replace(/\*/g, '\\*')
+    .replace(/_/g, '\\_')
+    .replace(/\{/g, '\\{')
+    .replace(/\}/g, '\\}')
+    .replace(/\[/g, '\\[')
+    .replace(/\]/g, '\\]')
+    .replace(/\(/g, '\\(')
+    .replace(/\)/g, '\\)')
+    .replace(/</g, '\\<')
+    .replace(/>/g, '\\>')
+    .replace(/#/g, '\\#')
+    .replace(/\+/g, '\\+')
+    .replace(/-/g, '\\-')
+    .replace(/\./g, '\\.')
+    .replace(/!/g, '\\!')
+    .replace(/\|/g, '\\|');
+}
+
 function formatRelativeTime(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
@@ -136,6 +168,8 @@ export default function FavoritePanel({
   const [firstGroupCollapsed, setFirstGroupCollapsed] = useState<boolean>(false);
   const [otherGroupsExpanded, setOtherGroupsExpanded] = useState<Set<string>>(new Set());
   const [exportingConversationId, setExportingConversationId] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [exportSuccess, setExportSuccess] = useState<string | null>(null);
 
   const generateMarkdown = useCallback((
     conversationTitle: string | null,
@@ -144,7 +178,7 @@ export default function FavoritePanel({
     const title = conversationTitle?.trim() || '新对话';
     const lines: string[] = [];
 
-    lines.push(`# ${title}`);
+    lines.push(`# ${escapeMarkdownContent(title)}`);
     lines.push('');
     lines.push('> 导出时间：' + new Date().toLocaleString('zh-CN'));
     lines.push('');
@@ -159,7 +193,7 @@ export default function FavoritePanel({
       lines.push('');
       lines.push(`> 收藏时间：${favoriteTime}`);
       lines.push('');
-      lines.push(fav.messageContent);
+      lines.push(escapeMarkdownContent(fav.messageContent));
       lines.push('');
       
       if (index < favorites.length - 1) {
@@ -188,6 +222,8 @@ export default function FavoritePanel({
     conversationData: { conversationTitle: string | null; favorites: FavoriteItem[] }
   ) => {
     setExportingConversationId(conversationId);
+    setExportError(null);
+    setExportSuccess(null);
     
     try {
       await new Promise(resolve => setTimeout(resolve, 500));
@@ -203,8 +239,16 @@ export default function FavoritePanel({
       const filename = `${safeTitle}_${timestamp}.md`;
       
       downloadMarkdown(markdown, filename);
+      
+      setExportSuccess(`已导出：${title}`);
+      
+      setTimeout(() => {
+        setExportSuccess(null);
+      }, 3000);
     } catch (error) {
       console.error('导出失败:', error);
+      const errorMessage = error instanceof Error ? error.message : '未知错误';
+      setExportError(`导出失败：${errorMessage}`);
     } finally {
       setExportingConversationId(null);
     }
@@ -323,6 +367,19 @@ export default function FavoritePanel({
             <IconX className="h-4 w-4" />
           </button>
         </div>
+
+        {exportError && (
+          <div className="px-4 py-2 border-b border-black/[0.06] bg-[#fef2f2] flex items-center gap-2">
+            <IconAlertTriangle className="h-4 w-4 text-[#ef4444]" />
+            <span className="text-xs text-[#dc2626]">{exportError}</span>
+          </div>
+        )}
+        {exportSuccess && (
+          <div className="px-4 py-2 border-b border-black/[0.06] bg-[#f0fdf4] flex items-center gap-2">
+            <IconBookmark className="h-4 w-4 text-[#22c55e]" filled />
+            <span className="text-xs text-[#16a34a]">{exportSuccess}</span>
+          </div>
+        )}
 
         <div className="flex-1 overflow-y-auto p-3">
           {favoritesByConversation.size === 0 ? (
