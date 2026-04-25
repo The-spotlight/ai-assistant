@@ -27,6 +27,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
     id: m.clientMessageId ?? m.id,
     role: m.role,
     content: m.content,
+    createdAt: m.createdAt.toISOString(),
     ...(m.toolInvocations != null
       ? { toolInvocations: m.toolInvocations as unknown[] }
       : {}),

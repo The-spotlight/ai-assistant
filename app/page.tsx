@@ -22,6 +22,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import ChatSession from '@/components/ChatSession';
+import CompareView from '@/components/CompareView';
 import FavoriteToastPanel from '@/components/FavoriteToastPanel';
 import FavoritePanel from '@/components/FavoritePanel';
 import TrashPanel from '@/components/TrashPanel';
@@ -2228,119 +2229,24 @@ export default function Home() {
           )}
 
           {compareMode.isActive ? (
-            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-              <div className="shrink-0 border-b border-[rgba(0,0,0,0.08)] bg-gradient-to-r from-blue-50 to-purple-50 px-4 py-2">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-1.5">
-                      <div className="h-2 w-2 rounded-full bg-[#3b82f6]" />
-                      <span className="text-[12px] font-medium text-[#1e40af]">
-                        {compareMode.left
-                          ? convList.find((c) => c.id === compareMode.left?.conversationId)
-                              ?.title?.trim() || '新对话'
-                          : '未选择'}
-                      </span>
-                    </div>
-                    <span className="text-[#9ca3af]">VS</span>
-                    <div className="flex items-center gap-1.5">
-                      <div className="h-2 w-2 rounded-full bg-[#8b5cf6]" />
-                      <span className="text-[12px] font-medium text-[#6d28d9]">
-                        {compareMode.right
-                          ? convList.find((c) => c.id === compareMode.right?.conversationId)
-                              ?.title?.trim() || '新对话'
-                          : '未选择'}
-                      </span>
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={exitCompareMode}
-                    className="inline-flex items-center gap-1 rounded-lg bg-white px-3 py-1 text-[12px] text-[#374151] shadow-sm transition hover:bg-gray-50 border border-[#d1d5db]"
-                  >
-                    <IconX className="h-3 w-3" />
-                    退出对比
-                  </button>
-                </div>
-              </div>
-              
-              <div className="flex min-h-0 flex-1 gap-3 p-3">
-                <div
-                  className={`flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border-2 transition-all ${
-                    compareMode.activeSide === 'left'
-                      ? 'border-[#3b82f6] shadow-lg'
-                      : 'border-transparent'
-                  }`}
-                >
-                  {compareMode.left ? (
-                    <ChatSession
-                      key={`compare-left-${compareMode.left.conversationId}`}
-                      deviceId={deviceId}
-                      conversationId={compareMode.left.conversationId}
-                      modelId={DEFAULT_OPENROUTER_MODEL_ID}
-                      initialMessages={compareMode.left.messages}
-                      highlightMessageId={null}
-                      onHighlightCleared={undefined}
-                      favoriteMessageIds={new Set(favorites.map((fav) => fav.messageId))}
-                      onToggleFavorite={handleToggleFavorite}
-                      templateContent={null}
-                      onTemplateUsed={undefined}
-                    />
-                  ) : (
-                    <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-[#d1d5db] bg-[#fafafa]">
-                      <div className="h-12 w-12 rounded-full bg-[#3b82f6]/10 flex items-center justify-center">
-                        <IconArrowLeft className="h-6 w-6 text-[#3b82f6]" />
-                      </div>
-                      <div className="text-center">
-                        <p className="text-sm font-medium text-[#374151]">请选择左侧对话</p>
-                        <p className="mt-1 text-[12px] text-[#9ca3af]">从侧边栏选择一个对话</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                <div className="flex shrink-0 items-center justify-center">
-                  <div className="flex flex-col items-center gap-2">
-                    <div className="h-px w-6 bg-[#e5e7eb]" />
-                    <div className="text-[14px] text-[#9ca3af]">VS</div>
-                    <div className="h-px w-6 bg-[#e5e7eb]" />
-                  </div>
-                </div>
-
-                <div
-                  className={`flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border-2 transition-all ${
-                    compareMode.activeSide === 'right'
-                      ? 'border-[#8b5cf6] shadow-lg'
-                      : 'border-transparent'
-                  }`}
-                >
-                  {compareMode.right ? (
-                    <ChatSession
-                      key={`compare-right-${compareMode.right.conversationId}`}
-                      deviceId={deviceId}
-                      conversationId={compareMode.right.conversationId}
-                      modelId={DEFAULT_OPENROUTER_MODEL_ID}
-                      initialMessages={compareMode.right.messages}
-                      highlightMessageId={null}
-                      onHighlightCleared={undefined}
-                      favoriteMessageIds={new Set(favorites.map((fav) => fav.messageId))}
-                      onToggleFavorite={handleToggleFavorite}
-                      templateContent={null}
-                      onTemplateUsed={undefined}
-                    />
-                  ) : (
-                    <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-[#d1d5db] bg-[#fafafa]">
-                      <div className="h-12 w-12 rounded-full bg-[#8b5cf6]/10 flex items-center justify-center">
-                        <IconArrowRight className="h-6 w-6 text-[#8b5cf6]" />
-                      </div>
-                      <div className="text-center">
-                        <p className="text-sm font-medium text-[#374151]">请选择右侧对话</p>
-                        <p className="mt-1 text-[12px] text-[#9ca3af]">从侧边栏选择一个对话</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
+            <CompareView
+              deviceId={deviceId!}
+              leftConversationId={compareMode.left?.conversationId ?? null}
+              rightConversationId={compareMode.right?.conversationId ?? null}
+              leftInitialMessages={compareMode.left?.messages ?? []}
+              rightInitialMessages={compareMode.right?.messages ?? []}
+              activeSide={compareMode.activeSide}
+              onActiveSideChange={setCompareActiveSide}
+              onExitCompare={exitCompareMode}
+              leftTitle={compareMode.left
+                ? convList.find((c) => c.id === compareMode.left?.conversationId)?.title ?? null
+                : null}
+              rightTitle={compareMode.right
+                ? convList.find((c) => c.id === compareMode.right?.conversationId)?.title ?? null
+                : null}
+              favoriteMessageIds={new Set(favorites.map((fav) => fav.messageId))}
+              onToggleFavorite={handleToggleFavorite}
+            />
           ) : deviceId && chatPayload ? (
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
               <ChatSession
