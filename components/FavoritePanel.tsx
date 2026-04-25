@@ -45,6 +45,24 @@ function IconChevronUp(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
+function IconDownload(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden {...props}>
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="7 10 12 15 17 10" />
+      <line x1="12" y1="15" x2="12" y2="3" />
+    </svg>
+  );
+}
+
+function IconLoader(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden {...props}>
+      <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+    </svg>
+  );
+}
+
 function formatRelativeTime(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
@@ -117,6 +135,80 @@ export default function FavoritePanel({
   const panelRef = useRef<HTMLDivElement>(null);
   const [firstGroupCollapsed, setFirstGroupCollapsed] = useState<boolean>(false);
   const [otherGroupsExpanded, setOtherGroupsExpanded] = useState<Set<string>>(new Set());
+  const [exportingConversationId, setExportingConversationId] = useState<string | null>(null);
+
+  const generateMarkdown = useCallback((
+    conversationTitle: string | null,
+    favorites: FavoriteItem[]
+  ): string => {
+    const title = conversationTitle?.trim() || '新对话';
+    const lines: string[] = [];
+
+    lines.push(`# ${title}`);
+    lines.push('');
+    lines.push('> 导出时间：' + new Date().toLocaleString('zh-CN'));
+    lines.push('');
+    lines.push('---');
+    lines.push('');
+
+    favorites.forEach((fav, index) => {
+      const role = fav.messageRole === 'user' ? '我' : 'AI';
+      const favoriteTime = new Date(fav.createdAt).toLocaleString('zh-CN');
+      
+      lines.push(`## ${role}`);
+      lines.push('');
+      lines.push(`> 收藏时间：${favoriteTime}`);
+      lines.push('');
+      lines.push(fav.messageContent);
+      lines.push('');
+      
+      if (index < favorites.length - 1) {
+        lines.push('---');
+        lines.push('');
+      }
+    });
+
+    return lines.join('\n');
+  }, []);
+
+  const downloadMarkdown = useCallback((content: string, filename: string) => {
+    const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }, []);
+
+  const exportConversation = useCallback(async (
+    conversationId: string,
+    conversationData: { conversationTitle: string | null; favorites: FavoriteItem[] }
+  ) => {
+    setExportingConversationId(conversationId);
+    
+    try {
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      const markdown = generateMarkdown(
+        conversationData.conversationTitle,
+        conversationData.favorites
+      );
+      
+      const title = conversationData.conversationTitle?.trim() || '新对话';
+      const safeTitle = title.replace(/[\\/:*?"<>|]/g, '_');
+      const timestamp = new Date().toISOString().slice(0, 10);
+      const filename = `${safeTitle}_${timestamp}.md`;
+      
+      downloadMarkdown(markdown, filename);
+    } catch (error) {
+      console.error('导出失败:', error);
+    } finally {
+      setExportingConversationId(null);
+    }
+  }, [generateMarkdown, downloadMarkdown]);
 
   const { favoritesByConversation, firstConversationId } = useMemo(() => {
     const grouped: FavoritesByConversation = new Map();
@@ -248,16 +340,18 @@ export default function FavoritePanel({
 
                 return (
                   <div key={conversationId} className="flex flex-col gap-0.5">
-                    <button
-                      type="button"
-                      onClick={() => toggleConversationGroup(conversationId)}
+                    <div
                       className={`flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                         isExpanded
                           ? 'bg-[#f5f5f5] text-[#171717]'
                           : 'bg-[#fafafa] text-[#737373] hover:bg-[#f5f5f5] hover:text-[#171717]'
                       }`}
                     >
-                      <div className="flex items-center gap-2 min-w-0">
+                      <button
+                        type="button"
+                        onClick={() => toggleConversationGroup(conversationId)}
+                        className="flex items-center gap-2 min-w-0"
+                      >
                         {isExpanded ? (
                           <IconChevronUp className="h-4 w-4 shrink-0" />
                         ) : (
@@ -273,13 +367,32 @@ export default function FavoritePanel({
                         }`}>
                           {conversationData.favorites.length}
                         </span>
+                      </button>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {showTime && (
+                          <span className="text-[10px] text-[#a3a3a3]">
+                            {formatRelativeTime(conversationData.latestFavoriteAt)}
+                          </span>
+                        )}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            exportConversation(conversationId, conversationData);
+                          }}
+                          disabled={exportingConversationId === conversationId}
+                          className="flex items-center justify-center w-6 h-6 rounded transition-colors text-[#a3a3a3] hover:text-[#525252] hover:bg-[#e5e5e5] disabled:opacity-50 disabled:cursor-not-allowed"
+                          title="导出为文档"
+                          aria-label="导出为文档"
+                        >
+                          {exportingConversationId === conversationId ? (
+                            <IconLoader className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <IconDownload className="h-3.5 w-3.5" />
+                          )}
+                        </button>
                       </div>
-                      {showTime && (
-                        <span className="shrink-0 text-[10px] text-[#a3a3a3]">
-                          {formatRelativeTime(conversationData.latestFavoriteAt)}
-                        </span>
-                      )}
-                    </button>
+                    </div>
 
                     {isExpanded && (
                       <div className="flex flex-col gap-0.5 ml-2">
