@@ -138,6 +138,44 @@ function IconX(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
+function IconMoreVertical(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      {...props}
+    >
+      <circle cx="12" cy="12" r="1" />
+      <circle cx="12" cy="5" r="1" />
+      <circle cx="12" cy="19" r="1" />
+    </svg>
+  );
+}
+
+function IconDownload(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      {...props}
+    >
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="7 10 12 15 17 10" />
+      <line x1="12" y1="15" x2="12" y2="3" />
+    </svg>
+  );
+}
+
 export default function ChatSession({
   deviceId,
   conversationId,
@@ -171,8 +209,10 @@ export default function ChatSession({
   const inputRef = useRef<HTMLInputElement>(null);
   const messageRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const statsTriggerRef = useRef<HTMLDivElement>(null);
+  const menuTriggerRef = useRef<HTMLButtonElement>(null);
   const [showSkills, setShowSkills] = useState(false);
   const [showTokenStats, setShowTokenStats] = useState(false);
+  const [showMenu, setShowMenu] = useState(false);
 
   // 快捷指令相关状态
   const [matchingCommands, setMatchingCommands] = useState<QuickCommand[]>([]);
@@ -244,6 +284,61 @@ export default function ChatSession({
       onHighlightCleared();
     }
   }, [onHighlightCleared]);
+
+  // 导出当前对话
+  const handleExport = useCallback(async () => {
+    try {
+      const response = await fetch(`/api/conversations/${conversationId}/export`, {
+        headers: { 'x-device-id': deviceId },
+      });
+
+      if (!response.ok) {
+        throw new Error('导出失败');
+      }
+
+      const blob = await response.blob();
+      const contentDisposition = response.headers.get('content-disposition');
+      let filename = `对话_${conversationId}.md`;
+      
+      if (contentDisposition) {
+        const match = contentDisposition.match(/filename\*=UTF-8''(.+)/);
+        if (match) {
+          filename = decodeURIComponent(match[1]);
+        }
+      }
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+
+      setShowMenu(false);
+    } catch (error) {
+      console.error('导出失败:', error);
+      alert('导出失败，请稍后重试');
+    }
+  }, [conversationId, deviceId]);
+
+  // 点击外部关闭菜单
+  useEffect(() => {
+    if (!showMenu) return;
+
+    const handleClickOutside = (e: MouseEvent) => {
+      if (
+        menuTriggerRef.current &&
+        !menuTriggerRef.current.contains(e.target as Node)
+      ) {
+        setShowMenu(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showMenu]);
 
   // 处理模板内容
   useEffect(() => {
@@ -516,32 +611,59 @@ export default function ChatSession({
             <span className="truncate">
               模型：{modelPricing.label}
             </span>
-            <div
-              ref={statsTriggerRef}
-              className="flex items-center gap-4 cursor-pointer hover:text-[#4d4d4d] transition-colors select-none"
-              onClick={() => setShowTokenStats(!showTokenStats)}
-            >
-              <span title="总 token 数">
-                {formatTokens(totalTokens)} tokens
-              </span>
-              <span
-                className="inline-flex items-center gap-1"
-                title="点击查看详细消耗"
+            <div className="flex items-center gap-2">
+              <div
+                ref={statsTriggerRef}
+                className="flex items-center gap-4 cursor-pointer hover:text-[#4d4d4d] transition-colors select-none"
+                onClick={() => setShowTokenStats(!showTokenStats)}
               >
-                {formatCost(totalCost)}
-                <svg
-                  className="h-3 w-3 transition-transform"
-                  style={{ transform: showTokenStats ? 'rotate(180deg)' : 'none' }}
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
+                <span title="总 token 数">
+                  {formatTokens(totalTokens)} tokens
+                </span>
+                <span
+                  className="inline-flex items-center gap-1"
+                  title="点击查看详细消耗"
                 >
-                  <path d="m6 9 6 6 6-6" />
-                </svg>
-              </span>
+                  {formatCost(totalCost)}
+                  <svg
+                    className="h-3 w-3 transition-transform"
+                    style={{ transform: showTokenStats ? 'rotate(180deg)' : 'none' }}
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="m6 9 6 6 6-6" />
+                  </svg>
+                </span>
+              </div>
+              <div className="relative">
+                <button
+                  ref={menuTriggerRef}
+                  type="button"
+                  onClick={() => setShowMenu(!showMenu)}
+                  className="inline-flex items-center justify-center rounded-lg p-1.5 text-[#a3a3a3] transition-colors hover:bg-[#f5f5f5] hover:text-[#171717]"
+                  title="更多选项"
+                >
+                  <IconMoreVertical className="h-4 w-4" />
+                </button>
+
+                {/* 下拉菜单 */}
+                {showMenu && (
+                  <div className="absolute right-0 top-full z-50 mt-1 w-44 overflow-hidden rounded-xl border border-black/[0.08] bg-white shadow-[0_4px_24px_rgba(0,0,0,0.12)]">
+                    <button
+                      type="button"
+                      onClick={handleExport}
+                      className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-[#171717] transition-colors hover:bg-[#fafafa]"
+                    >
+                      <IconDownload className="h-4 w-4 text-[#737373]" />
+                      <span>导出为 Markdown</span>
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
