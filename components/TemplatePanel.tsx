@@ -77,38 +77,56 @@ interface TemplatePanelProps {
   onDeleteTemplate: (id: string) => Promise<void>;
 }
 
+type FormModalMode = 'create' | 'edit' | 'save-as';
+
 interface FormModalProps {
   visible: boolean;
   onClose: () => void;
-  editingTemplate: TemplateItem | null;
-  initialData?: { title: string; content: string; category?: string } | null;
+  initialValues?: {
+    title: string;
+    content: string;
+    category?: string;
+    id?: string;
+  } | null;
+  mode?: FormModalMode;
   onSubmit: (data: { title: string; content: string; category: string }) => Promise<void>;
 }
 
-export function FormModal({ visible, onClose, editingTemplate, initialData, onSubmit }: FormModalProps) {
+export function FormModal({ visible, onClose, initialValues, mode, onSubmit }: FormModalProps) {
   const [formTitle, setFormTitle] = useState<string>('');
   const [formContent, setFormContent] = useState<string>('');
   const [formCategory, setFormCategory] = useState<string>('其他');
   const [saving, setSaving] = useState<boolean>(false);
   const modalRef = useRef<HTMLDivElement>(null);
 
+  const effectiveMode: FormModalMode = useMemo(() => {
+    if (mode) return mode;
+    if (initialValues?.id) return 'edit';
+    if (initialValues) return 'save-as';
+    return 'create';
+  }, [mode, initialValues]);
+
+  const getModalTitle = () => {
+    switch (effectiveMode) {
+      case 'edit': return '编辑模板';
+      case 'save-as': return '另存为模板';
+      default: return '新建模板';
+    }
+  };
+
   useEffect(() => {
     if (visible) {
-      if (editingTemplate) {
-        setFormTitle(editingTemplate.title);
-        setFormContent(editingTemplate.content);
-        setFormCategory(editingTemplate.category);
-      } else if (initialData) {
-        setFormTitle(initialData.title);
-        setFormContent(initialData.content);
-        setFormCategory(initialData.category || '其他');
+      if (initialValues) {
+        setFormTitle(initialValues.title);
+        setFormContent(initialValues.content);
+        setFormCategory(initialValues.category || '其他');
       } else {
         setFormTitle('');
         setFormContent('');
         setFormCategory('其他');
       }
     }
-  }, [visible, editingTemplate, initialData]);
+  }, [visible, initialValues]);
 
   useEffect(() => {
     if (!visible) return;
@@ -176,7 +194,7 @@ export function FormModal({ visible, onClose, editingTemplate, initialData, onSu
           <div className="flex items-center gap-2">
             <IconEdit className="h-4 w-4 text-[#171717]" />
             <span className="text-sm font-medium text-[#171717]">
-              {editingTemplate ? '编辑模板' : initialData ? '另存为模板' : '新建模板'}
+              {getModalTitle()}
             </span>
           </div>
           <button
@@ -447,9 +465,9 @@ export default function TemplatePanel({
             <div className="flex flex-col items-center justify-center py-16">
               <IconTemplate className="h-14 w-14 text-[#d4d4d4] mb-3" />
               <p className="text-sm font-medium text-[#737373] mb-1">暂无模板</p>
-              <p className="text-xs text-[#a3a3a3] mb-5">
+              <p className="text-xs text-[#a3a3a3] mb-5 text-center leading-relaxed">
                 {activeFilter === '全部'
-                  ? '点击上方"新建模板"按钮创建你的第一个模板'
+                  ? '可以点击下方"创建模板"按钮新建\n或从对话列表中悬停对话，点击"另存为模板"图标'
                   : `"${activeFilter}"分类下暂无模板，切换其他分类或新建模板`}
               </p>
               {activeFilter === '全部' && (
@@ -520,7 +538,12 @@ export default function TemplatePanel({
       <FormModal
         visible={showFormModal}
         onClose={closeFormModal}
-        editingTemplate={editingTemplate}
+        initialValues={editingTemplate ? {
+          id: editingTemplate.id,
+          title: editingTemplate.title,
+          content: editingTemplate.content,
+          category: editingTemplate.category,
+        } : null}
         onSubmit={handleFormSubmit}
       />
     </div>

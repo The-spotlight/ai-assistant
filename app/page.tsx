@@ -418,7 +418,7 @@ function SortableConversationRow({
           e.stopPropagation();
           void onSaveAsTemplate(conversation.id);
         }}
-        className={`flex w-9 shrink-0 items-center justify-center text-[#a3a3a3] opacity-0 transition hover:bg-blue-50 hover:text-blue-600 group-hover:opacity-100 ${
+        className={`flex w-9 shrink-0 items-center justify-center text-[#a3a3a3] opacity-0 transition hover:bg-[#f5f5f5] hover:text-[#171717] group-hover:opacity-100 ${
           isNarrow ? 'w-7' : ''
         }`}
         title="另存为模板"
@@ -719,7 +719,7 @@ function SidebarContent({
                       e.stopPropagation();
                       void onSaveAsTemplate(c.id);
                     }}
-                    className={`flex w-9 shrink-0 items-center justify-center text-[#a3a3a3] opacity-0 transition hover:bg-blue-50 hover:text-blue-600 group-hover:opacity-100 ${
+                    className={`flex w-9 shrink-0 items-center justify-center text-[#a3a3a3] opacity-0 transition hover:bg-[#f5f5f5] hover:text-[#171717] group-hover:opacity-100 ${
                       isNarrow ? 'w-7' : ''
                     }`}
                     title="另存为模板"
@@ -1943,8 +1943,8 @@ export default function Home() {
       <FormModal
         visible={showSaveAsTemplateModal}
         onClose={handleCloseSaveAsTemplateModal}
-        editingTemplate={null}
-        initialData={saveAsTemplateData}
+        initialValues={saveAsTemplateData}
+        mode="save-as"
         onSubmit={handleCreateTemplateFromConversation}
       />
     </div>
