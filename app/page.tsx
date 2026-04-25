@@ -27,7 +27,7 @@ import FavoritePanel from '@/components/FavoritePanel';
 import TrashPanel from '@/components/TrashPanel';
 import TemplatePanel from '@/components/TemplatePanel';
 import ResizablePanel, { useLayoutContext, AdaptiveText } from '@/components/ResizablePanel';
-import { DEFAULT_OPENROUTER_MODEL_ID, FIXED_OPENROUTER_MODEL_LABEL } from '@/lib/openrouter-models';
+import { DEFAULT_OPENROUTER_MODEL_ID, DEFAULT_OPENROUTER_MODEL_LABEL } from '@/lib/openrouter-models';
 import { CONVERSATION_STORAGE_KEY, getOrCreateDeviceId } from '@/lib/device';
 
 type ConversationRow = {
@@ -262,6 +262,145 @@ interface SidebarContentProps {
   onOpenFavorites: () => void;
   onOpenTrash: () => void;
   onOpenTemplates: () => void;
+}
+
+/** useSortable 必须在子组件顶层调用，不能在 SidebarContent 的 map 里调用（会与搜索视图切换时 hooks 数量冲突）。 */
+function SortableConversationRow({
+  conversation,
+  isNarrow,
+  isWide,
+  itemPadding,
+  titleLines,
+  showTime,
+  selectedConversationId,
+  editingConversationId,
+  editingTitle,
+  setEditingTitle,
+  editingInputRef,
+  startEditing,
+  selectConversation,
+  togglePin,
+  deleteConversation,
+}: {
+  conversation: ConversationRow;
+  isNarrow: boolean;
+  isWide: boolean;
+  itemPadding: string;
+  titleLines: string;
+  showTime: boolean;
+  selectedConversationId: string | undefined;
+  editingConversationId: string | null;
+  editingTitle: string;
+  setEditingTitle: (v: string) => void;
+  editingInputRef: React.RefObject<HTMLInputElement | null>;
+  startEditing: (conversationId: string, currentTitle: string | null) => void;
+  selectConversation: (id: string) => Promise<void>;
+  togglePin: (id: string, e: React.MouseEvent) => Promise<void>;
+  deleteConversation: (id: string, e: React.MouseEvent) => Promise<void>;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: conversation.id });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 999 : 'auto',
+  };
+
+  const active = selectedConversationId === conversation.id;
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`group relative flex items-stretch gap-0 overflow-hidden rounded-xl border transition-all duration-150 ${
+        active
+          ? 'border-black/[0.08] bg-[#f4f4f5]'
+          : 'border-transparent hover:bg-[#fafafa]'
+      }`}
+    >
+      <div
+        {...attributes}
+        {...listeners}
+        className="flex shrink-0 items-center justify-center px-1.5 text-[#d4d4d4] opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing"
+        title="拖动排序"
+      >
+        <IconGripVertical className={`h-4 w-4 ${isNarrow ? 'h-3.5 w-3.5' : ''}`} />
+      </div>
+      <button
+        type="button"
+        onClick={() => {
+          if (editingConversationId !== conversation.id) {
+            void selectConversation(conversation.id);
+          }
+        }}
+        onDoubleClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          startEditing(conversation.id, conversation.title);
+        }}
+        className={`min-w-0 flex-1 ${itemPadding} text-left`}
+        title={editingConversationId === conversation.id ? '编辑中...' : `双击重命名: ${conversation.title ?? '新对话'}`}
+      >
+        {editingConversationId === conversation.id ? (
+          <input
+            ref={editingInputRef}
+            type="text"
+            value={editingTitle}
+            onChange={(e) => setEditingTitle(e.target.value)}
+            onClick={(e) => e.stopPropagation()}
+            className={`w-full min-w-0 bg-white border border-[#171717]/[0.12] rounded-lg px-2 py-1 text-[13px] font-medium leading-snug text-[#171717] shadow-sm focus:outline-none focus:ring-2 focus:ring-[#171717]/20 focus:border-[#171717]/20 transition-all ${
+              isNarrow ? 'text-[12px] px-1.5 py-0.5' : ''
+            } ${isWide ? 'text-sm px-2.5 py-1.5' : ''}`}
+            placeholder="输入新标题..."
+          />
+        ) : (
+          <>
+            <span
+              className={`${titleLines} text-[13px] font-medium leading-snug text-[#171717] ${
+                isNarrow ? 'text-[12px]' : ''
+              } ${isWide ? 'text-sm' : ''}`}
+            >
+              {conversation.title?.trim() || '新对话'}
+            </span>
+            {showTime && (
+              <span className={`mt-1 block text-[11px] text-[#a3a3a3] ${isWide ? 'text-xs' : ''}`}>
+                {formatRelativeTime(conversation.updatedAt)}
+              </span>
+            )}
+          </>
+        )}
+      </button>
+      <button
+        type="button"
+        aria-label="置顶会话"
+        onClick={(e) => togglePin(conversation.id, e)}
+        className={`flex w-9 shrink-0 items-center justify-center text-[#a3a3a3] opacity-0 transition hover:bg-amber-50 hover:text-[#f59e0b] group-hover:opacity-100 ${
+          isNarrow ? 'w-7' : ''
+        }`}
+        title="置顶会话"
+      >
+        <IconPin className={`h-4 w-4 ${isNarrow ? 'h-3.5 w-3.5' : ''}`} />
+      </button>
+      <button
+        type="button"
+        aria-label="删除会话"
+        onClick={(e) => deleteConversation(conversation.id, e)}
+        className={`flex w-9 shrink-0 items-center justify-center text-[#a3a3a3] opacity-0 transition hover:bg-red-50 hover:text-red-600 group-hover:opacity-100 ${
+          isNarrow ? 'w-7' : ''
+        }`}
+      >
+        <IconTrash className={`h-4 w-4 ${isNarrow ? 'h-3.5 w-3.5' : ''}`} />
+      </button>
+    </div>
+  );
 }
 
 function SidebarContent({
@@ -680,112 +819,26 @@ function SidebarContent({
                     暂无会话记录
                   </p>
                 )}
-                {unpinnedConversations.map((conversation) => {
-                  const {
-                    attributes,
-                    listeners,
-                    setNodeRef,
-                    transform,
-                    transition,
-                    isDragging,
-                  } = useSortable({ id: conversation.id });
-
-                  const style: React.CSSProperties = {
-                    transform: CSS.Transform.toString(transform),
-                    transition,
-                    opacity: isDragging ? 0.5 : 1,
-                    zIndex: isDragging ? 999 : 'auto',
-                  };
-
-                  const active = chatPayload?.conversationId === conversation.id;
-
-                  return (
-                    <div
-                      key={conversation.id}
-                      ref={setNodeRef}
-                      style={style}
-                      className={`group relative flex items-stretch gap-0 overflow-hidden rounded-xl border transition-all duration-150 ${
-                        active
-                          ? 'border-black/[0.08] bg-[#f4f4f5]'
-                          : 'border-transparent hover:bg-[#fafafa]'
-                      }`}
-                    >
-                      <div
-                        {...attributes}
-                        {...listeners}
-                        className="flex shrink-0 items-center justify-center px-1.5 text-[#d4d4d4] opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing"
-                        title="拖动排序"
-                      >
-                        <IconGripVertical className={`h-4 w-4 ${isNarrow ? 'h-3.5 w-3.5' : ''}`} />
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (editingConversationId !== conversation.id) {
-                            void selectConversation(conversation.id);
-                          }
-                        }}
-                        onDoubleClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          startEditing(conversation.id, conversation.title);
-                        }}
-                        className={`min-w-0 flex-1 ${itemPadding} text-left`}
-                        title={editingConversationId === conversation.id ? '编辑中...' : `双击重命名: ${conversation.title ?? '新对话'}`}
-                      >
-                        {editingConversationId === conversation.id ? (
-                          <input
-                            ref={editingInputRef}
-                            type="text"
-                            value={editingTitle}
-                            onChange={(e) => setEditingTitle(e.target.value)}
-                            onClick={(e) => e.stopPropagation()}
-                            className={`w-full min-w-0 bg-white border border-[#171717]/[0.12] rounded-lg px-2 py-1 text-[13px] font-medium leading-snug text-[#171717] shadow-sm focus:outline-none focus:ring-2 focus:ring-[#171717]/20 focus:border-[#171717]/20 transition-all ${
-                              isNarrow ? 'text-[12px] px-1.5 py-0.5' : ''
-                            } ${isWide ? 'text-sm px-2.5 py-1.5' : ''}`}
-                            placeholder="输入新标题..."
-                          />
-                        ) : (
-                          <>
-                            <span className={`${titleLines} text-[13px] font-medium leading-snug text-[#171717] ${
-                              isNarrow ? 'text-[12px]' : ''
-                            } ${isWide ? 'text-sm' : ''}`}>
-                              {conversation.title?.trim() || '新对话'}
-                            </span>
-                            {showTime && (
-                              <span className={`mt-1 block text-[11px] text-[#a3a3a3] ${
-                                isWide ? 'text-xs' : ''
-                              }`}>
-                                {formatRelativeTime(conversation.updatedAt)}
-                              </span>
-                            )}
-                          </>
-                        )}
-                      </button>
-                      <button
-                        type="button"
-                        aria-label="置顶会话"
-                        onClick={(e) => togglePin(conversation.id, e)}
-                        className={`flex w-9 shrink-0 items-center justify-center text-[#a3a3a3] opacity-0 transition hover:bg-amber-50 hover:text-[#f59e0b] group-hover:opacity-100 ${
-                          isNarrow ? 'w-7' : ''
-                        }`}
-                        title="置顶会话"
-                      >
-                        <IconPin className={`h-4 w-4 ${isNarrow ? 'h-3.5 w-3.5' : ''}`} />
-                      </button>
-                      <button
-                        type="button"
-                        aria-label="删除会话"
-                        onClick={(e) => deleteConversation(conversation.id, e)}
-                        className={`flex w-9 shrink-0 items-center justify-center text-[#a3a3a3] opacity-0 transition hover:bg-red-50 hover:text-red-600 group-hover:opacity-100 ${
-                          isNarrow ? 'w-7' : ''
-                        }`}
-                      >
-                        <IconTrash className={`h-4 w-4 ${isNarrow ? 'h-3.5 w-3.5' : ''}`} />
-                      </button>
-                    </div>
-                  );
-                })}
+                {unpinnedConversations.map((conversation) => (
+                  <SortableConversationRow
+                    key={conversation.id}
+                    conversation={conversation}
+                    isNarrow={isNarrow}
+                    isWide={isWide}
+                    itemPadding={itemPadding}
+                    titleLines={titleLines}
+                    showTime={showTime}
+                    selectedConversationId={chatPayload?.conversationId}
+                    editingConversationId={editingConversationId}
+                    editingTitle={editingTitle}
+                    setEditingTitle={setEditingTitle}
+                    editingInputRef={editingInputRef}
+                    startEditing={startEditing}
+                    selectConversation={selectConversation}
+                    togglePin={togglePin}
+                    deleteConversation={deleteConversation}
+                  />
+                ))}
               </div>
             </SortableContext>
             <DragOverlay>
@@ -1612,8 +1665,8 @@ export default function Home() {
               <p className="hidden text-[11px] text-[#666666] sm:block">对话已同步到此浏览器</p>
             </div>
           </div>
-          <p className="shrink-0 text-right text-[11px] text-[#666666] sm:text-xs" title="当前固定模型">
-            {FIXED_OPENROUTER_MODEL_LABEL}
+          <p className="shrink-0 max-w-[min(52vw,14rem)] truncate text-right text-[11px] text-[#666666] sm:max-w-none sm:text-xs" title="当前对话模型">
+            {DEFAULT_OPENROUTER_MODEL_LABEL}
           </p>
         </div>
       </header>

@@ -2,7 +2,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { createOpenAI } from '@ai-sdk/openai';
 import { streamText, type CoreMessage } from 'ai';
 import { chatTools } from '@/lib/tools/ai-tools';
-import { resolveOpenRouterModelId } from '@/lib/openrouter-models';
+import { isFreeTierOpenRouterModel, resolveOpenRouterModelId } from '@/lib/openrouter-models';
 import { toolInvocationsFromSteps } from '@/lib/chat-persist';
 import { prisma } from '@/lib/db';
 
@@ -36,6 +36,14 @@ const SYSTEM_PROMPT = `你是一个强大的 AI 助手，具备以下能力：
 - 当需要翻译时，使用 translator
 - 工具调用后，基于结果给出完整、友好的回答
 - 请用中文回答问题，除非用户要求其他语言`;
+
+/** 免费模型无服务端工具：避免模型在多步 function calling 上流式无法结束，导致前端一直「正在生成」。 */
+const SYSTEM_PROMPT_NO_TOOLS = `你是一个友好的中文 AI 助手。
+
+当前使用的免费模型不支持联网搜索、代码执行、天气 API 等工具。
+请基于已有知识直接回答；若问题强依赖实时信息，请诚实说明你无法联网查询，并给出通用思路或建议。
+
+请用中文回答，除非用户要求其他语言。`;
 
 function normalizeTextContent(content: unknown): string {
   if (typeof content === 'string') return content;
@@ -240,12 +248,13 @@ export async function POST(req: Request) {
     await persistUserMessage(conversationId, lastUser.clientId, lastUser.text);
   }
 
+  const useTools = !isFreeTierOpenRouterModel(modelId);
+
   const result = streamText({
     model: openrouter(modelId),
-    system: SYSTEM_PROMPT,
+    system: useTools ? SYSTEM_PROMPT : SYSTEM_PROMPT_NO_TOOLS,
     messages: coreMessages,
-    tools: chatTools,
-    maxSteps: 8,
+    ...(useTools ? { tools: chatTools, maxSteps: 8 } : { maxSteps: 1 }),
     onFinish: async (event) => {
       try {
         const inv = toolInvocationsFromSteps(
@@ -286,5 +295,10 @@ export async function POST(req: Request) {
     },
   });
 
-  return result.toDataStreamResponse();
+  return result.toDataStreamResponse({
+    getErrorMessage: (error) => {
+      console.error('[chat] stream', error);
+      return error instanceof Error ? error.message : '生成失败';
+    },
+  });
 }
