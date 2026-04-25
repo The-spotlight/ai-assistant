@@ -127,6 +127,15 @@ type ReplyToInfo = {
   isDeleted?: boolean;
 };
 
+function getReplyToInfo(snapshot: string | null): ReplyToInfo | null {
+  if (!snapshot) return null;
+  try {
+    return JSON.parse(snapshot);
+  } catch {
+    return null;
+  }
+}
+
 type FavoriteItem = {
   id: string;
   messageId: string;
@@ -233,7 +242,7 @@ export default function FavoritePanel({
     });
 
     return lines.join('\n');
-  }, [getReplyToInfo]);
+  }, []);
 
   const downloadMarkdown = useCallback((content: string, filename: string) => {
     const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
@@ -283,15 +292,6 @@ export default function FavoritePanel({
       setExportingConversationId(null);
     }
   }, [generateMarkdown, downloadMarkdown]);
-
-  const getReplyToInfo = useCallback((snapshot: string | null): ReplyToInfo | null => {
-    if (!snapshot) return null;
-    try {
-      return JSON.parse(snapshot);
-    } catch {
-      return null;
-    }
-  }, []);
 
   const { favoritesByConversation, firstConversationId, filteredFavorites } = useMemo(() => {
     let filtered = favorites;
