@@ -431,9 +431,19 @@ export default function FavoritePanel({
         <div className="flex-1 overflow-y-auto p-3">
           {favoritesByConversation.size === 0 ? (
             <div className="flex flex-col items-center justify-center py-12">
-              <IconBookmark className="h-12 w-12 text-[#d4d4d4] mb-3" />
-              <p className="text-sm font-medium text-[#737373] mb-1">暂无收藏</p>
-              <p className="text-xs text-[#a3a3a3]">在对话中点击收藏按钮即可收藏消息</p>
+              {searchQuery.trim() ? (
+                <>
+                  <IconSearch className="h-12 w-12 text-[#d4d4d4] mb-3" />
+                  <p className="text-sm font-medium text-[#737373] mb-1">未找到匹配的收藏</p>
+                  <p className="text-xs text-[#a3a3a3]">尝试使用其他关键词</p>
+                </>
+              ) : (
+                <>
+                  <IconBookmark className="h-12 w-12 text-[#d4d4d4] mb-3" />
+                  <p className="text-sm font-medium text-[#737373] mb-1">暂无收藏</p>
+                  <p className="text-xs text-[#a3a3a3]">在对话中点击收藏按钮即可收藏消息</p>
+                </>
+              )}
             </div>
           ) : (
             <div className="flex flex-col gap-2">
