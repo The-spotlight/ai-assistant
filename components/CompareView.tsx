@@ -439,100 +439,104 @@ function alignMessagesByTime(
   leftMessages: MessageWithTokens[],
   rightMessages: MessageWithTokens[]
 ): AlignedRow[] {
-  const allMessages: Array<{ message: MessageWithTokens; side: CompareSide }> = [];
+  const rows: AlignedRow[] = [];
+  
+  const TIME_WINDOW_MS = 60 * 1000;
 
-  leftMessages.forEach((m) => allMessages.push({ message: m, side: 'left' }));
-  rightMessages.forEach((m) => allMessages.push({ message: m, side: 'right' }));
+  const leftWithIndex = leftMessages.map((m, i) => ({ message: m, originalIndex: i }));
+  const rightWithIndex = rightMessages.map((m, i) => ({ message: m, originalIndex: i }));
+
+  const allMessages: Array<{ message: MessageWithTokens; side: CompareSide; originalIndex: number }> = [];
+  
+  leftWithIndex.forEach(({ message, originalIndex }) => 
+    allMessages.push({ message, side: 'left', originalIndex })
+  );
+  rightWithIndex.forEach(({ message, originalIndex }) => 
+    allMessages.push({ message, side: 'right', originalIndex })
+  );
 
   allMessages.sort((a, b) => {
-    const timeA = a.message.createdAt ? new Date(a.message.createdAt).getTime() : 0;
-    const timeB = b.message.createdAt ? new Date(b.message.createdAt).getTime() : 0;
+    const timeA = a.message.createdAt ? new Date(a.message.createdAt).getTime() : a.originalIndex;
+    const timeB = b.message.createdAt ? new Date(b.message.createdAt).getTime() : b.originalIndex;
     return timeA - timeB;
   });
 
-  const rows: AlignedRow[] = [];
-  const TIME_WINDOW_MS = 5 * 60 * 1000;
+  const usedLeftIds = new Set<string>();
+  const usedRightIds = new Set<string>();
 
-  let currentGroup: Array<{ message: MessageWithTokens; side: CompareSide }> = [];
-
-  allMessages.forEach((item) => {
-    if (currentGroup.length === 0) {
-      currentGroup.push(item);
-      return;
+  for (let i = 0; i < allMessages.length; i++) {
+    const current = allMessages[i];
+    
+    if ((current.side === 'left' && usedLeftIds.has(current.message.id)) ||
+        (current.side === 'right' && usedRightIds.has(current.message.id))) {
+      continue;
     }
 
-    const lastItem = currentGroup[currentGroup.length - 1];
-    const currentTime = item.message.createdAt ? new Date(item.message.createdAt).getTime() : 0;
-    const lastTime = lastItem.message.createdAt ? new Date(lastItem.message.createdAt).getTime() : 0;
+    const currentTime = current.message.createdAt 
+      ? new Date(current.message.createdAt).getTime() 
+      : current.originalIndex;
 
-    if (currentTime - lastTime <= TIME_WINDOW_MS) {
-      currentGroup.push(item);
-    } else {
-      const leftInGroup = currentGroup.filter((m) => m.side === 'left');
-      const rightInGroup = currentGroup.filter((m) => m.side === 'right');
-
-      if (leftInGroup.length === 1 && rightInGroup.length === 1) {
-        const leftMsg = leftInGroup[0].message;
-        const rightMsg = rightInGroup[0].message;
-
-        if (leftMsg.role === rightMsg.role) {
-          rows.push({
-            time: leftMsg.createdAt || '',
-            leftMessage: leftMsg,
-            rightMessage: rightMsg,
-            type: 'mixed',
-          });
-        } else if (leftMsg.role === 'user') {
-          rows.push({
-            time: leftMsg.createdAt || '',
-            leftMessage: leftMsg,
-            rightMessage: null,
-            type: 'user',
-          });
-          rows.push({
-            time: rightMsg.createdAt || '',
-            leftMessage: null,
-            rightMessage: rightMsg,
-            type: 'assistant',
-          });
-        } else {
-          rows.push({
-            time: rightMsg.createdAt || '',
-            leftMessage: null,
-            rightMessage: rightMsg,
-            type: 'user',
-          });
-          rows.push({
-            time: leftMsg.createdAt || '',
-            leftMessage: leftMsg,
-            rightMessage: null,
-            type: 'assistant',
-          });
-        }
-      } else {
-        currentGroup.forEach((m) => {
-          rows.push({
-            time: m.message.createdAt || '',
-            leftMessage: m.side === 'left' ? m.message : null,
-            rightMessage: m.side === 'right' ? m.message : null,
-            type: m.message.role as 'user' | 'assistant',
-          });
-        });
+    let matchedMessage: typeof current | null = null;
+    
+    for (let j = i + 1; j < allMessages.length; j++) {
+      const candidate = allMessages[j];
+      
+      if ((candidate.side === 'left' && usedLeftIds.has(candidate.message.id)) ||
+          (candidate.side === 'right' && usedRightIds.has(candidate.message.id))) {
+        continue;
       }
-
-      currentGroup = [item];
+      
+      if (candidate.side === current.side) {
+        continue;
+      }
+      
+      if (candidate.message.role !== current.message.role) {
+        continue;
+      }
+      
+      const candidateTime = candidate.message.createdAt 
+        ? new Date(candidate.message.createdAt).getTime() 
+        : candidate.originalIndex;
+      
+      if (Math.abs(candidateTime - currentTime) <= TIME_WINDOW_MS) {
+        matchedMessage = candidate;
+        break;
+      }
     }
-  });
 
-  if (currentGroup.length > 0) {
-    currentGroup.forEach((m) => {
+    if (matchedMessage) {
+      if (current.side === 'left') {
+        rows.push({
+          time: current.message.createdAt || '',
+          leftMessage: current.message,
+          rightMessage: matchedMessage.message,
+          type: 'mixed',
+        });
+        usedLeftIds.add(current.message.id);
+        usedRightIds.add(matchedMessage.message.id);
+      } else {
+        rows.push({
+          time: current.message.createdAt || '',
+          leftMessage: matchedMessage.message,
+          rightMessage: current.message,
+          type: 'mixed',
+        });
+        usedRightIds.add(current.message.id);
+        usedLeftIds.add(matchedMessage.message.id);
+      }
+    } else {
       rows.push({
-        time: m.message.createdAt || '',
-        leftMessage: m.side === 'left' ? m.message : null,
-        rightMessage: m.side === 'right' ? m.message : null,
-        type: m.message.role as 'user' | 'assistant',
+        time: current.message.createdAt || '',
+        leftMessage: current.side === 'left' ? current.message : null,
+        rightMessage: current.side === 'right' ? current.message : null,
+        type: current.message.role as 'user' | 'assistant',
       });
-    });
+      if (current.side === 'left') {
+        usedLeftIds.add(current.message.id);
+      } else {
+        usedRightIds.add(current.message.id);
+      }
+    }
   }
 
   return rows;

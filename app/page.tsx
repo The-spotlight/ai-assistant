@@ -469,11 +469,11 @@ function SortableConversationRow({
   if (compareMode.isActive) {
     if (isCompareLeftActive) {
       sideIndicator = (
-        <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#3b82f6] rounded-l-xl z-10" title="左侧" />
+        <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#171717] rounded-l-xl z-10" title="左侧" />
       );
     } else if (isCompareRightActive) {
       sideIndicator = (
-        <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#8b5cf6] rounded-l-xl z-10" title="右侧" />
+        <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#a3a3a3] rounded-l-xl z-10" title="右侧" />
       );
     }
   }
@@ -765,65 +765,59 @@ function SidebarContent({
     <>
       {/* 对比模式控制栏 */}
       {compareMode.isActive && (
-        <div className="mb-3 rounded-xl border border-[#3b82f6]/20 bg-blue-50 p-3">
-          <div className="mb-2 flex items-center justify-between">
-            <span className="text-[12px] font-medium text-[#3b82f6]">对比模式</span>
+        <div className="mb-2 rounded-lg border border-black/[0.08] bg-[#fafafa] px-2 py-1.5">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-[10px] font-medium text-[#737373]">对比模式</span>
             <button
               type="button"
               onClick={exitCompareMode}
-              className="text-[11px] text-[#6b7280] hover:text-[#374151] transition-colors"
+              className="text-[10px] text-[#a3a3a3] hover:text-[#171717] transition-colors"
             >
-              退出对比
+              退出
             </button>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-1">
             <button
               type="button"
               onClick={() => setCompareActiveSide('left')}
-              className={`flex-1 rounded-lg px-3 py-2 text-[12px] font-medium transition-colors ${
+              className={`flex-1 rounded-md px-2 py-1.5 text-[11px] font-medium transition-colors ${
                 compareMode.activeSide === 'left'
-                  ? 'bg-[#3b82f6] text-white'
-                  : 'bg-white text-[#374151] border border-[#d1d5db] hover:bg-gray-50'
+                  ? 'bg-[#171717] text-white'
+                  : 'bg-white text-[#525252] border border-black/[0.08] hover:bg-[#fafafa]'
               }`}
             >
               <div className="flex items-center justify-center gap-1">
-                <IconArrowLeft className="h-3 w-3" />
-                <span>左侧</span>
+                <IconArrowLeft className="h-2.5 w-2.5" />
+                <span>左</span>
               </div>
-              <div className="mt-1 truncate text-[10px] opacity-80">
+              <div className="mt-0.5 truncate text-[9px] opacity-70">
                 {compareMode.left
                   ? convList.find((c) => c.id === compareMode.left?.conversationId)
                       ?.title?.trim() || '新对话'
-                  : '未选择'}
+                  : '未选'}
               </div>
             </button>
             <button
               type="button"
               onClick={() => setCompareActiveSide('right')}
-              className={`flex-1 rounded-lg px-3 py-2 text-[12px] font-medium transition-colors ${
+              className={`flex-1 rounded-md px-2 py-1.5 text-[11px] font-medium transition-colors ${
                 compareMode.activeSide === 'right'
-                  ? 'bg-[#3b82f6] text-white'
-                  : 'bg-white text-[#374151] border border-[#d1d5db] hover:bg-gray-50'
+                  ? 'bg-[#171717] text-white'
+                  : 'bg-white text-[#525252] border border-black/[0.08] hover:bg-[#fafafa]'
               }`}
             >
               <div className="flex items-center justify-center gap-1">
-                <span>右侧</span>
-                <IconArrowRight className="h-3 w-3" />
+                <span>右</span>
+                <IconArrowRight className="h-2.5 w-2.5" />
               </div>
-              <div className="mt-1 truncate text-[10px] opacity-80">
+              <div className="mt-0.5 truncate text-[9px] opacity-70">
                 {compareMode.right
                   ? convList.find((c) => c.id === compareMode.right?.conversationId)
                       ?.title?.trim() || '新对话'
-                  : '未选择'}
+                  : '未选'}
               </div>
             </button>
           </div>
-          {compareMode.selectingForCompare && (
-            <p className="mt-2 text-center text-[10px] text-[#6b7280]">
-              请从下方列表中选择对话添加到
-              {compareMode.activeSide === 'left' ? '左侧' : '右侧'}
-            </p>
-          )}
         </div>
       )}
 
@@ -891,11 +885,11 @@ function SidebarContent({
               if (compareMode.isActive) {
                 if (isCompareLeftActive) {
                   sideIndicator = (
-                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#3b82f6] rounded-l-xl" title="左侧" />
+                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#171717] rounded-l-xl" title="左侧" />
                   );
                 } else if (isCompareRightActive) {
                   sideIndicator = (
-                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#8b5cf6] rounded-l-xl" title="右侧" />
+                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#a3a3a3] rounded-l-xl" title="右侧" />
                   );
                 }
               }
