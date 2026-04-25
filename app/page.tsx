@@ -96,6 +96,16 @@ type TemplateItem = {
   updatedAt: string;
 };
 
+type CompareSide = 'left' | 'right';
+
+type CompareModeState = {
+  isActive: boolean;
+  left: ChatPayload | null;
+  right: ChatPayload | null;
+  activeSide: CompareSide;
+  selectingForCompare: boolean;
+};
+
 function formatRelativeTime(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
@@ -299,6 +309,60 @@ function IconDownload(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
+function IconColumns(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      {...props}
+    >
+      <rect x="3" y="3" width="18" height="18" rx="2" />
+      <line x1="12" y1="3" x2="12" y2="21" />
+    </svg>
+  );
+}
+
+function IconArrowLeft(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      {...props}
+    >
+      <path d="M19 12H5" />
+      <path d="M12 19l-7-7 7-7" />
+    </svg>
+  );
+}
+
+function IconArrowRight(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      {...props}
+    >
+      <path d="M5 12h14" />
+      <path d="M12 5l7 7-7 7" />
+    </svg>
+  );
+}
+
 interface SidebarContentProps {
   deviceId: string | null;
   loadingMain: boolean;
@@ -325,6 +389,11 @@ interface SidebarContentProps {
   onOpenTemplates: () => void;
   onOpenExport: () => void;
   onSaveAsTemplate: (conversationId: string) => Promise<void>;
+  compareMode: CompareModeState;
+  enterCompareMode: () => void;
+  exitCompareMode: () => void;
+  setCompareActiveSide: (side: CompareSide) => void;
+  toggleCompareSelecting: () => void;
 }
 
 /** useSortable 必须在子组件顶层调用，不能在 SidebarContent 的 map 里调用（会与搜索视图切换时 hooks 数量冲突）。 */
@@ -345,6 +414,7 @@ function SortableConversationRow({
   togglePin,
   deleteConversation,
   onSaveAsTemplate,
+  compareMode,
 }: {
   conversation: ConversationRow;
   isNarrow: boolean;
@@ -362,6 +432,7 @@ function SortableConversationRow({
   togglePin: (id: string, e: React.MouseEvent) => Promise<void>;
   deleteConversation: (id: string, e: React.MouseEvent) => Promise<void>;
   onSaveAsTemplate: (conversationId: string) => Promise<void>;
+  compareMode: CompareModeState;
 }) {
   const {
     attributes,
@@ -379,18 +450,42 @@ function SortableConversationRow({
     zIndex: isDragging ? 999 : 'auto',
   };
 
-  const active = selectedConversationId === conversation.id;
+  const isNormalActive = selectedConversationId === conversation.id;
+  const isCompareLeftActive = compareMode.left?.conversationId === conversation.id;
+  const isCompareRightActive = compareMode.right?.conversationId === conversation.id;
+  const isActiveInCompare = compareMode.isActive && (isCompareLeftActive || isCompareRightActive);
+  const active = isNormalActive || isActiveInCompare;
+
+  let borderColor = 'border-transparent';
+  let bgColor = 'hover:bg-[#fafafa]';
+  
+  if (active) {
+    borderColor = 'border-black/[0.08]';
+    bgColor = 'bg-[#f4f4f5]';
+  }
+
+  let sideIndicator = null;
+  if (compareMode.isActive) {
+    if (isCompareLeftActive) {
+      sideIndicator = (
+        <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#3b82f6] rounded-l-xl z-10" title="左侧" />
+      );
+    } else if (isCompareRightActive) {
+      sideIndicator = (
+        <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#8b5cf6] rounded-l-xl z-10" title="右侧" />
+      );
+    }
+  }
 
   return (
     <div
       ref={setNodeRef}
       style={style}
       className={`group relative flex items-stretch gap-0 overflow-hidden rounded-xl border transition-all duration-150 ${
-        active
-          ? 'border-black/[0.08] bg-[#f4f4f5]'
-          : 'border-transparent hover:bg-[#fafafa]'
-      }`}
+        borderColor
+      } ${bgColor}`}
     >
+      {sideIndicator}
       <div
         {...attributes}
         {...listeners}
@@ -508,6 +603,11 @@ function SidebarContent({
   onOpenTemplates,
   onOpenExport,
   onSaveAsTemplate,
+  compareMode,
+  enterCompareMode,
+  exitCompareMode,
+  setCompareActiveSide,
+  toggleCompareSelecting,
 }: SidebarContentProps) {
   const { widthCategory, sidebarWidth } = useLayoutContext();
 
@@ -662,20 +762,103 @@ function SidebarContent({
 
   return (
     <>
+      {/* 对比模式控制栏 */}
+      {compareMode.isActive && (
+        <div className="mb-3 rounded-xl border border-[#3b82f6]/20 bg-blue-50 p-3">
+          <div className="mb-2 flex items-center justify-between">
+            <span className="text-[12px] font-medium text-[#3b82f6]">对比模式</span>
+            <button
+              type="button"
+              onClick={exitCompareMode}
+              className="text-[11px] text-[#6b7280] hover:text-[#374151] transition-colors"
+            >
+              退出对比
+            </button>
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setCompareActiveSide('left')}
+              className={`flex-1 rounded-lg px-3 py-2 text-[12px] font-medium transition-colors ${
+                compareMode.activeSide === 'left'
+                  ? 'bg-[#3b82f6] text-white'
+                  : 'bg-white text-[#374151] border border-[#d1d5db] hover:bg-gray-50'
+              }`}
+            >
+              <div className="flex items-center justify-center gap-1">
+                <IconArrowLeft className="h-3 w-3" />
+                <span>左侧</span>
+              </div>
+              <div className="mt-1 truncate text-[10px] opacity-80">
+                {compareMode.left
+                  ? convList.find((c) => c.id === compareMode.left?.conversationId)
+                      ?.title?.trim() || '新对话'
+                  : '未选择'}
+              </div>
+            </button>
+            <button
+              type="button"
+              onClick={() => setCompareActiveSide('right')}
+              className={`flex-1 rounded-lg px-3 py-2 text-[12px] font-medium transition-colors ${
+                compareMode.activeSide === 'right'
+                  ? 'bg-[#3b82f6] text-white'
+                  : 'bg-white text-[#374151] border border-[#d1d5db] hover:bg-gray-50'
+              }`}
+            >
+              <div className="flex items-center justify-center gap-1">
+                <span>右侧</span>
+                <IconArrowRight className="h-3 w-3" />
+              </div>
+              <div className="mt-1 truncate text-[10px] opacity-80">
+                {compareMode.right
+                  ? convList.find((c) => c.id === compareMode.right?.conversationId)
+                      ?.title?.trim() || '新对话'
+                  : '未选择'}
+              </div>
+            </button>
+          </div>
+          {compareMode.selectingForCompare && (
+            <p className="mt-2 text-center text-[10px] text-[#6b7280]">
+              请从下方列表中选择对话添加到
+              {compareMode.activeSide === 'left' ? '左侧' : '右侧'}
+            </p>
+          )}
+        </div>
+      )}
+
       {/* 新对话按钮 */}
-      <button
-        type="button"
-        onClick={() => newChat()}
-        disabled={!deviceId || !!loadingMain}
-        className={`mb-3 flex w-full items-center justify-center gap-2 rounded-xl bg-[#171717] px-3 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-black disabled:opacity-40 ${
-          isNarrow ? 'py-2 text-xs' : ''
-        }`}
-      >
-        <IconPlus className={`h-4 w-4 ${isNarrow ? 'h-3.5 w-3.5' : ''}`} />
-        <AdaptiveText narrow="新建" wide="新建对话">
-          新对话
-        </AdaptiveText>
-      </button>
+      <div className="mb-3 flex gap-2">
+        <button
+          type="button"
+          onClick={() => newChat()}
+          disabled={!deviceId || !!loadingMain}
+          className={`flex-1 flex items-center justify-center gap-2 rounded-xl bg-[#171717] px-3 py-2.5 text-sm font-medium text-white shadow-sm transition hover:bg-black disabled:opacity-40 ${
+            isNarrow ? 'py-2 text-xs' : ''
+          }`}
+        >
+          <IconPlus className={`h-4 w-4 ${isNarrow ? 'h-3.5 w-3.5' : ''}`} />
+          <AdaptiveText narrow="新建" wide="新建对话">
+            新对话
+          </AdaptiveText>
+        </button>
+        
+        {!compareMode.isActive && convList.length >= 1 && (
+          <button
+            type="button"
+            onClick={enterCompareMode}
+            disabled={!deviceId || !!loadingMain}
+            className={`flex items-center justify-center gap-1.5 rounded-xl border border-[#d1d5db] bg-white px-3 py-2.5 text-sm font-medium text-[#374151] shadow-sm transition hover:bg-gray-50 disabled:opacity-40 ${
+              isNarrow ? 'py-2 text-xs' : ''
+            }`}
+            title="进入对比模式"
+          >
+            <IconColumns className={`h-4 w-4 ${isNarrow ? 'h-3.5 w-3.5' : ''}`} />
+            <AdaptiveText narrow="对比" wide="对比">
+              对比
+            </AdaptiveText>
+          </button>
+        )}
+      </div>
       
       {/* 置顶会话（固定在最上面） */}
       {!showSearchResults && pinnedConversations.length > 0 && (
@@ -689,17 +872,44 @@ function SidebarContent({
           </div>
           <div className="mb-3 flex flex-col gap-0.5">
             {pinnedConversations.map((c) => {
-              const active = chatPayload?.conversationId === c.id;
+              const isNormalActive = chatPayload?.conversationId === c.id;
+              const isCompareLeftActive = compareMode.left?.conversationId === c.id;
+              const isCompareRightActive = compareMode.right?.conversationId === c.id;
+              const isActiveInCompare = compareMode.isActive && (isCompareLeftActive || isCompareRightActive);
+              const active = isNormalActive || isActiveInCompare;
+              
+              let borderColor = 'border-transparent';
+              let bgColor = 'hover:bg-[#fafafa]';
+              
+              if (active) {
+                borderColor = 'border-black/[0.08]';
+                bgColor = 'bg-[#f4f4f5]';
+              }
+              
+              let sideIndicator = null;
+              if (compareMode.isActive) {
+                if (isCompareLeftActive) {
+                  sideIndicator = (
+                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#3b82f6] rounded-l-xl" title="左侧" />
+                  );
+                } else if (isCompareRightActive) {
+                  sideIndicator = (
+                    <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#8b5cf6] rounded-l-xl" title="右侧" />
+                  );
+                }
+              }
+              
               return (
                 <div
                   key={c.id}
                   className={`group relative flex items-stretch gap-0 overflow-hidden rounded-xl border transition-colors ${
-                    active
-                      ? 'border-black/[0.08] bg-[#f4f4f5]'
-                      : 'border-transparent hover:bg-[#fafafa]'
-                  }`}
+                    borderColor
+                  } ${bgColor}`}
                 >
-                  <div className="w-1 shrink-0 bg-[#f59e0b] rounded-l-xl" />
+                  {sideIndicator}
+                  {!sideIndicator && (
+                    <div className="w-1 shrink-0 bg-[#f59e0b] rounded-l-xl" />
+                  )}
                   <button
                     type="button"
                     onClick={() => {
@@ -933,6 +1143,7 @@ function SidebarContent({
                     togglePin={togglePin}
                     deleteConversation={deleteConversation}
                     onSaveAsTemplate={onSaveAsTemplate}
+                    compareMode={compareMode}
                   />
                 ))}
               </div>
@@ -1065,6 +1276,15 @@ export default function Home() {
   // 从对话另存为模板相关状态
   const [showSaveAsTemplateModal, setShowSaveAsTemplateModal] = useState<boolean>(false);
   const [saveAsTemplateData, setSaveAsTemplateData] = useState<{ title: string; content: string } | null>(null);
+
+  // 对比模式相关状态
+  const [compareMode, setCompareMode] = useState<CompareModeState>({
+    isActive: false,
+    left: null,
+    right: null,
+    activeSide: 'left',
+    selectingForCompare: false,
+  });
 
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -1534,6 +1754,24 @@ export default function Home() {
 
   async function selectConversation(id: string) {
     if (!deviceId) return;
+    
+    if (compareMode.isActive) {
+      const r = await fetch(`/api/conversations/${id}/messages`, {
+        headers: { 'x-device-id': deviceId },
+      });
+      if (!r.ok) return;
+      const data = (await r.json()) as { messages?: Message[] };
+      
+      setCompareMode((prev) => ({
+        ...prev,
+        [prev.activeSide]: {
+          conversationId: id,
+          messages: data.messages ?? [],
+        },
+      }));
+      return;
+    }
+
     setChatPayload(null);
     try {
       const r = await fetch(`/api/conversations/${id}/messages`, {
@@ -1550,6 +1788,51 @@ export default function Home() {
       /* ignore */
     }
   }
+
+  const enterCompareMode = useCallback(async () => {
+    if (!deviceId) return;
+    
+    const currentLeft = chatPayload || compareMode.left;
+    
+    setCompareMode({
+      isActive: true,
+      left: currentLeft,
+      right: null,
+      activeSide: 'right',
+      selectingForCompare: true,
+    });
+  }, [deviceId, chatPayload, compareMode.left]);
+
+  const exitCompareMode = useCallback(() => {
+    const currentLeft = compareMode.left;
+    
+    setCompareMode({
+      isActive: false,
+      left: null,
+      right: null,
+      activeSide: 'left',
+      selectingForCompare: false,
+    });
+    
+    if (currentLeft) {
+      setChatPayload(currentLeft);
+    }
+  }, [compareMode.left]);
+
+  const setCompareActiveSide = useCallback((side: CompareSide) => {
+    setCompareMode((prev) => ({
+      ...prev,
+      activeSide: side,
+      selectingForCompare: false,
+    }));
+  }, []);
+
+  const toggleCompareSelecting = useCallback(() => {
+    setCompareMode((prev) => ({
+      ...prev,
+      selectingForCompare: !prev.selectingForCompare,
+    }));
+  }, []);
 
   async function newChat() {
     if (!deviceId) return;
@@ -1874,6 +2157,11 @@ export default function Home() {
             onOpenTemplates={handleOpenTemplates}
             onOpenExport={handleOpenExport}
             onSaveAsTemplate={handleSaveAsTemplate}
+            compareMode={compareMode}
+            enterCompareMode={enterCompareMode}
+            exitCompareMode={exitCompareMode}
+            setCompareActiveSide={setCompareActiveSide}
+            toggleCompareSelecting={toggleCompareSelecting}
           />
         </ResizablePanel>
 
@@ -1939,7 +2227,121 @@ export default function Home() {
             </div>
           )}
 
-          {deviceId && chatPayload && (
+          {compareMode.isActive ? (
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+              <div className="shrink-0 border-b border-[rgba(0,0,0,0.08)] bg-gradient-to-r from-blue-50 to-purple-50 px-4 py-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1.5">
+                      <div className="h-2 w-2 rounded-full bg-[#3b82f6]" />
+                      <span className="text-[12px] font-medium text-[#1e40af]">
+                        {compareMode.left
+                          ? convList.find((c) => c.id === compareMode.left?.conversationId)
+                              ?.title?.trim() || '新对话'
+                          : '未选择'}
+                      </span>
+                    </div>
+                    <span className="text-[#9ca3af]">VS</span>
+                    <div className="flex items-center gap-1.5">
+                      <div className="h-2 w-2 rounded-full bg-[#8b5cf6]" />
+                      <span className="text-[12px] font-medium text-[#6d28d9]">
+                        {compareMode.right
+                          ? convList.find((c) => c.id === compareMode.right?.conversationId)
+                              ?.title?.trim() || '新对话'
+                          : '未选择'}
+                      </span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={exitCompareMode}
+                    className="inline-flex items-center gap-1 rounded-lg bg-white px-3 py-1 text-[12px] text-[#374151] shadow-sm transition hover:bg-gray-50 border border-[#d1d5db]"
+                  >
+                    <IconX className="h-3 w-3" />
+                    退出对比
+                  </button>
+                </div>
+              </div>
+              
+              <div className="flex min-h-0 flex-1 gap-3 p-3">
+                <div
+                  className={`flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border-2 transition-all ${
+                    compareMode.activeSide === 'left'
+                      ? 'border-[#3b82f6] shadow-lg'
+                      : 'border-transparent'
+                  }`}
+                >
+                  {compareMode.left ? (
+                    <ChatSession
+                      key={`compare-left-${compareMode.left.conversationId}`}
+                      deviceId={deviceId}
+                      conversationId={compareMode.left.conversationId}
+                      modelId={DEFAULT_OPENROUTER_MODEL_ID}
+                      initialMessages={compareMode.left.messages}
+                      highlightMessageId={null}
+                      onHighlightCleared={undefined}
+                      favoriteMessageIds={new Set(favorites.map((fav) => fav.messageId))}
+                      onToggleFavorite={handleToggleFavorite}
+                      templateContent={null}
+                      onTemplateUsed={undefined}
+                    />
+                  ) : (
+                    <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-[#d1d5db] bg-[#fafafa]">
+                      <div className="h-12 w-12 rounded-full bg-[#3b82f6]/10 flex items-center justify-center">
+                        <IconArrowLeft className="h-6 w-6 text-[#3b82f6]" />
+                      </div>
+                      <div className="text-center">
+                        <p className="text-sm font-medium text-[#374151]">请选择左侧对话</p>
+                        <p className="mt-1 text-[12px] text-[#9ca3af]">从侧边栏选择一个对话</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex shrink-0 items-center justify-center">
+                  <div className="flex flex-col items-center gap-2">
+                    <div className="h-px w-6 bg-[#e5e7eb]" />
+                    <div className="text-[14px] text-[#9ca3af]">VS</div>
+                    <div className="h-px w-6 bg-[#e5e7eb]" />
+                  </div>
+                </div>
+
+                <div
+                  className={`flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border-2 transition-all ${
+                    compareMode.activeSide === 'right'
+                      ? 'border-[#8b5cf6] shadow-lg'
+                      : 'border-transparent'
+                  }`}
+                >
+                  {compareMode.right ? (
+                    <ChatSession
+                      key={`compare-right-${compareMode.right.conversationId}`}
+                      deviceId={deviceId}
+                      conversationId={compareMode.right.conversationId}
+                      modelId={DEFAULT_OPENROUTER_MODEL_ID}
+                      initialMessages={compareMode.right.messages}
+                      highlightMessageId={null}
+                      onHighlightCleared={undefined}
+                      favoriteMessageIds={new Set(favorites.map((fav) => fav.messageId))}
+                      onToggleFavorite={handleToggleFavorite}
+                      templateContent={null}
+                      onTemplateUsed={undefined}
+                    />
+                  ) : (
+                    <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 rounded-2xl border border-dashed border-[#d1d5db] bg-[#fafafa]">
+                      <div className="h-12 w-12 rounded-full bg-[#8b5cf6]/10 flex items-center justify-center">
+                        <IconArrowRight className="h-6 w-6 text-[#8b5cf6]" />
+                      </div>
+                      <div className="text-center">
+                        <p className="text-sm font-medium text-[#374151]">请选择右侧对话</p>
+                        <p className="mt-1 text-[12px] text-[#9ca3af]">从侧边栏选择一个对话</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : deviceId && chatPayload ? (
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
               <ChatSession
                 key={chatPayload.conversationId}
@@ -1955,7 +2357,7 @@ export default function Home() {
                 onTemplateUsed={handleTemplateUsed}
               />
             </div>
-          )}
+          ) : null}
         </main>
       </div>
 
