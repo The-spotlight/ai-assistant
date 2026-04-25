@@ -119,6 +119,14 @@ function formatRelativeTime(iso: string): string {
   return d.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' });
 }
 
+type ReplyToInfo = {
+  messageId: string;
+  content: string;
+  createdAt: string;
+  role: string;
+  isDeleted?: boolean;
+};
+
 type FavoriteItem = {
   id: string;
   messageId: string;
@@ -128,6 +136,8 @@ type FavoriteItem = {
   messageCreatedAt: string;
   conversationTitle: string | null;
   createdAt: string;
+  replyToId: string | null;
+  replyToSnapshot: string | null;
 };
 
 type FavoritesByConversation = Map<
@@ -198,10 +208,20 @@ export default function FavoritePanel({
     favorites.forEach((fav, index) => {
       const role = fav.messageRole === 'user' ? '我' : 'AI';
       const favoriteTime = new Date(fav.createdAt).toLocaleString('zh-CN');
+      const replyInfo = getReplyToInfo(fav.replyToSnapshot);
       
       lines.push(`## ${role}`);
       lines.push('');
       lines.push(`> 收藏时间：${favoriteTime}`);
+      
+      if (replyInfo) {
+        const replyRole = replyInfo.role === 'user' ? '我' : 'AI';
+        const replyContent = replyInfo.isDeleted 
+          ? '原消息已删除' 
+          : replyInfo.content;
+        lines.push(`> 回复 ${replyRole}：${escapeMarkdownContent(replyContent)}`);
+      }
+      
       lines.push('');
       lines.push(escapeMarkdownContent(fav.messageContent));
       lines.push('');
@@ -213,7 +233,7 @@ export default function FavoritePanel({
     });
 
     return lines.join('\n');
-  }, []);
+  }, [getReplyToInfo]);
 
   const downloadMarkdown = useCallback((content: string, filename: string) => {
     const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' });
@@ -264,15 +284,32 @@ export default function FavoritePanel({
     }
   }, [generateMarkdown, downloadMarkdown]);
 
+  const getReplyToInfo = useCallback((snapshot: string | null): ReplyToInfo | null => {
+    if (!snapshot) return null;
+    try {
+      return JSON.parse(snapshot);
+    } catch {
+      return null;
+    }
+  }, []);
+
   const { favoritesByConversation, firstConversationId, filteredFavorites } = useMemo(() => {
     let filtered = favorites;
     
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      filtered = favorites.filter(fav => 
-        fav.conversationTitle?.toLowerCase().includes(query) || 
-        fav.messageContent.toLowerCase().includes(query)
-      );
+      filtered = favorites.filter(fav => {
+        const titleMatch = fav.conversationTitle?.toLowerCase().includes(query);
+        const contentMatch = fav.messageContent.toLowerCase().includes(query);
+        
+        let replyMatch = false;
+        const replyInfo = getReplyToInfo(fav.replyToSnapshot);
+        if (replyInfo) {
+          replyMatch = replyInfo.content.toLowerCase().includes(query);
+        }
+        
+        return titleMatch || contentMatch || replyMatch;
+      });
     }
 
     const grouped: FavoritesByConversation = new Map();
@@ -510,49 +547,71 @@ export default function FavoritePanel({
 
                     {isExpanded && (
                       <div className="flex flex-col gap-0.5 ml-2">
-                        {conversationData.favorites.map((fav) => (
-                          <div
-                            key={fav.id}
-                            className="group flex items-stretch gap-0 overflow-hidden rounded-lg border border-[#e5e5e5] bg-white transition-colors"
-                          >
-                            <button
-                              type="button"
-                              onClick={() => onFavoriteClick(fav.conversationId, fav.messageId)}
-                              className={`min-w-0 flex-1 flex flex-col items-start gap-0.5 rounded-l-lg px-3 py-2 text-left transition-colors hover:bg-[#fafafa] ${
-                                isNarrow ? 'px-2 py-1.5' : ''
-                              } ${isWide ? 'px-4 py-2.5' : ''}`}
+                        {conversationData.favorites.map((fav) => {
+                          const replyInfo = getReplyToInfo(fav.replyToSnapshot);
+                          
+                          return (
+                            <div
+                              key={fav.id}
+                              className="group flex items-stretch gap-0 overflow-hidden rounded-lg border border-[#e5e5e5] bg-white transition-colors"
                             >
-                              <div className="flex items-center gap-2 w-full">
-                                <span className="text-[10px] font-medium text-[#a3a3a3]">
-                                  {fav.messageRole === 'user' ? '我' : 'AI'}
-                                </span>
-                                {showTime && (
-                                  <span className="shrink-0 text-[10px] text-[#a3a3a3]">
-                                    {formatRelativeTime(fav.createdAt)}
+                              <button
+                                type="button"
+                                onClick={() => onFavoriteClick(fav.conversationId, fav.messageId)}
+                                className={`min-w-0 flex-1 flex flex-col items-start gap-0.5 rounded-l-lg px-3 py-2 text-left transition-colors hover:bg-[#fafafa] ${
+                                  isNarrow ? 'px-2 py-1.5' : ''
+                                } ${isWide ? 'px-4 py-2.5' : ''}`}
+                              >
+                                <div className="flex items-center gap-2 w-full">
+                                  <span className="text-[10px] font-medium text-[#a3a3a3]">
+                                    {fav.messageRole === 'user' ? '我' : 'AI'}
                                   </span>
+                                  {showTime && (
+                                    <span className="shrink-0 text-[10px] text-[#a3a3a3]">
+                                      {formatRelativeTime(fav.createdAt)}
+                                    </span>
+                                  )}
+                                </div>
+                                {replyInfo && (
+                                  <div className="flex items-start gap-1.5 w-full rounded-md bg-[#f5f5f5] px-2 py-1">
+                                    <span className="text-[10px] text-[#a3a3a3]">
+                                      回复 {replyInfo.role === 'user' ? '我' : 'AI'}：
+                                    </span>
+                                    <span className={`text-[10px] text-[#737373] ${
+                                      isWide ? 'line-clamp-2' : 'line-clamp-1'
+                                    }`}>
+                                      {replyInfo.isDeleted ? (
+                                        <span className="text-[#a3a3a3] italic">原消息已删除</span>
+                                      ) : (
+                                        replyInfo.content.length > 50
+                                          ? replyInfo.content.slice(0, 50) + '...'
+                                          : replyInfo.content
+                                      )}
+                                    </span>
+                                  </div>
                                 )}
-                              </div>
-                              <p className={`text-xs text-[#737373] leading-relaxed ${
-                                isWide ? 'line-clamp-3' : 'line-clamp-2'
-                              }`}>
-                                {fav.messageContent.length > 100
-                                  ? fav.messageContent.slice(0, 100) + '...'
-                                  : fav.messageContent}
-                              </p>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={(e) => onUnfavorite(fav.id, e)}
-                              className={`flex w-8 shrink-0 items-center justify-center text-[#a3a3a3] opacity-0 transition hover:bg-[#f5f5f5] hover:text-[#525252] rounded-r-lg group-hover:opacity-100 ${
-                                isNarrow ? 'w-7' : ''
-                              }`}
-                              title="取消收藏"
-                              aria-label="取消收藏"
-                            >
-                              <IconX className={`h-3.5 w-3.5 ${isNarrow ? 'h-3 w-3' : ''}`} />
-                            </button>
-                          </div>
-                        ))}
+                                <p className={`text-xs text-[#737373] leading-relaxed ${
+                                  isWide ? 'line-clamp-3' : 'line-clamp-2'
+                                }`}>
+                                  {fav.messageContent.length > 100
+                                    ? fav.messageContent.slice(0, 100) + '...'
+                                    : fav.messageContent}
+                                </p>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={(e) => onUnfavorite(fav.id, e)}
+                                className={`flex w-8 shrink-0 items-center justify-center text-[#a3a3a3] opacity-0 transition hover:bg-[#f5f5f5] hover:text-[#525252] rounded-r-lg group-hover:opacity-100 ${
+                                  isNarrow ? 'w-7' : ''
+                                }`}
+                                title="取消收藏"
+                                aria-label="取消收藏"
+                              >
+                                <IconX className={`h-3.5 w-3.5 ${isNarrow ? 'h-3 w-3' : ''}`} />
+                              </button>
+                            </div>
+                          );
+                        })}
                       </div>
                     )}
                   </div>

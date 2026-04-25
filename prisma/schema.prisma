@@ -57,10 +57,19 @@ model Message {
   completionTokens Int?
   /// 总 token 数（仅 assistant 消息）
   totalTokens     Int?
+  /// 引用回复：引用的消息ID
+  replyToId       String?
+  /// 引用回复：引用消息的快照（前50字 + 时间），用于原消息删除后显示
+  replyToSnapshot String?      @db.Text
+  /// 引用关系：被引用的消息
+  repliedMessage  Message?     @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
+  /// 引用关系：引用此消息的回复
+  replies         Message[]    @relation("MessageReplies")
   createdAt       DateTime     @default(now())
 
   @@unique([conversationId, clientMessageId])
   @@index([conversationId, createdAt])
+  @@index([replyToId])
   
   favorites Favorite[]
 }

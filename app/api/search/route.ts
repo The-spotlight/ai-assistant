@@ -94,16 +94,26 @@ export async function GET(req: Request) {
     });
 
     // 2. 查找内容包含搜索词的消息，并获取它们的会话
-    // 注意：这里使用消息的 content 字段进行过滤
+    // 同时搜索 content 和 replyToSnapshot 字段
     const contentMatchedMessages = await prisma.message.findMany({
       where: {
         conversation: {
           deviceId,
         },
-        content: {
-          contains: trimmedTerm,
-          mode: 'insensitive',
-        },
+        OR: [
+          {
+            content: {
+              contains: trimmedTerm,
+              mode: 'insensitive',
+            },
+          },
+          {
+            replyToSnapshot: {
+              contains: trimmedTerm,
+              mode: 'insensitive',
+            },
+          },
+        ],
       },
       orderBy: {
         conversation: {
@@ -158,15 +168,52 @@ export async function GET(req: Request) {
       const result = resultsMap.get(convId)!;
       
       // 在内存中查找匹配位置（只处理匹配的消息，不是所有消息）
-      const match = findFirstMatch(msg.content, trimmedTerm);
+      // 同时检查 content 和 replyToSnapshot
+      let match = findFirstMatch(msg.content, trimmedTerm);
+      let isReplyMatch = false;
+      
+      if (!match && msg.replyToSnapshot) {
+        // 如果在 content 中没找到，尝试在 replyToSnapshot 中查找
+        // 需要解析 JSON 快照
+        try {
+          const snapshot = JSON.parse(msg.replyToSnapshot as string);
+          const snapshotContent = snapshot.content || '';
+          const snapshotMatch = findFirstMatch(snapshotContent, trimmedTerm);
+          if (snapshotMatch) {
+            // 创建一个包含引用内容的复合内容用于生成 snippet
+            const displayContent = `[引用] ${snapshotContent}\n${msg.content}`;
+            match = findFirstMatch(displayContent, trimmedTerm);
+            isReplyMatch = true;
+          }
+        } catch {
+          // 如果解析失败，直接在原始字符串中搜索
+          match = findFirstMatch(msg.replyToSnapshot as string, trimmedTerm);
+          isReplyMatch = true;
+        }
+      }
+      
       if (match) {
+        // 生成 snippet，如果是引用匹配，需要显示引用内容
+        let snippet = '';
+        if (isReplyMatch && msg.replyToSnapshot) {
+          try {
+            const snapshot = JSON.parse(msg.replyToSnapshot as string);
+            const snapshotContent = snapshot.content || '';
+            snippet = `[引用内容] ${snapshotContent}`;
+          } catch {
+            snippet = generateSnippet(msg.replyToSnapshot as string, match.start, match.end);
+          }
+        } else {
+          snippet = generateSnippet(msg.content, match.start, match.end);
+        }
+        
         result.matchedMessages.push({
           id: msg.id,
           role: msg.role,
           content: msg.content,
           matchStart: match.start,
           matchEnd: match.end,
-          snippet: generateSnippet(msg.content, match.start, match.end),
+          snippet,
         });
       }
     }

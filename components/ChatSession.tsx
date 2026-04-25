@@ -32,6 +32,16 @@ type MessageWithTokens = Message & {
   promptTokens?: number;
   completionTokens?: number;
   totalTokens?: number;
+  replyToId?: string | null;
+  replyToSnapshot?: string | null;
+  createdAt?: string;
+};
+
+type ReplyInfo = {
+  messageId: string;
+  content: string;
+  createdAt: string;
+  role: string;
 };
 
 type ChatSessionProps = {
@@ -176,6 +186,24 @@ function IconDownload(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
+function IconReply(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      {...props}
+    >
+      <polyline points="9 17 4 12 9 7" />
+      <path d="M20 18v-2a4 4 0 0 0-4-4H4" />
+    </svg>
+  );
+}
+
 export default function ChatSession({
   deviceId,
   conversationId,
@@ -188,6 +216,9 @@ export default function ChatSession({
   templateContent,
   onTemplateUsed,
 }: ChatSessionProps) {
+  // 引用回复相关 ref（放在 useChat 之前，用于动态 body）
+  const replyingToRef = useRef<ReplyInfo | null>(null);
+
   const {
     messages,
     input,
@@ -201,7 +232,25 @@ export default function ChatSession({
     api: '/api/chat',
     id: conversationId,
     initialMessages,
-    body: { model: modelId, conversationId, deviceId },
+    body: () => {
+      const body: Record<string, unknown> = { 
+        model: modelId, 
+        conversationId, 
+        deviceId 
+      };
+      
+      // 如果有引用信息，添加到 body
+      if (replyingToRef.current) {
+        body.replyTo = {
+          messageId: replyingToRef.current.messageId,
+          content: replyingToRef.current.content,
+          createdAt: replyingToRef.current.createdAt,
+          role: replyingToRef.current.role,
+        };
+      }
+      
+      return body;
+    },
     headers: { 'X-Device-Id': deviceId },
   });
 
@@ -239,6 +288,81 @@ export default function ChatSession({
   } | null>(null);
   // 保存截断时期望的消息长度，用于验证截断是否成功
   const expectedMessageCountRef = useRef<number>(-1);
+
+  // 引用回复相关状态
+  const [replyingTo, setReplyingTo] = useState<ReplyInfo | null>(null);
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
+  const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // 格式化时间显示
+  const formatTime = useCallback((dateStr: string) => {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const isToday = date.toDateString() === now.toDateString();
+    
+    if (isToday) {
+      return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
+    }
+    
+    const yesterday = new Date(now);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const isYesterday = date.toDateString() === yesterday.toDateString();
+    
+    if (isYesterday) {
+      return `昨天 ${date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}`;
+    }
+    
+    return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+  }, []);
+
+  // 处理引用按钮点击
+  const handleReply = useCallback((message: Message) => {
+    const replyInfo: ReplyInfo = {
+      messageId: message.id,
+      content: message.content.slice(0, 50) + (message.content.length > 50 ? '...' : ''),
+      createdAt: new Date().toISOString(),
+      role: message.role,
+    };
+    setReplyingTo(replyInfo);
+    replyingToRef.current = replyInfo;
+    inputRef.current?.focus();
+  }, []);
+
+  // 取消引用
+  const handleCancelReply = useCallback(() => {
+    setReplyingTo(null);
+    replyingToRef.current = null;
+  }, []);
+
+  // 跳转到引用的消息并高亮
+  const handleJumpToMessage = useCallback((messageId: string) => {
+    const messageEl = messageRefs.current.get(messageId);
+    if (messageEl) {
+      messageEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      
+      // 清除之前的定时器
+      if (highlightTimerRef.current) {
+        clearTimeout(highlightTimerRef.current);
+      }
+      
+      // 设置高亮
+      setHighlightedMessageId(messageId);
+      
+      // 3秒后清除高亮
+      highlightTimerRef.current = setTimeout(() => {
+        setHighlightedMessageId(null);
+      }, 3000);
+    }
+  }, []);
+
+  // 清理高亮定时器
+  useEffect(() => {
+    return () => {
+      if (highlightTimerRef.current) {
+        clearTimeout(highlightTimerRef.current);
+      }
+    };
+  }, []);
 
   // 计算总 token 数和费用
   const { totalTokens, totalCost } = useMemo(() => {
@@ -400,18 +524,30 @@ export default function ChatSession({
     // 解析快捷指令
     const { command, argument } = parseQuickCommand(input);
     
+    // 保存引用信息，然后清除 UI 状态
+    const hasReply = !!replyingToRef.current;
+    
     if (command && argument !== null) {
       // 如果是有效的快捷指令且有参数（有空格），即使参数为空字符串也允许提交
       // 这样用户可以搜索空格或其他特殊字符
       const prompt = generateQuickCommandPrompt(command, argument);
       append({ role: 'user', content: prompt });
       setInput('');
+      // 提交后清除引用状态
+      setReplyingTo(null);
+      replyingToRef.current = null;
     } else if (command && argument === null) {
       // 如果有指令但没有参数（没有空格，如 /搜索），不提交，等待用户输入参数
       return;
     } else {
       // 正常提交
       handleSubmit(e);
+      // 提交后清除引用状态
+      // 注意：这里需要延迟一点，确保 useChat 已经读取了 body 中的引用信息
+      setTimeout(() => {
+        setReplyingTo(null);
+        replyingToRef.current = null;
+      }, 0);
     }
   }, [input, append, setInput, handleSubmit, generateQuickCommandPrompt]);
 
@@ -723,7 +859,7 @@ export default function ChatSession({
         )}
 
         {messages.map((m, index) => {
-          const isHighlighted = highlightMessageId === m.id;
+          const isHighlighted = highlightMessageId === m.id || highlightedMessageId === m.id;
           const msg = m as MessageWithTokens;
           const isLastAssistant = m.role === 'assistant' && index === messages.length - 1 && !isLoading;
           const canRegenerate = m.role === 'assistant';
@@ -740,6 +876,31 @@ export default function ChatSession({
               ? calculateMessageCost(msg.promptTokens, msg.completionTokens, modelId)
               : null;
 
+          // 解析引用快照
+          const hasReply = msg.replyToId || msg.replyToSnapshot;
+          const replySnapshot = msg.replyToSnapshot;
+          let replyContent = '';
+          let replyTime = '';
+          let isReplyDeleted = false;
+          
+          if (replySnapshot) {
+            try {
+              const parsed = JSON.parse(replySnapshot);
+              replyContent = parsed.content || '';
+              replyTime = parsed.createdAt || '';
+              isReplyDeleted = parsed.isDeleted || false;
+            } catch {
+              // 如果解析失败，直接使用原始字符串
+              replyContent = replySnapshot;
+            }
+            
+            // 额外判断：如果有快照但 replyToId 为 null，说明原消息已被删除
+            // 因为 onDelete: SetNull 会在原消息删除时将 replyToId 设为 null
+            if (msg.replyToId == null) {
+              isReplyDeleted = true;
+            }
+          }
+
           return (
             <div
               key={m.id}
@@ -750,11 +911,11 @@ export default function ChatSession({
                   messageRefs.current.delete(m.id);
                 }
               }}
-              className={`flex w-full gap-3 transition-all duration-300 ${
+              className={`flex w-full gap-3 transition-all duration-300 group ${
                 m.role === 'user' ? 'flex-row-reverse' : 'flex-row'
               } ${
                 isHighlighted
-                  ? 'ring-2 ring-[#f59e0b] ring-offset-2 rounded-xl p-1 -mx-1'
+                  ? 'ring-2 ring-[#f59e0b] ring-offset-2 rounded-xl p-1 -mx-1 animate-pulse'
                   : ''
               }`}
             >
@@ -787,6 +948,36 @@ export default function ChatSession({
                   {m.role === 'assistant' && favoriteMessageIds.has(m.id) && (
                     <div className="absolute -top-1 -right-1">
                       <IconBookmark className="h-4 w-4 text-[#f59e0b]" filled />
+                    </div>
+                  )}
+                  
+                  {/* 引用显示 */}
+                  {hasReply && (
+                    <div
+                      className={`mb-2 cursor-pointer rounded-lg px-3 py-2 text-xs transition-colors ${
+                        m.role === 'user'
+                          ? 'bg-white/10 hover:bg-white/20 text-white/80'
+                          : 'bg-[#f5f5f5] hover:bg-[#e5e5e5] text-[#737373]'
+                      }`}
+                      onClick={() => {
+                        if (msg.replyToId && !isReplyDeleted) {
+                          handleJumpToMessage(msg.replyToId);
+                        }
+                      }}
+                    >
+                      <div className="flex items-center gap-1">
+                        <IconReply className="h-3 w-3" />
+                        <span className="font-medium">
+                          {isReplyDeleted ? '原消息已删除' : `引用 ${replyTime ? formatTime(replyTime) : ''}`}
+                        </span>
+                      </div>
+                      <div className="mt-1 truncate">
+                        {isReplyDeleted ? (
+                          <span className="italic text-[#a3a3a3]">原消息已删除</span>
+                        ) : (
+                          replyContent
+                        )}
+                      </div>
                     </div>
                   )}
                   
@@ -858,7 +1049,7 @@ export default function ChatSession({
                   )}
                 </div>
 
-                {/* 消息操作栏：收藏按钮 + 重新生成按钮 + token 信息 + 编辑按钮 */}
+                {/* 消息操作栏：收藏按钮 + 重新生成按钮 + token 信息 + 编辑按钮 + 引用按钮 */}
                 {m.role === 'assistant' && (
                   <div className="mt-1.5 flex items-center justify-between gap-2 px-1">
                     <div className="flex items-center gap-3 text-[10px] text-[#a3a3a3]">
@@ -872,6 +1063,21 @@ export default function ChatSession({
                       )}
                     </div>
                     <div className="flex items-center gap-1">
+                      {/* 引用按钮 - 悬停显示 */}
+                      <button
+                        type="button"
+                        onClick={() => handleReply(m)}
+                        className={`inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] transition-colors ${
+                          isGlobalRegenerating
+                            ? 'text-[#a3a3a3] cursor-not-allowed opacity-0 group-hover:opacity-100'
+                            : 'text-[#737373] hover:bg-[#f5f5f5] hover:text-[#171717] opacity-0 group-hover:opacity-100'
+                        }`}
+                        title="引用回复此消息"
+                        disabled={isGlobalRegenerating}
+                      >
+                        <IconReply className="h-3 w-3" />
+                        引用
+                      </button>
                       {onToggleFavorite && (
                         <button
                           type="button"
@@ -907,9 +1113,21 @@ export default function ChatSession({
                   </div>
                 )}
 
-                {/* 用户消息操作栏：编辑按钮 */}
+                {/* 用户消息操作栏：编辑按钮 + 引用按钮 */}
                 {m.role === 'user' && editingMessageId !== m.id && (
                   <div className="mt-1.5 flex items-center justify-end gap-1 px-1">
+                    {/* 引用按钮 - 悬停显示 */}
+                    {!isLoading && regeneratePhase === 'idle' && (
+                      <button
+                        type="button"
+                        onClick={() => handleReply(m)}
+                        className="inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] text-[#737373] transition-colors hover:bg-[#f5f5f5] hover:text-[#171717] opacity-0 group-hover:opacity-100"
+                        title="引用回复此消息"
+                      >
+                        <IconReply className="h-3 w-3" />
+                        引用
+                      </button>
+                    )}
                     {!isLoading && regeneratePhase === 'idle' && (
                       <button
                         type="button"
@@ -965,6 +1183,34 @@ export default function ChatSession({
             selectedIndex={selectedCommandIndex}
             onClose={() => setMatchingCommands([])}
           />
+
+          {/* 引用预览 */}
+          {replyingTo && (
+            <div className="mb-2 flex items-center gap-2 rounded-lg bg-[#f5f5f5] px-3 py-2">
+              <IconReply className="h-4 w-4 text-[#737373]" />
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-[#737373]">
+                    引用 {replyingTo.role === 'user' ? '我' : 'AI'} 的消息
+                  </span>
+                  <span className="text-xs text-[#a3a3a3]">
+                    {formatTime(replyingTo.createdAt)}
+                  </span>
+                </div>
+                <p className="truncate text-xs text-[#737373]">
+                  {replyingTo.content}
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleCancelReply}
+                className="shrink-0 rounded p-1 text-[#a3a3a3] transition-colors hover:bg-[#e5e5e5] hover:text-[#737373]"
+                title="取消引用"
+              >
+                <IconX className="h-4 w-4" />
+              </button>
+            </div>
+          )}
 
           <form
             onSubmit={handleFormSubmit}
