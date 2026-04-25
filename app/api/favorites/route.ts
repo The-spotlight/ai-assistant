@@ -29,6 +29,8 @@ export async function GET(req: Request) {
             content: true,
             role: true,
             createdAt: true,
+            replyToId: true,
+            replyToSnapshot: true,
           },
         },
         conversation: {
@@ -51,6 +53,8 @@ export async function GET(req: Request) {
         messageCreatedAt: m ? m.createdAt.toISOString() : fav.createdAt.toISOString(),
         conversationTitle: fav.conversation.title,
         createdAt: fav.createdAt.toISOString(),
+        replyToId: m?.replyToId ?? null,
+        replyToSnapshot: m?.replyToSnapshot ?? null,
       };
     });
 

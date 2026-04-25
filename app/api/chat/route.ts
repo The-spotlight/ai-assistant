@@ -89,18 +89,65 @@ function lastUserFromMessages(
   return null;
 }
 
+type ReplyToInfo = {
+  messageId: string;
+  content: string;
+  createdAt: string;
+  role: string;
+};
+
 async function persistUserMessage(
   conversationId: string,
   clientId: string,
-  text: string
+  text: string,
+  replyTo?: ReplyToInfo | null
 ): Promise<void> {
   try {
+    // 查找被引用的消息（通过 clientMessageId 或 id）
+    let repliedMessageId: string | null = null;
+    let replyToSnapshot: string | null = null;
+
+    if (replyTo) {
+      // 查找被引用的消息
+      const repliedMessage = await prisma.message.findFirst({
+        where: {
+          conversationId,
+          OR: [
+            { clientMessageId: replyTo.messageId },
+            { id: replyTo.messageId },
+          ],
+        },
+        select: { id: true, content: true, createdAt: true, role: true },
+      });
+
+      if (repliedMessage) {
+        repliedMessageId = repliedMessage.id;
+        // 保存引用快照（前50字 + 时间）
+        replyToSnapshot = JSON.stringify({
+          content: repliedMessage.content.slice(0, 50) + (repliedMessage.content.length > 50 ? '...' : ''),
+          createdAt: repliedMessage.createdAt.toISOString(),
+          role: repliedMessage.role,
+          isDeleted: false,
+        });
+      } else {
+        // 如果找不到被引用的消息，仍然保存快照（显示为已删除）
+        replyToSnapshot = JSON.stringify({
+          content: replyTo.content,
+          createdAt: replyTo.createdAt,
+          role: replyTo.role,
+          isDeleted: true,
+        });
+      }
+    }
+
     await prisma.message.create({
       data: {
         conversationId,
         role: 'user',
         content: text,
         clientMessageId: clientId,
+        ...(repliedMessageId ? { replyToId: repliedMessageId } : {}),
+        ...(replyToSnapshot ? { replyToSnapshot } : {}),
       },
     });
   } catch (e: unknown) {
@@ -206,11 +253,12 @@ async function ensureConversationTitle(conversationId: string): Promise<void> {
 
 export async function POST(req: Request) {
   const body = await req.json();
-  const { messages, model: bodyModel, conversationId, deviceId } = body as {
+  const { messages, model: bodyModel, conversationId, deviceId, replyTo } = body as {
     messages?: CoreMessage[];
     model?: string;
     conversationId?: string;
     deviceId?: string;
+    replyTo?: ReplyToInfo | null;
   };
 
   if (!conversationId || typeof conversationId !== 'string') {
@@ -244,8 +292,27 @@ export async function POST(req: Request) {
 
   const coreMessages = (messages ?? []) as CoreMessage[];
   const lastUser = lastUserFromMessages(coreMessages, conversationId);
+  
+  // 保存用户消息时传递引用信息
+  let lastUserMessageId: string | null = null;
   if (lastUser) {
-    await persistUserMessage(conversationId, lastUser.clientId, lastUser.text);
+    await persistUserMessage(conversationId, lastUser.clientId, lastUser.text, replyTo);
+    
+    // 查找刚保存的用户消息 ID，用于 AI 回复的引用
+    const savedUserMessage = await prisma.message.findFirst({
+      where: {
+        conversationId,
+        OR: [
+          { clientMessageId: lastUser.clientId },
+        ],
+      },
+      select: { id: true, replyToId: true, replyToSnapshot: true },
+      orderBy: { createdAt: 'desc' },
+    });
+    
+    if (savedUserMessage) {
+      lastUserMessageId = savedUserMessage.id;
+    }
   }
 
   const useTools = !isFreeTierOpenRouterModel(modelId);
@@ -274,6 +341,22 @@ export async function POST(req: Request) {
           const assistantClientId =
             lastAssistantClientIdFromMessages(coreMessages) ?? `asst_${randomUUID()}`;
 
+          // 如果用户消息有引用，AI 回复也继承引用关系
+          let aiReplyToId: string | null = null;
+          let aiReplyToSnapshot: string | null = null;
+          
+          if (lastUserMessageId) {
+            const userMessage = await prisma.message.findUnique({
+              where: { id: lastUserMessageId },
+              select: { replyToId: true, replyToSnapshot: true },
+            });
+            
+            if (userMessage?.replyToId && userMessage.replyToSnapshot) {
+              aiReplyToId = userMessage.replyToId;
+              aiReplyToSnapshot = userMessage.replyToSnapshot;
+            }
+          }
+
           await prisma.message.create({
             data: {
               conversationId,
@@ -284,6 +367,8 @@ export async function POST(req: Request) {
               ...(usage?.promptTokens != null ? { promptTokens: usage.promptTokens } : {}),
               ...(usage?.completionTokens != null ? { completionTokens: usage.completionTokens } : {}),
               ...(usage?.totalTokens != null ? { totalTokens: usage.totalTokens } : {}),
+              ...(aiReplyToId ? { replyToId: aiReplyToId } : {}),
+              ...(aiReplyToSnapshot ? { replyToSnapshot: aiReplyToSnapshot } : {}),
             },
           });
           await prisma.conversation.update({
