@@ -762,7 +762,7 @@ function SidebarContent({
   }, [editingConversationId, saveEditing, cancelEditing]);
 
   return (
-    <>
+    <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
       {/* 对比模式控制栏 */}
       {compareMode.isActive && (
         <div className="mb-2 rounded-lg border border-black/[0.08] bg-[#fafafa] px-2 py-1.5">
@@ -822,7 +822,7 @@ function SidebarContent({
       )}
 
       {/* 新对话按钮 */}
-      <div className="mb-3 flex gap-2">
+      <div className="mb-3 flex gap-2 shrink-0">
         <button
           type="button"
           onClick={() => newChat()}
@@ -854,8 +854,10 @@ function SidebarContent({
           </button>
         )}
       </div>
-      
-      {/* 置顶会话（固定在最上面） */}
+
+      {/* 可滚动内容区域 */}
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        {/* 置顶会话（固定在最上面） */}
       {!showSearchResults && pinnedConversations.length > 0 && (
         <>
           <div className={`mb-2 flex items-center justify-between px-1 ${
@@ -993,7 +995,7 @@ function SidebarContent({
       )}
 
       {/* 搜索框 */}
-      <div className={`mb-3 relative ${isNarrow ? 'mb-2' : ''}`}>
+      <div className={`mb-3 relative shrink-0 ${isNarrow ? 'mb-2' : ''}`}>
         <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
           <IconSearch className={`h-4 w-4 text-[#a3a3a3] ${isNarrow ? 'h-3.5 w-3.5' : ''}`} />
         </div>
@@ -1093,7 +1095,7 @@ function SidebarContent({
           )}
         </div>
       ) : (
-        <>
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
           {unpinnedConversations.length > 0 && (
             <p className={`mb-2 px-1 text-[11px] font-medium uppercase tracking-wider text-[#a3a3a3] ${
               isNarrow ? 'mb-1 text-[10px]' : ''
@@ -1167,11 +1169,12 @@ function SidebarContent({
               ) : null}
             </DragOverlay>
           </DndContext>
-        </>
+        </div>
       )}
+      </div>
 
       {/* 底部图标按钮：模板、收藏、回收站和导出 */}
-      <div className="flex items-center justify-center gap-2 pt-3 border-t border-black/[0.08]">
+      <div className="flex items-center justify-center gap-2 pt-3 border-t border-black/[0.08] shrink-0">
         <button
           type="button"
           onClick={onOpenTemplates}
@@ -1224,7 +1227,7 @@ function SidebarContent({
           <IconDownload className={`h-5 w-5 ${isNarrow ? 'h-4 w-4' : ''}`} />
         </button>
       </div>
-    </>
+    </div>
   );
 }
 
