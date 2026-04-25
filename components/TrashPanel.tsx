@@ -73,6 +73,15 @@ function IconMinus(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
+function IconSearch(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden {...props}>
+      <circle cx="11" cy="11" r="8" />
+      <path d="m21 21-4.35-4.35" />
+    </svg>
+  );
+}
+
 function formatRelativeTime(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
@@ -144,17 +153,28 @@ export default function TrashPanel({
   
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [showBatchDeleteConfirm, setShowBatchDeleteConfirm] = useState<boolean>(false);
+  const [searchQuery, setSearchQuery] = useState<string>('');
 
-  const allSelected = trashList.length > 0 && selectedIds.size === trashList.length;
-  const someSelected = selectedIds.size > 0 && selectedIds.size < trashList.length;
+  const filteredTrashList = useMemo(() => {
+    if (!searchQuery.trim()) return trashList;
+    const query = searchQuery.toLowerCase();
+    return trashList.filter(c => 
+      c.title?.toLowerCase().includes(query)
+    );
+  }, [trashList, searchQuery]);
+
+  const allSelected = filteredTrashList.length > 0 && 
+    filteredTrashList.every(c => selectedIds.has(c.id));
+  const someSelected = selectedIds.size > 0 && !allSelected && 
+    filteredTrashList.some(c => selectedIds.has(c.id));
 
   const toggleSelectAll = useCallback(() => {
     if (allSelected) {
       setSelectedIds(new Set());
     } else {
-      setSelectedIds(new Set(trashList.map(c => c.id)));
+      setSelectedIds(new Set(filteredTrashList.map(c => c.id)));
     }
-  }, [allSelected, trashList]);
+  }, [allSelected, filteredTrashList]);
 
   const toggleSelectOne = useCallback((id: string, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -293,7 +313,33 @@ export default function TrashPanel({
           </div>
         </div>
 
-        {trashList.length > 0 && (
+        {/* 搜索框 */}
+        <div className="px-4 py-3 border-b border-black/[0.06] bg-white">
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <IconSearch className="h-4 w-4 text-[#a3a3a3]" />
+            </div>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="搜索已删除的会话..."
+              className="w-full pl-10 pr-10 py-2 text-sm bg-[#fafafa] border border-black/[0.08] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#171717]/20 focus:border-[#171717]/20 placeholder:text-[#a3a3a3] transition-all"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-[#a3a3a3] hover:text-[#171717] transition-colors"
+                aria-label="清除搜索"
+              >
+                <IconX className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {filteredTrashList.length > 0 && (
           <div className="px-4 py-2.5 flex items-center justify-between border-b border-black/[0.06] bg-white">
             <label className="flex items-center gap-2.5 cursor-pointer select-none">
               <button
@@ -337,15 +383,25 @@ export default function TrashPanel({
         )}
 
         <div className="flex-1 overflow-y-auto p-3">
-          {trashList.length === 0 ? (
+          {filteredTrashList.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12">
-              <IconTrash className="h-12 w-12 text-[#d4d4d4] mb-3" />
-              <p className="text-sm font-medium text-[#737373] mb-1">回收站为空</p>
-              <p className="text-xs text-[#a3a3a3]">删除的会话会显示在这里</p>
+              {searchQuery.trim() ? (
+                <>
+                  <IconSearch className="h-12 w-12 text-[#d4d4d4] mb-3" />
+                  <p className="text-sm font-medium text-[#737373] mb-1">未找到匹配的会话</p>
+                  <p className="text-xs text-[#a3a3a3]">尝试使用其他关键词</p>
+                </>
+              ) : (
+                <>
+                  <IconTrash className="h-12 w-12 text-[#d4d4d4] mb-3" />
+                  <p className="text-sm font-medium text-[#737373] mb-1">回收站为空</p>
+                  <p className="text-xs text-[#a3a3a3]">删除的会话会显示在这里</p>
+                </>
+              )}
             </div>
           ) : (
             <div className="flex flex-col gap-1">
-              {trashList.map((c) => {
+              {filteredTrashList.map((c) => {
                 const isSelected = selectedIds.has(c.id);
                 return (
                   <div

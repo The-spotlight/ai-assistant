@@ -29,6 +29,15 @@ function IconBookmark(props: React.SVGProps<SVGSVGElement> & { filled?: boolean 
   );
 }
 
+function IconSearch(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden {...props}>
+      <circle cx="11" cy="11" r="8" />
+      <path d="m21 21-4.35-4.35" />
+    </svg>
+  );
+}
+
 function IconChevronDown(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden {...props}>
@@ -170,6 +179,7 @@ export default function FavoritePanel({
   const [exportingConversationId, setExportingConversationId] = useState<string | null>(null);
   const [exportError, setExportError] = useState<string | null>(null);
   const [exportSuccess, setExportSuccess] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState<string>('');
 
   const generateMarkdown = useCallback((
     conversationTitle: string | null,
@@ -254,10 +264,20 @@ export default function FavoritePanel({
     }
   }, [generateMarkdown, downloadMarkdown]);
 
-  const { favoritesByConversation, firstConversationId } = useMemo(() => {
+  const { favoritesByConversation, firstConversationId, filteredFavorites } = useMemo(() => {
+    let filtered = favorites;
+    
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      filtered = favorites.filter(fav => 
+        fav.conversationTitle?.toLowerCase().includes(query) || 
+        fav.messageContent.toLowerCase().includes(query)
+      );
+    }
+
     const grouped: FavoritesByConversation = new Map();
 
-    favorites.forEach((fav) => {
+    filtered.forEach((fav) => {
       const existing = grouped.get(fav.conversationId);
       if (existing) {
         existing.favorites.push(fav);
@@ -285,8 +305,9 @@ export default function FavoritePanel({
     return {
       favoritesByConversation: sortedGrouped,
       firstConversationId: groupedArray.length > 0 ? groupedArray[0][0] : null,
+      filteredFavorites: filtered,
     };
-  }, [favorites]);
+  }, [favorites, searchQuery]);
 
   const toggleConversationGroup = useCallback((conversationId: string) => {
     if (conversationId === firstConversationId) {
@@ -380,6 +401,32 @@ export default function FavoritePanel({
             <span className="text-xs text-[#16a34a]">{exportSuccess}</span>
           </div>
         )}
+
+        {/* 搜索框 */}
+        <div className="px-4 py-3 border-b border-black/[0.06] bg-white">
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <IconSearch className="h-4 w-4 text-[#a3a3a3]" />
+            </div>
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="搜索收藏内容..."
+              className="w-full pl-10 pr-10 py-2 text-sm bg-[#fafafa] border border-black/[0.08] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#171717]/20 focus:border-[#171717]/20 placeholder:text-[#a3a3a3] transition-all"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => setSearchQuery('')}
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-[#a3a3a3] hover:text-[#171717] transition-colors"
+                aria-label="清除搜索"
+              >
+                <IconX className="h-4 w-4" />
+              </button>
+            )}
+          </div>
+        </div>
 
         <div className="flex-1 overflow-y-auto p-3">
           {favoritesByConversation.size === 0 ? (
