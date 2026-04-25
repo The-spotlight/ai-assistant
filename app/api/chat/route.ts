@@ -255,43 +255,46 @@ export async function POST(req: Request) {
     system: useTools ? SYSTEM_PROMPT : SYSTEM_PROMPT_NO_TOOLS,
     messages: coreMessages,
     ...(useTools ? { tools: chatTools, maxSteps: 8 } : { maxSteps: 1 }),
-    onFinish: async (event) => {
-      try {
-        const inv = toolInvocationsFromSteps(
-          event.steps as {
-            toolCalls: { toolName: string; args: unknown }[];
-            toolResults: { result?: unknown }[];
-          }[]
-        );
-        const usage = event.usage as {
-          promptTokens?: number;
-          completionTokens?: number;
-          totalTokens?: number;
-        } | null;
+    // 勿在此 await 长时间 IO：SDK 会 await onFinish，阻塞 fullStream 收尾会导致客户端收不到 finish_message，界面一直「正在生成」。
+    onFinish: (event) => {
+      void (async () => {
+        try {
+          const inv = toolInvocationsFromSteps(
+            event.steps as {
+              toolCalls: { toolName: string; args: unknown }[];
+              toolResults: { result?: unknown }[];
+            }[]
+          );
+          const usage = event.usage as {
+            promptTokens?: number;
+            completionTokens?: number;
+            totalTokens?: number;
+          } | null;
 
-        const assistantClientId =
-          lastAssistantClientIdFromMessages(coreMessages) ?? `asst_${randomUUID()}`;
+          const assistantClientId =
+            lastAssistantClientIdFromMessages(coreMessages) ?? `asst_${randomUUID()}`;
 
-        await prisma.message.create({
-          data: {
-            conversationId,
-            role: 'assistant',
-            content: event.text,
-            clientMessageId: assistantClientId,
-            ...(inv != null ? { toolInvocations: inv as object } : {}),
-            ...(usage?.promptTokens != null ? { promptTokens: usage.promptTokens } : {}),
-            ...(usage?.completionTokens != null ? { completionTokens: usage.completionTokens } : {}),
-            ...(usage?.totalTokens != null ? { totalTokens: usage.totalTokens } : {}),
-          },
-        });
-        await prisma.conversation.update({
-          where: { id: conversationId },
-          data: { updatedAt: new Date() },
-        });
-        await ensureConversationTitle(conversationId);
-      } catch (e) {
-        console.error('[chat] onFinish persist failed', e);
-      }
+          await prisma.message.create({
+            data: {
+              conversationId,
+              role: 'assistant',
+              content: event.text,
+              clientMessageId: assistantClientId,
+              ...(inv != null ? { toolInvocations: inv as object } : {}),
+              ...(usage?.promptTokens != null ? { promptTokens: usage.promptTokens } : {}),
+              ...(usage?.completionTokens != null ? { completionTokens: usage.completionTokens } : {}),
+              ...(usage?.totalTokens != null ? { totalTokens: usage.totalTokens } : {}),
+            },
+          });
+          await prisma.conversation.update({
+            where: { id: conversationId },
+            data: { updatedAt: new Date() },
+          });
+          await ensureConversationTitle(conversationId);
+        } catch (e) {
+          console.error('[chat] onFinish persist failed', e);
+        }
+      })();
     },
   });
 
