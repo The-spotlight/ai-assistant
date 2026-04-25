@@ -26,6 +26,7 @@ import FavoriteToastPanel from '@/components/FavoriteToastPanel';
 import FavoritePanel from '@/components/FavoritePanel';
 import TrashPanel from '@/components/TrashPanel';
 import TemplatePanel, { FormModal } from '@/components/TemplatePanel';
+import ExportPanel from '@/components/ExportPanel';
 import ResizablePanel, { useLayoutContext, AdaptiveText } from '@/components/ResizablePanel';
 import { DEFAULT_OPENROUTER_MODEL_ID, DEFAULT_OPENROUTER_MODEL_LABEL } from '@/lib/openrouter-models';
 import { CONVERSATION_STORAGE_KEY, getOrCreateDeviceId } from '@/lib/device';
@@ -257,6 +258,28 @@ function IconSaveAs(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
+function IconPackage(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      {...props}
+    >
+      <path d="M7.5 4.21 2 9v11a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9l-5.5-4.79" />
+      <polyline points="7.5 16 3.27 13.55" />
+      <polyline points="20.73 13.55 16.5 16 12.27 13.55" />
+      <line x1="12" y1="22" x2="12" y2="13.55" />
+      <path d="M16.5 7.6 12 11 7.5 7.6" />
+      <line x1="12" y1="3.45" x2="12" y2="11" />
+    </svg>
+  );
+}
+
 interface SidebarContentProps {
   deviceId: string | null;
   loadingMain: boolean;
@@ -281,6 +304,7 @@ interface SidebarContentProps {
   onOpenFavorites: () => void;
   onOpenTrash: () => void;
   onOpenTemplates: () => void;
+  onOpenExport: () => void;
   onSaveAsTemplate: (conversationId: string) => Promise<void>;
 }
 
@@ -463,6 +487,7 @@ function SidebarContent({
   onOpenFavorites,
   onOpenTrash,
   onOpenTemplates,
+  onOpenExport,
   onSaveAsTemplate,
 }: SidebarContentProps) {
   const { widthCategory, sidebarWidth } = useLayoutContext();
@@ -920,7 +945,7 @@ function SidebarContent({
         </>
       )}
 
-      {/* 底部图标按钮：模板、收藏和回收站 */}
+      {/* 底部图标按钮：模板、收藏、回收站和导出 */}
       <div className="flex items-center justify-center gap-2 pt-3 border-t border-black/[0.08]">
         <button
           type="button"
@@ -964,6 +989,15 @@ function SidebarContent({
             </span>
           )}
         </button>
+        <button
+          type="button"
+          onClick={onOpenExport}
+          className={`relative flex items-center justify-center rounded-lg p-2 transition-colors text-[#a3a3a3] hover:bg-[#f5f5f5] hover:text-[#171717] ${isNarrow ? 'p-1.5' : ''}`}
+          title="批量导出对话"
+          aria-label="打开批量导出面板"
+        >
+          <IconPackage className={`h-5 w-5 ${isNarrow ? 'h-4 w-4' : ''}`} />
+        </button>
       </div>
     </>
   );
@@ -1003,6 +1037,7 @@ export default function Home() {
   const [showFavoritePanel, setShowFavoritePanel] = useState<boolean>(false);
   const [showTrashPanel, setShowTrashPanel] = useState<boolean>(false);
   const [showTemplatePanel, setShowTemplatePanel] = useState<boolean>(false);
+  const [showExportPanel, setShowExportPanel] = useState<boolean>(false);
 
   // 模板相关状态
   const [templates, setTemplates] = useState<TemplateItem[]>([]);
@@ -1313,6 +1348,16 @@ export default function Home() {
   // 关闭回收站浮层面板
   const handleCloseTrash = useCallback(() => {
     setShowTrashPanel(false);
+  }, []);
+
+  // 打开批量导出浮层面板
+  const handleOpenExport = useCallback(() => {
+    setShowExportPanel(true);
+  }, []);
+
+  // 关闭批量导出浮层面板
+  const handleCloseExport = useCallback(() => {
+    setShowExportPanel(false);
   }, []);
 
   // 处理浮层面板中收藏项的点击
@@ -1808,6 +1853,7 @@ export default function Home() {
             onOpenFavorites={handleOpenFavorites}
             onOpenTrash={handleOpenTrash}
             onOpenTemplates={handleOpenTemplates}
+            onOpenExport={handleOpenExport}
             onSaveAsTemplate={handleSaveAsTemplate}
           />
         </ResizablePanel>
@@ -1938,6 +1984,16 @@ export default function Home() {
         onUpdateTemplate={handleUpdateTemplate}
         onDeleteTemplate={handleDeleteTemplate}
       />
+
+      {/* 批量导出浮层面板 */}
+      {deviceId && (
+        <ExportPanel
+          visible={showExportPanel}
+          onClose={handleCloseExport}
+          conversations={convList}
+          deviceId={deviceId}
+        />
+      )}
 
       {/* 从对话另存为模板弹窗 */}
       <FormModal
