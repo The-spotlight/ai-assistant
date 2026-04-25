@@ -81,10 +81,11 @@ interface FormModalProps {
   visible: boolean;
   onClose: () => void;
   editingTemplate: TemplateItem | null;
+  initialData?: { title: string; content: string; category?: string } | null;
   onSubmit: (data: { title: string; content: string; category: string }) => Promise<void>;
 }
 
-function FormModal({ visible, onClose, editingTemplate, onSubmit }: FormModalProps) {
+export function FormModal({ visible, onClose, editingTemplate, initialData, onSubmit }: FormModalProps) {
   const [formTitle, setFormTitle] = useState<string>('');
   const [formContent, setFormContent] = useState<string>('');
   const [formCategory, setFormCategory] = useState<string>('其他');
@@ -97,13 +98,17 @@ function FormModal({ visible, onClose, editingTemplate, onSubmit }: FormModalPro
         setFormTitle(editingTemplate.title);
         setFormContent(editingTemplate.content);
         setFormCategory(editingTemplate.category);
+      } else if (initialData) {
+        setFormTitle(initialData.title);
+        setFormContent(initialData.content);
+        setFormCategory(initialData.category || '其他');
       } else {
         setFormTitle('');
         setFormContent('');
         setFormCategory('其他');
       }
     }
-  }, [visible, editingTemplate]);
+  }, [visible, editingTemplate, initialData]);
 
   useEffect(() => {
     if (!visible) return;
@@ -171,7 +176,7 @@ function FormModal({ visible, onClose, editingTemplate, onSubmit }: FormModalPro
           <div className="flex items-center gap-2">
             <IconEdit className="h-4 w-4 text-[#171717]" />
             <span className="text-sm font-medium text-[#171717]">
-              {editingTemplate ? '编辑模板' : '新建模板'}
+              {editingTemplate ? '编辑模板' : initialData ? '另存为模板' : '新建模板'}
             </span>
           </div>
           <button

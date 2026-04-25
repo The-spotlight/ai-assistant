@@ -25,7 +25,7 @@ import ChatSession from '@/components/ChatSession';
 import FavoriteToastPanel from '@/components/FavoriteToastPanel';
 import FavoritePanel from '@/components/FavoritePanel';
 import TrashPanel from '@/components/TrashPanel';
-import TemplatePanel from '@/components/TemplatePanel';
+import TemplatePanel, { FormModal } from '@/components/TemplatePanel';
 import ResizablePanel, { useLayoutContext, AdaptiveText } from '@/components/ResizablePanel';
 import { DEFAULT_OPENROUTER_MODEL_ID, DEFAULT_OPENROUTER_MODEL_LABEL } from '@/lib/openrouter-models';
 import { CONVERSATION_STORAGE_KEY, getOrCreateDeviceId } from '@/lib/device';
@@ -238,6 +238,25 @@ function IconTemplate(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
+function IconSaveAs(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      {...props}
+    >
+      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+      <polyline points="17 21 17 13 7 13 7 21" />
+      <polyline points="7 3 7 8 15 8" />
+    </svg>
+  );
+}
+
 interface SidebarContentProps {
   deviceId: string | null;
   loadingMain: boolean;
@@ -262,6 +281,7 @@ interface SidebarContentProps {
   onOpenFavorites: () => void;
   onOpenTrash: () => void;
   onOpenTemplates: () => void;
+  onSaveAsTemplate: (conversationId: string) => Promise<void>;
 }
 
 /** useSortable 必须在子组件顶层调用，不能在 SidebarContent 的 map 里调用（会与搜索视图切换时 hooks 数量冲突）。 */
@@ -281,6 +301,7 @@ function SortableConversationRow({
   selectConversation,
   togglePin,
   deleteConversation,
+  onSaveAsTemplate,
 }: {
   conversation: ConversationRow;
   isNarrow: boolean;
@@ -297,6 +318,7 @@ function SortableConversationRow({
   selectConversation: (id: string) => Promise<void>;
   togglePin: (id: string, e: React.MouseEvent) => Promise<void>;
   deleteConversation: (id: string, e: React.MouseEvent) => Promise<void>;
+  onSaveAsTemplate: (conversationId: string) => Promise<void>;
 }) {
   const {
     attributes,
@@ -391,6 +413,20 @@ function SortableConversationRow({
       </button>
       <button
         type="button"
+        aria-label="另存为模板"
+        onClick={(e) => {
+          e.stopPropagation();
+          void onSaveAsTemplate(conversation.id);
+        }}
+        className={`flex w-9 shrink-0 items-center justify-center text-[#a3a3a3] opacity-0 transition hover:bg-blue-50 hover:text-blue-600 group-hover:opacity-100 ${
+          isNarrow ? 'w-7' : ''
+        }`}
+        title="另存为模板"
+      >
+        <IconSaveAs className={`h-4 w-4 ${isNarrow ? 'h-3.5 w-3.5' : ''}`} />
+      </button>
+      <button
+        type="button"
         aria-label="删除会话"
         onClick={(e) => deleteConversation(conversation.id, e)}
         className={`flex w-9 shrink-0 items-center justify-center text-[#a3a3a3] opacity-0 transition hover:bg-red-50 hover:text-red-600 group-hover:opacity-100 ${
@@ -427,6 +463,7 @@ function SidebarContent({
   onOpenFavorites,
   onOpenTrash,
   onOpenTemplates,
+  onSaveAsTemplate,
 }: SidebarContentProps) {
   const { widthCategory, sidebarWidth } = useLayoutContext();
 
@@ -677,6 +714,20 @@ function SidebarContent({
                   </button>
                   <button
                     type="button"
+                    aria-label="另存为模板"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void onSaveAsTemplate(c.id);
+                    }}
+                    className={`flex w-9 shrink-0 items-center justify-center text-[#a3a3a3] opacity-0 transition hover:bg-blue-50 hover:text-blue-600 group-hover:opacity-100 ${
+                      isNarrow ? 'w-7' : ''
+                    }`}
+                    title="另存为模板"
+                  >
+                    <IconSaveAs className={`h-4 w-4 ${isNarrow ? 'h-3.5 w-3.5' : ''}`} />
+                  </button>
+                  <button
+                    type="button"
                     aria-label="删除会话"
                     onClick={(e) => deleteConversation(c.id, e)}
                     className={`flex w-9 shrink-0 items-center justify-center text-[#a3a3a3] opacity-0 transition hover:bg-red-50 hover:text-red-600 group-hover:opacity-100 ${
@@ -837,6 +888,7 @@ function SidebarContent({
                     selectConversation={selectConversation}
                     togglePin={togglePin}
                     deleteConversation={deleteConversation}
+                    onSaveAsTemplate={onSaveAsTemplate}
                   />
                 ))}
               </div>
@@ -955,6 +1007,10 @@ export default function Home() {
   // 模板相关状态
   const [templates, setTemplates] = useState<TemplateItem[]>([]);
   const [pendingTemplateContent, setPendingTemplateContent] = useState<string | null>(null);
+  
+  // 从对话另存为模板相关状态
+  const [showSaveAsTemplateModal, setShowSaveAsTemplateModal] = useState<boolean>(false);
+  const [saveAsTemplateData, setSaveAsTemplateData] = useState<{ title: string; content: string } | null>(null);
 
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -1535,6 +1591,61 @@ export default function Home() {
     setPendingTemplateContent(null);
   }, []);
 
+  // 从对话另存为模板相关函数
+  const handleCloseSaveAsTemplateModal = useCallback(() => {
+    setShowSaveAsTemplateModal(false);
+    setSaveAsTemplateData(null);
+  }, []);
+
+  const handleSaveAsTemplate = useCallback(
+    async (conversationId: string) => {
+      if (!deviceId) return;
+
+      try {
+        // 获取对话的消息列表
+        const r = await fetch(`/api/conversations/${conversationId}/messages`, {
+          headers: { 'x-device-id': deviceId },
+        });
+
+        if (!r.ok) return;
+
+        const data = (await r.json()) as { messages?: Message[] };
+        const messages = data.messages ?? [];
+
+        // 找到第一条用户消息
+        const firstUserMessage = messages.find((m) => m.role === 'user');
+
+        if (!firstUserMessage || !firstUserMessage.content.trim()) {
+          // 如果没有用户消息，显示提示
+          alert('该对话没有用户消息，无法另存为模板');
+          return;
+        }
+
+        // 获取对话标题作为默认模板标题
+        const conversation = convList.find((c) => c.id === conversationId);
+        const defaultTitle = conversation?.title?.trim() || '新模板';
+
+        // 设置模板数据并打开弹窗
+        setSaveAsTemplateData({
+          title: defaultTitle,
+          content: firstUserMessage.content,
+        });
+        setShowSaveAsTemplateModal(true);
+      } catch (error) {
+        console.error('获取对话消息失败:', error);
+      }
+    },
+    [deviceId, convList]
+  );
+
+  const handleCreateTemplateFromConversation = useCallback(
+    async (template: { title: string; content: string; category: string }) => {
+      await handleAddTemplate(template);
+      handleCloseSaveAsTemplateModal();
+    },
+    [handleAddTemplate, handleCloseSaveAsTemplateModal]
+  );
+
   async function deleteConversation(id: string, e: React.MouseEvent) {
     e.stopPropagation();
     if (!deviceId) return;
@@ -1697,6 +1808,7 @@ export default function Home() {
             onOpenFavorites={handleOpenFavorites}
             onOpenTrash={handleOpenTrash}
             onOpenTemplates={handleOpenTemplates}
+            onSaveAsTemplate={handleSaveAsTemplate}
           />
         </ResizablePanel>
 
@@ -1825,6 +1937,15 @@ export default function Home() {
         onAddTemplate={handleAddTemplate}
         onUpdateTemplate={handleUpdateTemplate}
         onDeleteTemplate={handleDeleteTemplate}
+      />
+
+      {/* 从对话另存为模板弹窗 */}
+      <FormModal
+        visible={showSaveAsTemplateModal}
+        onClose={handleCloseSaveAsTemplateModal}
+        editingTemplate={null}
+        initialData={saveAsTemplateData}
+        onSubmit={handleCreateTemplateFromConversation}
       />
     </div>
   );

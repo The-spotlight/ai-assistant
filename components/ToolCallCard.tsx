@@ -227,9 +227,9 @@ export default function ToolCallCard({ toolName, args, result }: ToolCallProps) 
           <span className="text-base">{emoji}</span>
           <span className="font-medium text-[#171717]">{label}</span>
           <span className="min-w-0 flex-1 truncate text-xs text-[#808080]">{formatArgs(args)}</span>
-          {isWeatherTool && parsedResult && 'current' in parsedResult && parsedResult.current && (
+          {isWeatherTool && (
             <span className="shrink-0 text-xs font-medium text-[#171717]">
-              {parsedResult.current.weather_emoji} {parsedResult.current.temperature}°C
+              {(parsedResult as WeatherResult).current?.weather_emoji} {(parsedResult as WeatherResult).current?.temperature}°C
             </span>
           )}
           <span
@@ -257,7 +257,7 @@ export default function ToolCallCard({ toolName, args, result }: ToolCallProps) 
                 结果
               </div>
               {isWeatherTool ? (
-                renderWeatherResult(parsedResult)
+                renderWeatherResult(parsedResult as WeatherResult)
               ) : (
                 <div className="overflow-x-auto rounded-md border border-[rgba(0,0,0,0.08)] bg-[#fafafa] p-3 text-xs">
                   {typeof parsedResult === 'object' && parsedResult !== null ? (
