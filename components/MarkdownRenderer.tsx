@@ -4,14 +4,32 @@ import { useState, useCallback, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import {
+  oneDark,
+  vs,
+  dracula,
+  prism,
+  solarizedlight,
+  tomorrow,
+} from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { useSettings, type CodeHighlightKey } from '@/lib/settings';
+
+const CODE_HIGHLIGHT_STYLES: Record<CodeHighlightKey, typeof oneDark> = {
+  oneDark,
+  vs,
+  dracula,
+  prism,
+  solarizedlight,
+  tomorrow,
+};
 
 interface CodeBlockProps {
   language: string;
   code: string;
+  highlightStyle: CodeHighlightKey;
 }
 
-function CodeBlock({ language, code }: CodeBlockProps) {
+function CodeBlock({ language, code, highlightStyle }: CodeBlockProps) {
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState(false);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -74,6 +92,8 @@ function CodeBlock({ language, code }: CodeBlockProps) {
     return `${baseClasses} bg-white text-[#737373] border-black/[0.08] hover:bg-[#fafafa] hover:text-[#171717] focus:ring-[#404040]/45`;
   };
 
+  const style = CODE_HIGHLIGHT_STYLES[highlightStyle] || oneDark;
+
   return (
     <div className="relative group !my-3">
       <button
@@ -83,10 +103,10 @@ function CodeBlock({ language, code }: CodeBlockProps) {
         {getButtonText()}
       </button>
       <SyntaxHighlighter
-        style={oneDark as any}
+        style={style as any}
         language={language}
         PreTag="div"
-        className="!my-0 !rounded-lg !border !border-[rgba(0,0,0,0.08)] !bg-[#1a1a1a] text-sm"
+        className="!my-0 !rounded-lg !border !border-[rgba(0,0,0,0.08)] text-sm"
       >
         {code}
       </SyntaxHighlighter>
@@ -99,6 +119,8 @@ interface MarkdownRendererProps {
 }
 
 export default function MarkdownRenderer({ content }: MarkdownRendererProps) {
+  const { settings } = useSettings();
+
   return (
     <div className="prose prose-sm max-w-none text-[#171717] prose-p:my-1.5 prose-p:text-[#4d4d4d] prose-pre:my-3 prose-headings:scroll-mt-4 prose-headings:text-[#171717] prose-strong:text-[#171717] prose-li:text-[#4d4d4d] prose-code:rounded prose-code:border prose-code:border-[rgba(0,0,0,0.08)] prose-code:bg-[#fafafa] prose-code:px-1.5 prose-code:py-0.5 prose-code:text-[0.9em] prose-code:text-[#171717] prose-code:before:content-[''] prose-code:after:content-[''] prose-a:text-[#171717] prose-a:underline prose-a:decoration-neutral-400 prose-a:underline-offset-2 hover:prose-a:decoration-neutral-600">
       <ReactMarkdown
@@ -111,6 +133,7 @@ export default function MarkdownRenderer({ content }: MarkdownRendererProps) {
               <CodeBlock
                 language={match[1]}
                 code={String(children).replace(/\n$/, '')}
+                highlightStyle={settings.codeHighlight}
               />
             ) : (
               <code className={className} {...props}>
