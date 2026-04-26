@@ -110,11 +110,15 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
 
     const shareUrlPrefix = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/s/`;
 
-    // 为每个分享获取访问次数
+    // 为每个分享获取访问次数和最近一次访问时间
     const sharesWithUrl = await Promise.all(
       shares.map(async (share) => {
         const viewCount = await prisma.shareView.count({
           where: { shareId: share.shareId },
+        });
+        const latestView = await prisma.shareView.findFirst({
+          where: { shareId: share.shareId },
+          orderBy: { viewedAt: 'desc' },
         });
         return {
           shareId: share.shareId,
@@ -124,6 +128,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
           hasPassword: share.hasPassword,
           createdAt: share.createdAt.toISOString(),
           viewCount,
+          lastViewedAt: latestView?.viewedAt.toISOString() || null,
         };
       })
     );
