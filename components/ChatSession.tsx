@@ -1705,10 +1705,10 @@ export default function ChatSession({
                                 <div className="flex items-center gap-2 text-xs text-[#a3a3a3] mt-1">
                                   <span>{share.expiresAt ? '限时' : '永久'}</span>
                                   <span>·</span>
-                                  <span>{new Date(share.createdAt).toLocaleDateString('zh-CN')}</span>
+                                  <span>分享于 {new Date(share.createdAt).toLocaleDateString('zh-CN')}</span>
                                   <span>·</span>
                                   <span>
-                                    {share.lastViewedAt ? formatTime(share.lastViewedAt, behavior.timestampFormat) : '暂未被访问'}
+                                    {share.lastViewedAt ? `最近访问 ${formatTime(share.lastViewedAt, behavior.timestampFormat)}` : '暂未被访问'}
                                   </span>
                                 </div>
                               </div>
