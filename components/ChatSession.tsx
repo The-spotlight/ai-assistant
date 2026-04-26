@@ -380,6 +380,7 @@ export default function ChatSession({
     hasPassword: boolean;
     createdAt: string;
     viewCount: number;
+    lastViewedAt: string | null;
   }>>([]);
   const [isLoadingShares, setIsLoadingShares] = useState(false);
 
@@ -1705,6 +1706,10 @@ export default function ChatSession({
                                   <span>{share.expiresAt ? '限时' : '永久'}</span>
                                   <span>·</span>
                                   <span>{new Date(share.createdAt).toLocaleDateString('zh-CN')}</span>
+                                  <span>·</span>
+                                  <span>
+                                    {share.lastViewedAt ? formatTime(share.lastViewedAt, behavior.timestampFormat) : '暂未被访问'}
+                                  </span>
                                 </div>
                               </div>
                               <div className="flex items-center gap-2 ml-3 shrink-0">
