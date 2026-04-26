@@ -285,6 +285,7 @@ function IconFileJson(props: React.SVGProps<SVGSVGElement>) {
 interface SettingsPanelProps {
   visible: boolean;
   onClose: () => void;
+  onTrashEmptied?: () => void;
 }
 
 const TAB_CONFIG: { key: SettingsTab; label: string; icon: typeof IconPalette }[] = [
@@ -294,7 +295,7 @@ const TAB_CONFIG: { key: SettingsTab; label: string; icon: typeof IconPalette }[
   { key: 'data', label: '数据管理', icon: IconDatabase },
 ];
 
-export default function SettingsPanel({ visible, onClose }: SettingsPanelProps) {
+export default function SettingsPanel({ visible, onClose, onTrashEmptied }: SettingsPanelProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const {
     appearance,
@@ -467,6 +468,7 @@ export default function SettingsPanel({ visible, onClose }: SettingsPanelProps) 
               updateAppearance={updateAppearance}
               updateBehavior={updateBehavior}
               updateModel={updateModel}
+              onTrashEmptied={onTrashEmptied}
             />
           )}
         </div>
@@ -953,6 +955,14 @@ interface DataTabProps {
   updateAppearance: <K extends keyof AppearanceSettings>(key: K, value: AppearanceSettings[K]) => void;
   updateBehavior: <K extends keyof BehaviorSettings>(key: K, value: BehaviorSettings[K]) => void;
   updateModel: <K extends keyof ModelSettings>(key: K, value: ModelSettings[K]) => void;
+  onTrashEmptied?: () => void;
+}
+
+type ToastType = 'success' | 'error' | 'info';
+
+interface ToastMessage {
+  type: ToastType;
+  message: string;
 }
 
 function DataTab({
@@ -962,6 +972,7 @@ function DataTab({
   updateAppearance,
   updateBehavior,
   updateModel,
+  onTrashEmptied,
 }: DataTabProps) {
   const [exportingConversations, setExportingConversations] = useState(false);
   const [showEmptyTrashConfirm, setShowEmptyTrashConfirm] = useState(false);
@@ -969,8 +980,8 @@ function DataTab({
   const [exportingConfig, setExportingConfig] = useState(false);
   const [importingConfig, setImportingConfig] = useState(false);
   const [importErrors, setImportErrors] = useState<DataValidationError[]>([]);
-  const [importSuccess, setImportSuccess] = useState(false);
   const [trashCount, setTrashCount] = useState<number | null>(null);
+  const [toast, setToast] = useState<ToastMessage | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -994,6 +1005,11 @@ function DataTab({
     fetchTrashCount();
   }, []);
 
+  const showToast = useCallback((type: ToastType, message: string) => {
+    setToast({ type, message });
+    setTimeout(() => setToast(null), 3000);
+  }, []);
+
   const handleExportConversations = async () => {
     setExportingConversations(true);
     try {
@@ -1014,7 +1030,7 @@ function DataTab({
       downloadBlob(blob, filename);
     } catch (error) {
       console.error('导出会话失败:', error);
-      alert('导出失败，请稍后重试');
+      showToast('error', '导出失败，请稍后重试');
     } finally {
       setExportingConversations(false);
     }
@@ -1039,10 +1055,14 @@ function DataTab({
       const data = await response.json();
       setTrashCount(0);
       setShowEmptyTrashConfirm(false);
-      alert(`已清空回收站，共删除 ${data.deletedCount} 个会话`);
+      showToast('success', `已清空回收站，共删除 ${data.deletedCount} 个会话`);
+      
+      if (onTrashEmptied) {
+        onTrashEmptied();
+      }
     } catch (error) {
       console.error('清空回收站失败:', error);
-      alert('清空失败，请稍后重试');
+      showToast('error', '清空失败，请稍后重试');
     } finally {
       setEmptyingTrash(false);
     }
@@ -1064,9 +1084,10 @@ function DataTab({
       const timestamp = new Date().toISOString().slice(0, 10);
       const filename = `配置备份_${timestamp}.json`;
       downloadBlob(blob, filename);
+      showToast('success', '配置导出成功');
     } catch (error) {
       console.error('导出配置失败:', error);
-      alert('导出失败，请稍后重试');
+      showToast('error', '导出失败，请稍后重试');
     } finally {
       setExportingConfig(false);
     }
@@ -1258,7 +1279,6 @@ function DataTab({
 
     setImportingConfig(true);
     setImportErrors([]);
-    setImportSuccess(false);
 
     const reader = new FileReader();
     reader.onload = (event) => {
@@ -1275,8 +1295,7 @@ function DataTab({
         }
 
         applyConfig(parsedConfig);
-        setImportSuccess(true);
-        setTimeout(() => setImportSuccess(false), 3000);
+        showToast('success', '配置导入成功');
       } catch (error) {
         setImportErrors([{ field: 'root', message: 'JSON 解析失败，请检查文件格式' }]);
       } finally {
@@ -1295,12 +1314,37 @@ function DataTab({
 
   const handleImportConfig = () => {
     setImportErrors([]);
-    setImportSuccess(false);
     fileInputRef.current?.click();
   };
 
   return (
     <div className="flex flex-col gap-6">
+      {toast && (
+        <div className={`flex items-center gap-2 border rounded-lg px-3 py-2.5 transition-all ${
+          toast.type === 'success' 
+            ? 'bg-[#f0fdf4] border-[#bbf7d0]' 
+            : toast.type === 'error' 
+            ? 'bg-[#fef2f2] border-[#fecaca]' 
+            : 'bg-[#fafafa] border-black/[0.08]'
+        }`}>
+          {toast.type === 'success' && (
+            <IconCheck className="h-4 w-4 text-[#22c55e] shrink-0" />
+          )}
+          {toast.type === 'error' && (
+            <IconAlertTriangle className="h-4 w-4 text-[#dc2626] shrink-0" />
+          )}
+          <span className={`text-xs font-medium ${
+            toast.type === 'success' 
+              ? 'text-[#16a34a]' 
+              : toast.type === 'error' 
+              ? 'text-[#dc2626]' 
+              : 'text-[#525252]'
+          }`}>
+            {toast.message}
+          </span>
+        </div>
+      )}
+
       <div className="flex flex-col gap-3">
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-[#171717]">会话数据</span>
@@ -1340,14 +1384,14 @@ function DataTab({
             type="button"
             onClick={() => setShowEmptyTrashConfirm(true)}
             disabled={trashCount === 0 || emptyingTrash}
-            className="flex items-center justify-between gap-2 py-3 px-4 rounded-lg text-sm font-medium text-[#dc2626] bg-[#fef2f2] border border-[#fecaca] hover:bg-[#fee2e2] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="flex items-center justify-between gap-2 py-3 px-4 rounded-lg text-sm font-medium text-[#171717] bg-[#fafafa] border border-black/[0.08] hover:bg-[#f5f5f5] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <div className="flex items-center gap-2">
-              <IconTrash2 className="h-4 w-4" />
+              <IconTrash2 className="h-4 w-4 text-[#525252]" />
               <span>一键清空回收站</span>
             </div>
             {emptyingTrash && (
-              <div className="w-4 h-4 border-2 border-[#dc2626] border-t-transparent rounded-full animate-spin" />
+              <div className="w-4 h-4 border-2 border-[#171717] border-t-transparent rounded-full animate-spin" />
             )}
           </button>
           <p className="text-[11px] text-[#a3a3a3]">
@@ -1360,13 +1404,6 @@ function DataTab({
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-[#171717]">配置文件</span>
         </div>
-        
-        {importSuccess && (
-          <div className="flex items-center gap-2 bg-[#f0fdf4] border border-[#bbf7d0] rounded-lg px-3 py-2.5">
-            <IconCheck className="h-4 w-4 text-[#22c55e] shrink-0" />
-            <span className="text-xs text-[#16a34a] font-medium">配置导入成功</span>
-          </div>
-        )}
 
         {importErrors.length > 0 && (
           <div className="flex flex-col gap-1 bg-[#fef2f2] border border-[#fecaca] rounded-lg px-3 py-2.5">
@@ -1427,18 +1464,18 @@ function DataTab({
       {showEmptyTrashConfirm && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50">
           <div className="mx-4 w-full max-w-xs rounded-2xl border border-black/[0.08] bg-white p-5 shadow-lg">
-            <h3 className="mb-2 text-sm font-semibold text-[#171717]">清空回收站确认</h3>
-            <p className="mb-5 text-sm text-[#737373]">
-              确定要永久删除回收站中的所有会话吗？
-            </p>
-            <p className="mb-5 text-xs text-[#a3a3a3]">
-              此操作不可恢复，删除后将无法找回这些会话。
-            </p>
-            <div className="flex justify-end gap-2">
+            <div className="flex items-start gap-2 bg-[#fef3c7] border border-[#fde68a] rounded-lg px-3 py-2.5 mb-4">
+              <IconAlertTriangle className="h-4 w-4 text-[#d97706] shrink-0 mt-0.5" />
+              <div>
+                <p className="text-xs text-[#92400e] font-medium">确认清空回收站？</p>
+                <p className="text-[10px] text-[#b45309] mt-0.5">回收站中的所有会话将被永久删除</p>
+              </div>
+            </div>
+            <div className="flex gap-2">
               <button
                 type="button"
                 onClick={() => setShowEmptyTrashConfirm(false)}
-                className="rounded-lg px-4 py-2 text-sm text-[#737373] transition-colors hover:bg-[#f5f5f5] hover:text-[#171717]"
+                className="flex-1 py-2.5 text-sm font-medium text-[#525252] bg-white border border-black/[0.08] rounded-lg hover:bg-[#fafafa] transition-colors"
               >
                 取消
               </button>
@@ -1446,7 +1483,7 @@ function DataTab({
                 type="button"
                 onClick={handleEmptyTrash}
                 disabled={emptyingTrash}
-                className="rounded-lg bg-[#dc2626] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#b91c1c] disabled:opacity-50 disabled:cursor-not-allowed"
+                className="flex-1 py-2.5 text-sm font-medium text-white bg-[#171717] rounded-lg hover:bg-black transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {emptyingTrash ? '清空中...' : '确认清空'}
               </button>
