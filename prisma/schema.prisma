@@ -122,8 +122,28 @@ model Share {
   passwordHash   String?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
+  /// 访问记录
+  views          ShareView[]
 
   @@index([shareId])
   @@index([deviceId, createdAt(sort: Desc)])
   @@index([conversationId])
+}
+
+/// 分享访问记录
+model ShareView {
+  id        String   @id @default(cuid())
+  shareId   String
+  share     Share    @relation(fields: [shareId], references: [shareId], onDelete: Cascade)
+  /// 访问时间
+  viewedAt  DateTime @default(now())
+  /// 来源页面（Referer）
+  referrer  String?
+  /// 访问者 IP（可选，用于统计）
+  ip        String?
+  /// 访问者用户代理
+  userAgent String?
+
+  @@index([shareId])
+  @@index([shareId, viewedAt(sort: Desc)])
 }

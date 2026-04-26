@@ -4,6 +4,8 @@ import MarkdownRenderer from '@/components/MarkdownRenderer';
 import CopyLinkButton from '@/components/CopyLinkButton';
 import { DEFAULT_SETTINGS, THEME_PRESETS, FONT_SIZES, BUBBLE_STYLES, type ThemeKey } from '@/lib/theme-constants';
 import { Metadata } from 'next';
+import { headers } from 'next/headers';
+import { notFound } from 'next/navigation';
 
 interface Message {
   id: string;
@@ -88,6 +90,24 @@ async function getShareData(shareId: string): Promise<SharePageData | null> {
   if (isShareExpired(share.expiresAt)) return null;
   if (!share.conversation || share.conversation.isDeleted) return null;
   if (share.hasPassword) return null;
+
+  // 记录访问信息
+  try {
+    const requestHeaders = await headers();
+    const referrer = requestHeaders.get('referer') || undefined;
+    const userAgent = requestHeaders.get('user-agent') || undefined;
+    
+    await prisma.shareView.create({
+      data: {
+        shareId,
+        referrer,
+        userAgent,
+      },
+    });
+  } catch (error) {
+    console.error('记录访问信息失败:', error);
+    // 访问记录失败不影响分享内容的显示
+  }
 
   return {
     shareId: share.shareId,
