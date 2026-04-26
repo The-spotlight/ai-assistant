@@ -56,6 +56,202 @@ export const DEFAULT_MODEL_SETTINGS: ModelSettings = {
 
 const BEHAVIOR_SETTINGS_STORAGE_KEY = 'ai-assistant-behavior-settings';
 const MODEL_SETTINGS_STORAGE_KEY = 'ai-assistant-model-settings';
+const SETTINGS_PRESETS_STORAGE_KEY = 'ai-assistant-settings-presets';
+const ACTIVE_PRESET_ID_STORAGE_KEY = 'ai-assistant-active-preset-id';
+
+export interface SettingsPreset {
+  id: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+  appearance: AppearanceSettings;
+  behavior: BehaviorSettings;
+  model: ModelSettings;
+}
+
+export function generatePresetId(): string {
+  return `preset_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+}
+
+export function loadPresets(): SettingsPreset[] {
+  if (typeof window === 'undefined') {
+    return [];
+  }
+
+  try {
+    const stored = localStorage.getItem(SETTINGS_PRESETS_STORAGE_KEY);
+    if (!stored) {
+      return [];
+    }
+
+    const parsed = JSON.parse(stored) as SettingsPreset[];
+    return parsed.filter(validatePreset);
+  } catch {
+    return [];
+  }
+}
+
+export function savePresets(presets: SettingsPreset[]): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(SETTINGS_PRESETS_STORAGE_KEY, JSON.stringify(presets));
+  } catch {
+    console.warn('Failed to save presets');
+  }
+}
+
+export function loadActivePresetId(): string | null {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  try {
+    const stored = localStorage.getItem(ACTIVE_PRESET_ID_STORAGE_KEY);
+    return stored || null;
+  } catch {
+    return null;
+  }
+}
+
+export function saveActivePresetId(id: string | null): void {
+  if (typeof window === 'undefined') return;
+  try {
+    if (id) {
+      localStorage.setItem(ACTIVE_PRESET_ID_STORAGE_KEY, id);
+    } else {
+      localStorage.removeItem(ACTIVE_PRESET_ID_STORAGE_KEY);
+    }
+  } catch {
+    console.warn('Failed to save active preset id');
+  }
+}
+
+export function validatePreset(preset: unknown): preset is SettingsPreset {
+  if (typeof preset !== 'object' || preset === null) {
+    return false;
+  }
+
+  const p = preset as any;
+
+  if (typeof p.id !== 'string' || !p.id) {
+    return false;
+  }
+  if (typeof p.name !== 'string' || !p.name) {
+    return false;
+  }
+  if (typeof p.createdAt !== 'string' || !p.createdAt) {
+    return false;
+  }
+  if (typeof p.updatedAt !== 'string' || !p.updatedAt) {
+    return false;
+  }
+
+  if (p.appearance && typeof p.appearance === 'object') {
+    if (p.appearance.theme !== undefined && !(p.appearance.theme in THEME_PRESETS)) {
+      return false;
+    }
+    if (p.appearance.fontSize !== undefined && !(p.appearance.fontSize in FONT_SIZES)) {
+      return false;
+    }
+    if (p.appearance.codeHighlight !== undefined && !(p.appearance.codeHighlight in CODE_HIGHLIGHT_THEMES)) {
+      return false;
+    }
+    if (p.appearance.bubbleStyle !== undefined && !(p.appearance.bubbleStyle in BUBBLE_STYLES)) {
+      return false;
+    }
+  }
+
+  if (p.behavior && typeof p.behavior === 'object') {
+    if (p.behavior.sendShortcut !== undefined && !(p.behavior.sendShortcut in SEND_SHORTCUT_OPTIONS)) {
+      return false;
+    }
+    if (p.behavior.timestampFormat !== undefined && !(p.behavior.timestampFormat in TIMESTAMP_FORMAT_OPTIONS)) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+export function buildPreset(
+  name: string,
+  appearance: AppearanceSettings,
+  behavior: BehaviorSettings,
+  model: ModelSettings
+): SettingsPreset {
+  const now = new Date().toISOString();
+  return {
+    id: generatePresetId(),
+    name,
+    createdAt: now,
+    updatedAt: now,
+    appearance: { ...appearance },
+    behavior: { ...behavior },
+    model: { ...model },
+  };
+}
+
+export function addPreset(preset: SettingsPreset): SettingsPreset[] {
+  const presets = loadPresets();
+  const updated = [...presets, preset];
+  savePresets(updated);
+  return updated;
+}
+
+export function updatePreset(id: string, updates: Partial<SettingsPreset>): SettingsPreset[] {
+  const presets = loadPresets();
+  const updated = presets.map((p) => {
+    if (p.id === id) {
+      return {
+        ...p,
+        ...updates,
+        updatedAt: new Date().toISOString(),
+      };
+    }
+    return p;
+  });
+  savePresets(updated);
+  return updated;
+}
+
+export function removePreset(id: string): SettingsPreset[] {
+  const presets = loadPresets();
+  const updated = presets.filter((p) => p.id !== id);
+  savePresets(updated);
+
+  const activeId = loadActivePresetId();
+  if (activeId === id) {
+    saveActivePresetId(null);
+  }
+
+  return updated;
+}
+
+export function getPresetById(id: string): SettingsPreset | undefined {
+  const presets = loadPresets();
+  return presets.find((p) => p.id === id);
+}
+
+export function mergePresetWithDefaults(preset: SettingsPreset): {
+  appearance: AppearanceSettings;
+  behavior: BehaviorSettings;
+  model: ModelSettings;
+} {
+  const appearance = {
+    ...DEFAULT_SETTINGS,
+    ...preset.appearance,
+  };
+  const behavior = {
+    ...DEFAULT_BEHAVIOR_SETTINGS,
+    ...preset.behavior,
+  };
+  const model = {
+    ...DEFAULT_MODEL_SETTINGS,
+    ...preset.model,
+  };
+
+  return { appearance, behavior, model };
+}
 
 export function loadBehaviorSettings(): BehaviorSettings {
   if (typeof window === 'undefined') {
@@ -334,6 +530,13 @@ interface SettingsContextType {
   settings: AppearanceSettings;
   updateSettings: <K extends keyof AppearanceSettings>(key: K, value: AppearanceSettings[K]) => void;
   resetSettings: () => void;
+  presets: SettingsPreset[];
+  activePresetId: string | null;
+  createPreset: (name: string) => void;
+  applyPreset: (id: string) => void;
+  renamePreset: (id: string, newName: string) => void;
+  deletePreset: (id: string) => void;
+  refreshPresets: () => void;
 }
 
 const SettingsContext = createContext<SettingsContextType | null>(null);
@@ -358,15 +561,72 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     return DEFAULT_MODEL_SETTINGS;
   });
   const [isLoaded, setIsLoaded] = useState(typeof window !== 'undefined');
+  const [presets, setPresets] = useState<SettingsPreset[]>(() => {
+    if (typeof window !== 'undefined') {
+      return loadPresets();
+    }
+    return [];
+  });
+  const [activePresetId, setActivePresetId] = useState<string | null>(() => {
+    if (typeof window !== 'undefined') {
+      return loadActivePresetId();
+    }
+    return null;
+  });
 
   useEffect(() => {
     if (!isLoaded) {
       setAppearance(loadSettings());
       setBehavior(loadBehaviorSettings());
       setModel(loadModelSettings());
+      setPresets(loadPresets());
+      setActivePresetId(loadActivePresetId());
       setIsLoaded(true);
     }
   }, [isLoaded]);
+
+  const refreshPresets = useCallback(() => {
+    setPresets(loadPresets());
+    setActivePresetId(loadActivePresetId());
+  }, []);
+
+  const createPreset = useCallback((name: string) => {
+    const preset = buildPreset(name, appearance, behavior, model);
+    const updated = addPreset(preset);
+    setPresets(updated);
+    setActivePresetId(preset.id);
+    saveActivePresetId(preset.id);
+  }, [appearance, behavior, model]);
+
+  const applyPreset = useCallback((id: string) => {
+    const preset = getPresetById(id);
+    if (!preset) return;
+
+    const merged = mergePresetWithDefaults(preset);
+
+    setAppearance(merged.appearance);
+    saveSettings(merged.appearance);
+
+    setBehavior(merged.behavior);
+    saveBehaviorSettings(merged.behavior);
+
+    setModel(merged.model);
+    saveModelSettings(merged.model);
+
+    setActivePresetId(id);
+    saveActivePresetId(id);
+  }, []);
+
+  const renamePreset = useCallback((id: string, newName: string) => {
+    const updated = updatePreset(id, { name: newName });
+    setPresets(updated);
+  }, []);
+
+  const deletePreset = useCallback((id: string) => {
+    const updated = removePreset(id);
+    setPresets(updated);
+    setActivePresetId((prev) => (prev === id ? null : prev));
+  }, []);
 
   const updateAppearance = useCallback(<K extends keyof AppearanceSettings>(
     key: K,
@@ -466,6 +726,13 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         settings: appearance,
         updateSettings: updateAppearance,
         resetSettings: resetAppearance,
+        presets,
+        activePresetId,
+        createPreset,
+        applyPreset,
+        renamePreset,
+        deletePreset,
+        refreshPresets,
       }}
     >
       {children}

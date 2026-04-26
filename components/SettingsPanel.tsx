@@ -23,12 +23,13 @@ import {
   type AppearanceSettings,
   type BehaviorSettings,
   type ModelSettings,
+  type SettingsPreset,
 } from '@/lib/settings';
 import { OPENROUTER_MODEL_OPTIONS } from '@/lib/openrouter-models';
 import { getOrCreateDeviceId } from '@/lib/device';
 import { downloadBlob } from '@/lib/export';
 
-type SettingsTab = 'appearance' | 'behavior' | 'model' | 'data';
+type SettingsTab = 'appearance' | 'behavior' | 'model' | 'presets' | 'data';
 
 function IconX(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -284,6 +285,62 @@ function IconFileJson(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
+function IconLayers(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      {...props}
+    >
+      <path d="M12 2L2 7l10 5 10-5-10-5z" />
+      <path d="M2 17l10 5 10-5" />
+      <path d="M2 12l10 5 10-5" />
+    </svg>
+  );
+}
+
+function IconSave(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      {...props}
+    >
+      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+      <polyline points="17 21 17 13 7 13 7 21" />
+      <polyline points="7 3 7 8 15 8" />
+    </svg>
+  );
+}
+
+function IconEdit3(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      {...props}
+    >
+      <path d="M12 20h9" />
+      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+    </svg>
+  );
+}
+
 interface SettingsPanelProps {
   visible: boolean;
   onClose: () => void;
@@ -294,6 +351,7 @@ const TAB_CONFIG: { key: SettingsTab; label: string; icon: typeof IconPalette }[
   { key: 'appearance', label: '外观', icon: IconPalette },
   { key: 'behavior', label: '行为', icon: IconMousePointerClick },
   { key: 'model', label: '模型', icon: IconBot },
+  { key: 'presets', label: '配置方案', icon: IconLayers },
   { key: 'data', label: '数据管理', icon: IconDatabase },
 ];
 
@@ -311,16 +369,34 @@ export default function SettingsPanel({ visible, onClose, onTrashEmptied }: Sett
     resetModel,
     resetAll,
     themeColors,
+    presets,
+    activePresetId,
+    createPreset,
+    applyPreset,
+    renamePreset,
+    deletePreset,
   } = useSettings();
 
   const [activeTab, setActiveTab] = useState<SettingsTab>('appearance');
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [resetSuccess, setResetSuccess] = useState<string | null>(null);
+  const [showCreatePreset, setShowCreatePreset] = useState(false);
+  const [newPresetName, setNewPresetName] = useState('');
+  const [editingPresetId, setEditingPresetId] = useState<string | null>(null);
+  const [editingPresetName, setEditingPresetName] = useState('');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+  const [presetSuccess, setPresetSuccess] = useState<string | null>(null);
 
   useEffect(() => {
     if (!visible) {
       setShowResetConfirm(false);
       setResetSuccess(null);
+      setShowCreatePreset(false);
+      setNewPresetName('');
+      setEditingPresetId(null);
+      setEditingPresetName('');
+      setShowDeleteConfirm(null);
+      setPresetSuccess(null);
       return;
     }
 
@@ -334,6 +410,12 @@ export default function SettingsPanel({ visible, onClose, onTrashEmptied }: Sett
       if (e.key === 'Escape') {
         if (showResetConfirm) {
           setShowResetConfirm(false);
+        } else if (showCreatePreset || showDeleteConfirm || editingPresetId) {
+          setShowCreatePreset(false);
+          setNewPresetName('');
+          setEditingPresetId(null);
+          setEditingPresetName('');
+          setShowDeleteConfirm(null);
         } else {
           onClose();
         }
@@ -347,7 +429,7 @@ export default function SettingsPanel({ visible, onClose, onTrashEmptied }: Sett
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [visible, onClose, showResetConfirm]);
+  }, [visible, onClose, showResetConfirm, showCreatePreset, showDeleteConfirm, editingPresetId]);
 
   const handleResetCurrentTab = () => {
     switch (activeTab) {
@@ -441,6 +523,12 @@ export default function SettingsPanel({ visible, onClose, onTrashEmptied }: Sett
             <span className="text-xs text-[#16a34a]">已恢复默认{resetSuccess}设置</span>
           </div>
         )}
+        {presetSuccess && (
+          <div className="px-4 py-2 border-b border-black/[0.06] bg-[#f0fdf4] flex items-center gap-2 shrink-0">
+            <IconCheck className="h-4 w-4 text-[#22c55e]" />
+            <span className="text-xs text-[#16a34a]">{presetSuccess}</span>
+          </div>
+        )}
 
         <div className="flex-1 overflow-y-auto p-4">
           {activeTab === 'appearance' && (
@@ -460,6 +548,63 @@ export default function SettingsPanel({ visible, onClose, onTrashEmptied }: Sett
             <ModelTab
               model={model}
               updateModel={updateModel}
+            />
+          )}
+          {activeTab === 'presets' && (
+            <PresetsTab
+              presets={presets}
+              activePresetId={activePresetId}
+              showCreatePreset={showCreatePreset}
+              newPresetName={newPresetName}
+              editingPresetId={editingPresetId}
+              editingPresetName={editingPresetName}
+              showDeleteConfirm={showDeleteConfirm}
+              onShowCreatePreset={() => setShowCreatePreset(true)}
+              onHideCreatePreset={() => {
+                setShowCreatePreset(false);
+                setNewPresetName('');
+              }}
+              onNewPresetNameChange={setNewPresetName}
+              onCreatePreset={() => {
+                if (newPresetName.trim()) {
+                  createPreset(newPresetName.trim());
+                  setShowCreatePreset(false);
+                  setNewPresetName('');
+                  setPresetSuccess('配置方案已保存');
+                  setTimeout(() => setPresetSuccess(null), 2000);
+                }
+              }}
+              onApplyPreset={(id) => {
+                applyPreset(id);
+                setPresetSuccess('已切换到该配置方案');
+                setTimeout(() => setPresetSuccess(null), 2000);
+              }}
+              onStartEdit={(id, name) => {
+                setEditingPresetId(id);
+                setEditingPresetName(name);
+              }}
+              onCancelEdit={() => {
+                setEditingPresetId(null);
+                setEditingPresetName('');
+              }}
+              onSaveEdit={(id) => {
+                if (editingPresetName.trim()) {
+                  renamePreset(id, editingPresetName.trim());
+                  setEditingPresetId(null);
+                  setEditingPresetName('');
+                  setPresetSuccess('配置方案已重命名');
+                  setTimeout(() => setPresetSuccess(null), 2000);
+                }
+              }}
+              onEditingNameChange={setEditingPresetName}
+              onShowDeleteConfirm={(id) => setShowDeleteConfirm(id)}
+              onHideDeleteConfirm={() => setShowDeleteConfirm(null)}
+              onConfirmDelete={(id) => {
+                deletePreset(id);
+                setShowDeleteConfirm(null);
+                setPresetSuccess('配置方案已删除');
+                setTimeout(() => setPresetSuccess(null), 2000);
+              }}
             />
           )}
           {activeTab === 'data' && (
@@ -1550,6 +1695,270 @@ function DataTab({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+interface PresetsTabProps {
+  presets: SettingsPreset[];
+  activePresetId: string | null;
+  showCreatePreset: boolean;
+  newPresetName: string;
+  editingPresetId: string | null;
+  editingPresetName: string;
+  showDeleteConfirm: string | null;
+  onShowCreatePreset: () => void;
+  onHideCreatePreset: () => void;
+  onNewPresetNameChange: (value: string) => void;
+  onCreatePreset: () => void;
+  onApplyPreset: (id: string) => void;
+  onStartEdit: (id: string, name: string) => void;
+  onCancelEdit: () => void;
+  onSaveEdit: (id: string) => void;
+  onEditingNameChange: (value: string) => void;
+  onShowDeleteConfirm: (id: string) => void;
+  onHideDeleteConfirm: () => void;
+  onConfirmDelete: (id: string) => void;
+}
+
+function PresetsTab({
+  presets,
+  activePresetId,
+  showCreatePreset,
+  newPresetName,
+  editingPresetId,
+  editingPresetName,
+  showDeleteConfirm,
+  onShowCreatePreset,
+  onHideCreatePreset,
+  onNewPresetNameChange,
+  onCreatePreset,
+  onApplyPreset,
+  onStartEdit,
+  onCancelEdit,
+  onSaveEdit,
+  onEditingNameChange,
+  onShowDeleteConfirm,
+  onHideDeleteConfirm,
+  onConfirmDelete,
+}: PresetsTabProps) {
+  const formatDate = (isoString: string) => {
+    const date = new Date(isoString);
+    return date.toLocaleDateString('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-medium text-[#171717]">保存当前配置</span>
+        </div>
+        {!showCreatePreset ? (
+          <button
+            type="button"
+            onClick={onShowCreatePreset}
+            className="flex items-center justify-center gap-2 py-3 px-4 rounded-lg text-sm font-medium text-white bg-[#171717] hover:bg-black transition-colors"
+          >
+            <IconSave className="h-4 w-4" />
+            <span>保存为新方案</span>
+          </button>
+        ) : (
+          <div className="flex flex-col gap-3">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newPresetName}
+                onChange={(e) => onNewPresetNameChange(e.target.value)}
+                placeholder="输入方案名称"
+                className="flex-1 h-10 px-3 text-sm border border-black/[0.08] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#171717]/20"
+                autoFocus
+              />
+              <button
+                type="button"
+                onClick={onHideCreatePreset}
+                className="px-4 h-10 text-sm font-medium text-[#525252] bg-white border border-black/[0.08] rounded-lg hover:bg-[#fafafa] transition-colors"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={onCreatePreset}
+                disabled={!newPresetName.trim()}
+                className="px-4 h-10 text-sm font-medium text-white bg-[#171717] rounded-lg hover:bg-black transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                保存
+              </button>
+            </div>
+            <p className="text-[11px] text-[#a3a3a3]">
+              将当前的外观、行为、模型设置保存为一个配置方案
+            </p>
+          </div>
+        )}
+      </div>
+
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-medium text-[#171717]">配置方案列表</span>
+          {presets.length > 0 && (
+            <span className="text-[11px] text-[#a3a3a3]">
+              共 {presets.length} 个方案
+            </span>
+          )}
+        </div>
+
+        {presets.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-8 px-4 border border-dashed border-black/[0.08] rounded-lg">
+            <IconLayers className="h-8 w-8 text-[#d4d4d4] mb-2" />
+            <p className="text-sm text-[#737373]">暂无配置方案</p>
+            <p className="text-[11px] text-[#a3a3a3] mt-1">
+              点击上方按钮保存当前设置为方案
+            </p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {presets.map((preset) => {
+              const isActive = activePresetId === preset.id;
+              const isEditing = editingPresetId === preset.id;
+              const isDeleting = showDeleteConfirm === preset.id;
+
+              return (
+                <div
+                  key={preset.id}
+                  className={`flex flex-col gap-2 p-3 rounded-lg border transition-colors ${
+                    isActive
+                      ? 'border-[#171717] bg-[#fafafa]'
+                      : 'border-black/[0.08] bg-white hover:bg-[#fafafa]'
+                  }`}
+                >
+                  {isEditing ? (
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={editingPresetName}
+                        onChange={(e) => onEditingNameChange(e.target.value)}
+                        className="flex-1 h-9 px-2 text-sm border border-black/[0.08] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#171717]/20"
+                        autoFocus
+                      />
+                      <button
+                        type="button"
+                        onClick={onCancelEdit}
+                        className="p-2 text-[#737373] hover:text-[#525252] transition-colors"
+                        aria-label="取消"
+                      >
+                        <IconX className="h-4 w-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => onSaveEdit(preset.id)}
+                        disabled={!editingPresetName.trim()}
+                        className="p-2 text-[#171717] hover:text-black transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        aria-label="保存"
+                      >
+                        <IconCheck className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 min-w-0">
+                        {isActive && (
+                          <div className="w-2 h-2 rounded-full bg-[#22c55e] shrink-0" />
+                        )}
+                        {!isActive && <div className="w-2 h-2 shrink-0" />}
+                        <div className="min-w-0">
+                          <p
+                            className={`text-sm font-medium truncate ${
+                              isActive ? 'text-[#171717]' : 'text-[#525252]'
+                            }`}
+                          >
+                            {preset.name}
+                          </p>
+                          <p className="text-[10px] text-[#a3a3a3]">
+                            更新于 {formatDate(preset.updatedAt)}
+                            {isActive && ' · 当前使用'}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1 shrink-0">
+                        {!isActive && (
+                          <button
+                            type="button"
+                            onClick={() => onApplyPreset(preset.id)}
+                            className="p-2 text-[#525252] hover:text-[#171717] hover:bg-[#f5f5f5] rounded-lg transition-colors"
+                            aria-label="应用方案"
+                            title="应用此方案"
+                          >
+                            <IconCheck className="h-4 w-4" />
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => onStartEdit(preset.id, preset.name)}
+                          className="p-2 text-[#525252] hover:text-[#171717] hover:bg-[#f5f5f5] rounded-lg transition-colors"
+                          aria-label="重命名"
+                          title="重命名"
+                        >
+                          <IconEdit3 className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onShowDeleteConfirm(preset.id)}
+                          className="p-2 text-[#525252] hover:text-[#dc2626] hover:bg-[#fef2f2] rounded-lg transition-colors"
+                          aria-label="删除"
+                          title="删除方案"
+                        >
+                          <IconTrash2 className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {isDeleting && (
+                    <div className="flex flex-col gap-3 pt-2 border-t border-black/[0.08]">
+                      <div className="flex items-start gap-2 bg-[#fef2f2] border border-[#fecaca] rounded-lg px-3 py-2.5">
+                        <IconAlertTriangle className="h-4 w-4 text-[#dc2626] shrink-0 mt-0.5" />
+                        <div className="flex-1">
+                          <p className="text-xs text-[#991b1b] font-medium">
+                            确认删除方案 "{preset.name}"？
+                          </p>
+                          <p className="text-[10px] text-[#b91c1c] mt-0.5">
+                            此操作不可恢复
+                          </p>
+                        </div>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={onHideDeleteConfirm}
+                          className="flex-1 py-2 text-sm font-medium text-[#525252] bg-white border border-black/[0.08] rounded-lg hover:bg-[#fafafa] transition-colors"
+                        >
+                          取消
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onConfirmDelete(preset.id)}
+                          className="flex-1 py-2 text-sm font-medium text-white bg-[#dc2626] rounded-lg hover:bg-[#b91c1c] transition-colors"
+                        >
+                          确认删除
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        <p className="text-[11px] text-[#a3a3a3]">
+          配置方案保存在浏览器本地存储中。要在设备间同步，请使用"数据管理"标签页的导出/导入功能。
+        </p>
+      </div>
     </div>
   );
 }
