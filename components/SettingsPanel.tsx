@@ -380,22 +380,12 @@ export default function SettingsPanel({ visible, onClose, onTrashEmptied }: Sett
   const [activeTab, setActiveTab] = useState<SettingsTab>('appearance');
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [resetSuccess, setResetSuccess] = useState<string | null>(null);
-  const [showCreatePreset, setShowCreatePreset] = useState(false);
-  const [newPresetName, setNewPresetName] = useState('');
-  const [editingPresetId, setEditingPresetId] = useState<string | null>(null);
-  const [editingPresetName, setEditingPresetName] = useState('');
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
   const [presetSuccess, setPresetSuccess] = useState<string | null>(null);
 
   useEffect(() => {
     if (!visible) {
       setShowResetConfirm(false);
       setResetSuccess(null);
-      setShowCreatePreset(false);
-      setNewPresetName('');
-      setEditingPresetId(null);
-      setEditingPresetName('');
-      setShowDeleteConfirm(null);
       setPresetSuccess(null);
       return;
     }
@@ -410,12 +400,6 @@ export default function SettingsPanel({ visible, onClose, onTrashEmptied }: Sett
       if (e.key === 'Escape') {
         if (showResetConfirm) {
           setShowResetConfirm(false);
-        } else if (showCreatePreset || showDeleteConfirm || editingPresetId) {
-          setShowCreatePreset(false);
-          setNewPresetName('');
-          setEditingPresetId(null);
-          setEditingPresetName('');
-          setShowDeleteConfirm(null);
         } else {
           onClose();
         }
@@ -429,7 +413,7 @@ export default function SettingsPanel({ visible, onClose, onTrashEmptied }: Sett
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [visible, onClose, showResetConfirm, showCreatePreset, showDeleteConfirm, editingPresetId]);
+  }, [visible, onClose, showResetConfirm]);
 
   const handleResetCurrentTab = () => {
     switch (activeTab) {
@@ -554,54 +538,23 @@ export default function SettingsPanel({ visible, onClose, onTrashEmptied }: Sett
             <PresetsTab
               presets={presets}
               activePresetId={activePresetId}
-              showCreatePreset={showCreatePreset}
-              newPresetName={newPresetName}
-              editingPresetId={editingPresetId}
-              editingPresetName={editingPresetName}
-              showDeleteConfirm={showDeleteConfirm}
-              onShowCreatePreset={() => setShowCreatePreset(true)}
-              onHideCreatePreset={() => {
-                setShowCreatePreset(false);
-                setNewPresetName('');
-              }}
-              onNewPresetNameChange={setNewPresetName}
-              onCreatePreset={() => {
-                if (newPresetName.trim()) {
-                  createPreset(newPresetName.trim());
-                  setShowCreatePreset(false);
-                  setNewPresetName('');
-                  setPresetSuccess('配置方案已保存');
-                  setTimeout(() => setPresetSuccess(null), 2000);
-                }
+              onCreatePreset={(name) => {
+                createPreset(name);
+                setPresetSuccess('配置方案已保存');
+                setTimeout(() => setPresetSuccess(null), 2000);
               }}
               onApplyPreset={(id) => {
                 applyPreset(id);
                 setPresetSuccess('已切换到该配置方案');
                 setTimeout(() => setPresetSuccess(null), 2000);
               }}
-              onStartEdit={(id, name) => {
-                setEditingPresetId(id);
-                setEditingPresetName(name);
+              onRenamePreset={(id, newName) => {
+                renamePreset(id, newName);
+                setPresetSuccess('配置方案已重命名');
+                setTimeout(() => setPresetSuccess(null), 2000);
               }}
-              onCancelEdit={() => {
-                setEditingPresetId(null);
-                setEditingPresetName('');
-              }}
-              onSaveEdit={(id) => {
-                if (editingPresetName.trim()) {
-                  renamePreset(id, editingPresetName.trim());
-                  setEditingPresetId(null);
-                  setEditingPresetName('');
-                  setPresetSuccess('配置方案已重命名');
-                  setTimeout(() => setPresetSuccess(null), 2000);
-                }
-              }}
-              onEditingNameChange={setEditingPresetName}
-              onShowDeleteConfirm={(id) => setShowDeleteConfirm(id)}
-              onHideDeleteConfirm={() => setShowDeleteConfirm(null)}
-              onConfirmDelete={(id) => {
+              onDeletePreset={(id) => {
                 deletePreset(id);
-                setShowDeleteConfirm(null);
                 setPresetSuccess('配置方案已删除');
                 setTimeout(() => setPresetSuccess(null), 2000);
               }}
@@ -1702,46 +1655,36 @@ function DataTab({
 interface PresetsTabProps {
   presets: SettingsPreset[];
   activePresetId: string | null;
-  showCreatePreset: boolean;
-  newPresetName: string;
-  editingPresetId: string | null;
-  editingPresetName: string;
-  showDeleteConfirm: string | null;
-  onShowCreatePreset: () => void;
-  onHideCreatePreset: () => void;
-  onNewPresetNameChange: (value: string) => void;
-  onCreatePreset: () => void;
+  onCreatePreset: (name: string) => void;
   onApplyPreset: (id: string) => void;
-  onStartEdit: (id: string, name: string) => void;
-  onCancelEdit: () => void;
-  onSaveEdit: (id: string) => void;
-  onEditingNameChange: (value: string) => void;
-  onShowDeleteConfirm: (id: string) => void;
-  onHideDeleteConfirm: () => void;
-  onConfirmDelete: (id: string) => void;
+  onRenamePreset: (id: string, newName: string) => void;
+  onDeletePreset: (id: string) => void;
+}
+
+type DialogMode = 'none' | 'create' | 'rename' | 'delete';
+
+interface DialogState {
+  mode: DialogMode;
+  presetId: string | null;
+  presetName: string;
 }
 
 function PresetsTab({
   presets,
   activePresetId,
-  showCreatePreset,
-  newPresetName,
-  editingPresetId,
-  editingPresetName,
-  showDeleteConfirm,
-  onShowCreatePreset,
-  onHideCreatePreset,
-  onNewPresetNameChange,
   onCreatePreset,
   onApplyPreset,
-  onStartEdit,
-  onCancelEdit,
-  onSaveEdit,
-  onEditingNameChange,
-  onShowDeleteConfirm,
-  onHideDeleteConfirm,
-  onConfirmDelete,
+  onRenamePreset,
+  onDeletePreset,
 }: PresetsTabProps) {
+  const [dialog, setDialog] = useState<DialogState>({
+    mode: 'none',
+    presetId: null,
+    presetName: '',
+  });
+  const [inputValue, setInputValue] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
+
   const formatDate = (isoString: string) => {
     const date = new Date(isoString);
     return date.toLocaleDateString('zh-CN', {
@@ -1753,53 +1696,122 @@ function PresetsTab({
     });
   };
 
+  useEffect(() => {
+    if (dialog.mode !== 'none' && inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, [dialog.mode]);
+
+  const openCreateDialog = () => {
+    setInputValue('');
+    setDialog({
+      mode: 'create',
+      presetId: null,
+      presetName: '',
+    });
+  };
+
+  const openRenameDialog = (id: string, name: string) => {
+    setInputValue(name);
+    setDialog({
+      mode: 'rename',
+      presetId: id,
+      presetName: name,
+    });
+  };
+
+  const openDeleteDialog = (id: string, name: string) => {
+    setDialog({
+      mode: 'delete',
+      presetId: id,
+      presetName: name,
+    });
+  };
+
+  const closeDialog = () => {
+    setDialog({
+      mode: 'none',
+      presetId: null,
+      presetName: '',
+    });
+    setInputValue('');
+  };
+
+  const handleConfirm = () => {
+    switch (dialog.mode) {
+      case 'create':
+        if (inputValue.trim()) {
+          onCreatePreset(inputValue.trim());
+          closeDialog();
+        }
+        break;
+      case 'rename':
+        if (dialog.presetId && inputValue.trim()) {
+          onRenamePreset(dialog.presetId, inputValue.trim());
+          closeDialog();
+        }
+        break;
+      case 'delete':
+        if (dialog.presetId) {
+          onDeletePreset(dialog.presetId);
+          closeDialog();
+        }
+        break;
+    }
+  };
+
+  const getDialogTitle = () => {
+    switch (dialog.mode) {
+      case 'create':
+        return '保存为新方案';
+      case 'rename':
+        return '重命名方案';
+      case 'delete':
+        return '确认删除';
+      default:
+        return '';
+    }
+  };
+
+  const getConfirmButtonText = () => {
+    switch (dialog.mode) {
+      case 'create':
+        return '保存';
+      case 'rename':
+        return '确认';
+      case 'delete':
+        return '确认删除';
+      default:
+        return '确认';
+    }
+  };
+
+  const isConfirmDisabled = () => {
+    switch (dialog.mode) {
+      case 'create':
+      case 'rename':
+        return !inputValue.trim();
+      case 'delete':
+        return false;
+      default:
+        return true;
+    }
+  };
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium text-[#171717]">保存当前配置</span>
         </div>
-        {!showCreatePreset ? (
-          <button
-            type="button"
-            onClick={onShowCreatePreset}
-            className="flex items-center justify-center gap-2 py-3 px-4 rounded-lg text-sm font-medium text-white bg-[#171717] hover:bg-black transition-colors"
-          >
-            <IconSave className="h-4 w-4" />
-            <span>保存为新方案</span>
-          </button>
-        ) : (
-          <div className="flex flex-col gap-3">
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={newPresetName}
-                onChange={(e) => onNewPresetNameChange(e.target.value)}
-                placeholder="输入方案名称"
-                className="flex-1 h-10 px-3 text-sm border border-black/[0.08] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#171717]/20"
-                autoFocus
-              />
-              <button
-                type="button"
-                onClick={onHideCreatePreset}
-                className="px-4 h-10 text-sm font-medium text-[#525252] bg-white border border-black/[0.08] rounded-lg hover:bg-[#fafafa] transition-colors"
-              >
-                取消
-              </button>
-              <button
-                type="button"
-                onClick={onCreatePreset}
-                disabled={!newPresetName.trim()}
-                className="px-4 h-10 text-sm font-medium text-white bg-[#171717] rounded-lg hover:bg-black transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                保存
-              </button>
-            </div>
-            <p className="text-[11px] text-[#a3a3a3]">
-              将当前的外观、行为、模型设置保存为一个配置方案
-            </p>
-          </div>
-        )}
+        <button
+          type="button"
+          onClick={openCreateDialog}
+          className="flex items-center justify-center gap-2 py-3 px-4 rounded-lg text-sm font-medium text-white bg-[#171717] hover:bg-black transition-colors"
+        >
+          <IconSave className="h-4 w-4" />
+          <span>保存为新方案</span>
+        </button>
       </div>
 
       <div className="flex flex-col gap-3">
@@ -1824,131 +1836,66 @@ function PresetsTab({
           <div className="flex flex-col gap-2">
             {presets.map((preset) => {
               const isActive = activePresetId === preset.id;
-              const isEditing = editingPresetId === preset.id;
-              const isDeleting = showDeleteConfirm === preset.id;
 
               return (
                 <div
                   key={preset.id}
-                  className={`flex flex-col gap-2 p-3 rounded-lg border transition-colors ${
+                  className={`flex items-center justify-between p-3 rounded-lg border transition-colors ${
                     isActive
                       ? 'border-[#171717] bg-[#fafafa]'
                       : 'border-black/[0.08] bg-white hover:bg-[#fafafa]'
                   }`}
                 >
-                  {isEditing ? (
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        value={editingPresetName}
-                        onChange={(e) => onEditingNameChange(e.target.value)}
-                        className="flex-1 h-9 px-2 text-sm border border-black/[0.08] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#171717]/20"
-                        autoFocus
-                      />
-                      <button
-                        type="button"
-                        onClick={onCancelEdit}
-                        className="p-2 text-[#737373] hover:text-[#525252] transition-colors"
-                        aria-label="取消"
+                  <div className="flex items-center gap-2 min-w-0">
+                    {isActive && (
+                      <div className="w-2 h-2 rounded-full bg-[#22c55e] shrink-0" />
+                    )}
+                    {!isActive && <div className="w-2 h-2 shrink-0" />}
+                    <div className="min-w-0">
+                      <p
+                        className={`text-sm font-medium truncate ${
+                          isActive ? 'text-[#171717]' : 'text-[#525252]'
+                        }`}
                       >
-                        <IconX className="h-4 w-4" />
-                      </button>
+                        {preset.name}
+                      </p>
+                      <p className="text-[10px] text-[#a3a3a3]">
+                        更新于 {formatDate(preset.updatedAt)}
+                        {isActive && ' · 当前使用'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    {!isActive && (
                       <button
                         type="button"
-                        onClick={() => onSaveEdit(preset.id)}
-                        disabled={!editingPresetName.trim()}
-                        className="p-2 text-[#171717] hover:text-black transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                        aria-label="保存"
+                        onClick={() => onApplyPreset(preset.id)}
+                        className="p-2 text-[#525252] hover:text-[#171717] hover:bg-[#f5f5f5] rounded-lg transition-colors"
+                        aria-label="应用方案"
+                        title="应用此方案"
                       >
                         <IconCheck className="h-4 w-4" />
                       </button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 min-w-0">
-                        {isActive && (
-                          <div className="w-2 h-2 rounded-full bg-[#22c55e] shrink-0" />
-                        )}
-                        {!isActive && <div className="w-2 h-2 shrink-0" />}
-                        <div className="min-w-0">
-                          <p
-                            className={`text-sm font-medium truncate ${
-                              isActive ? 'text-[#171717]' : 'text-[#525252]'
-                            }`}
-                          >
-                            {preset.name}
-                          </p>
-                          <p className="text-[10px] text-[#a3a3a3]">
-                            更新于 {formatDate(preset.updatedAt)}
-                            {isActive && ' · 当前使用'}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1 shrink-0">
-                        {!isActive && (
-                          <button
-                            type="button"
-                            onClick={() => onApplyPreset(preset.id)}
-                            className="p-2 text-[#525252] hover:text-[#171717] hover:bg-[#f5f5f5] rounded-lg transition-colors"
-                            aria-label="应用方案"
-                            title="应用此方案"
-                          >
-                            <IconCheck className="h-4 w-4" />
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => onStartEdit(preset.id, preset.name)}
-                          className="p-2 text-[#525252] hover:text-[#171717] hover:bg-[#f5f5f5] rounded-lg transition-colors"
-                          aria-label="重命名"
-                          title="重命名"
-                        >
-                          <IconEdit3 className="h-4 w-4" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => onShowDeleteConfirm(preset.id)}
-                          className="p-2 text-[#525252] hover:text-[#dc2626] hover:bg-[#fef2f2] rounded-lg transition-colors"
-                          aria-label="删除"
-                          title="删除方案"
-                        >
-                          <IconTrash2 className="h-4 w-4" />
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {isDeleting && (
-                    <div className="flex flex-col gap-3 pt-2 border-t border-black/[0.08]">
-                      <div className="flex items-start gap-2 bg-[#fef2f2] border border-[#fecaca] rounded-lg px-3 py-2.5">
-                        <IconAlertTriangle className="h-4 w-4 text-[#dc2626] shrink-0 mt-0.5" />
-                        <div className="flex-1">
-                          <p className="text-xs text-[#991b1b] font-medium">
-                            确认删除方案 "{preset.name}"？
-                          </p>
-                          <p className="text-[10px] text-[#b91c1c] mt-0.5">
-                            此操作不可恢复
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <button
-                          type="button"
-                          onClick={onHideDeleteConfirm}
-                          className="flex-1 py-2 text-sm font-medium text-[#525252] bg-white border border-black/[0.08] rounded-lg hover:bg-[#fafafa] transition-colors"
-                        >
-                          取消
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => onConfirmDelete(preset.id)}
-                          className="flex-1 py-2 text-sm font-medium text-white bg-[#dc2626] rounded-lg hover:bg-[#b91c1c] transition-colors"
-                        >
-                          确认删除
-                        </button>
-                      </div>
-                    </div>
-                  )}
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => openRenameDialog(preset.id, preset.name)}
+                      className="p-2 text-[#525252] hover:text-[#171717] hover:bg-[#f5f5f5] rounded-lg transition-colors"
+                      aria-label="重命名"
+                      title="重命名"
+                    >
+                      <IconEdit3 className="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => openDeleteDialog(preset.id, preset.name)}
+                      className="p-2 text-[#525252] hover:text-[#dc2626] hover:bg-[#fef2f2] rounded-lg transition-colors"
+                      aria-label="删除"
+                      title="删除方案"
+                    >
+                      <IconTrash2 className="h-4 w-4" />
+                    </button>
+                  </div>
                 </div>
               );
             })}
@@ -1959,6 +1906,74 @@ function PresetsTab({
           配置方案保存在浏览器本地存储中。要在设备间同步，请使用"数据管理"标签页的导出/导入功能。
         </p>
       </div>
+
+      {dialog.mode !== 'none' && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50">
+          <div
+            className="mx-4 w-full max-w-sm rounded-2xl border border-black/[0.08] bg-white p-5 shadow-lg"
+            style={{ animation: 'scaleIn 0.2s ease-out' }}
+          >
+            <h3 className="text-sm font-medium text-[#171717] mb-4">
+              {getDialogTitle()}
+            </h3>
+
+            {dialog.mode === 'delete' ? (
+              <div className="flex items-start gap-2 bg-[#fef2f2] border border-[#fecaca] rounded-lg px-3 py-2.5 mb-4">
+                <IconAlertTriangle className="h-4 w-4 text-[#dc2626] shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="text-xs text-[#991b1b] font-medium">
+                    确认删除方案 "{dialog.presetName}"？
+                  </p>
+                  <p className="text-[10px] text-[#b91c1c] mt-0.5">
+                    此操作不可恢复
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="mb-4">
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={inputValue}
+                  onChange={(e) => setInputValue(e.target.value)}
+                  placeholder="输入方案名称"
+                  className="w-full h-10 px-3 text-sm border border-black/[0.08] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#171717]/20"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && inputValue.trim()) {
+                      handleConfirm();
+                    }
+                    if (e.key === 'Escape') {
+                      closeDialog();
+                    }
+                  }}
+                />
+              </div>
+            )}
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={closeDialog}
+                className="flex-1 py-2.5 text-sm font-medium text-[#525252] bg-white border border-black/[0.08] rounded-lg hover:bg-[#fafafa] transition-colors"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirm}
+                disabled={isConfirmDisabled()}
+                className={`flex-1 py-2.5 text-sm font-medium rounded-lg transition-colors ${
+                  dialog.mode === 'delete'
+                    ? 'text-white bg-[#dc2626] hover:bg-[#b91c1c]'
+                    : 'text-white bg-[#171717] hover:bg-black'
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
+              >
+                {getConfirmButtonText()}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
