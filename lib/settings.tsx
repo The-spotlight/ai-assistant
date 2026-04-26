@@ -14,13 +14,22 @@ export const TIMESTAMP_FORMAT_OPTIONS = {
   hidden: { name: '不显示', value: 'hidden' },
 } as const;
 
+export const AUTO_ARCHIVE_DAYS_OPTIONS = {
+  7: { name: '7 天', days: 7 },
+  30: { name: '30 天', days: 30 },
+  90: { name: '90 天', days: 90 },
+} as const;
+
 export type SendShortcutKey = keyof typeof SEND_SHORTCUT_OPTIONS;
 export type TimestampFormatKey = keyof typeof TIMESTAMP_FORMAT_OPTIONS;
+export type AutoArchiveDaysKey = keyof typeof AUTO_ARCHIVE_DAYS_OPTIONS;
 
 export interface BehaviorSettings {
   sendShortcut: SendShortcutKey;
   showTokenStats: boolean;
   timestampFormat: TimestampFormatKey;
+  autoArchive: boolean;
+  autoArchiveDays: AutoArchiveDaysKey;
 }
 
 export interface ModelSettings {
@@ -34,6 +43,8 @@ export const DEFAULT_BEHAVIOR_SETTINGS: BehaviorSettings = {
   sendShortcut: 'enter',
   showTokenStats: true,
   timestampFormat: 'relative',
+  autoArchive: false,
+  autoArchiveDays: 30,
 };
 
 export const DEFAULT_MODEL_SETTINGS: ModelSettings = {
@@ -59,6 +70,8 @@ export function loadBehaviorSettings(): BehaviorSettings {
 
     const parsed = JSON.parse(stored) as Partial<BehaviorSettings>;
     
+    const validDays = [7, 30, 90] as const;
+    
     return {
       sendShortcut: (parsed.sendShortcut && parsed.sendShortcut in SEND_SHORTCUT_OPTIONS) 
         ? parsed.sendShortcut as SendShortcutKey 
@@ -69,6 +82,12 @@ export function loadBehaviorSettings(): BehaviorSettings {
       timestampFormat: (parsed.timestampFormat && parsed.timestampFormat in TIMESTAMP_FORMAT_OPTIONS) 
         ? parsed.timestampFormat as TimestampFormatKey 
         : DEFAULT_BEHAVIOR_SETTINGS.timestampFormat,
+      autoArchive: typeof parsed.autoArchive === 'boolean' 
+        ? parsed.autoArchive 
+        : DEFAULT_BEHAVIOR_SETTINGS.autoArchive,
+      autoArchiveDays: (parsed.autoArchiveDays !== undefined && validDays.includes(parsed.autoArchiveDays as any))
+        ? parsed.autoArchiveDays as AutoArchiveDaysKey
+        : DEFAULT_BEHAVIOR_SETTINGS.autoArchiveDays,
     };
   } catch {
     return DEFAULT_BEHAVIOR_SETTINGS;
