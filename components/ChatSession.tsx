@@ -1111,6 +1111,13 @@ export default function ChatSession({
                 {m.role === 'assistant' && (
                   <div className="mt-1.5 flex items-center justify-between gap-2 px-1">
                     <div className="flex items-center gap-3 text-[10px] text-[#a3a3a3]">
+                      {msg.createdAt && (() => {
+                        const formattedTime = formatTime(msg.createdAt, behavior.timestampFormat);
+                        if (formattedTime) {
+                          return <span className="text-[#a3a3a3]">{formattedTime}</span>;
+                        }
+                        return null;
+                      })()}
                       {msg.totalTokens != null && (
                         <span title={`输入: ${msg.promptTokens} tokens, 输出: ${msg.completionTokens} tokens`}>
                           {formatTokens(msg.totalTokens)} tokens
@@ -1173,30 +1180,39 @@ export default function ChatSession({
 
                 {/* 用户消息操作栏：编辑按钮 + 引用按钮 */}
                 {m.role === 'user' && editingMessageId !== m.id && (
-                  <div className="mt-1.5 flex items-center justify-end gap-1 px-1">
-                    {/* 引用按钮 - 悬停显示 */}
-                    {!isLoading && regeneratePhase === 'idle' && (
-                      <button
-                        type="button"
-                        onClick={() => handleReply(m)}
-                        className="inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] text-[#737373] transition-colors hover:bg-[#f5f5f5] hover:text-[#171717] opacity-0 group-hover:opacity-100"
-                        title="引用回复此消息"
-                      >
-                        <IconReply className="h-3 w-3" />
-                        引用
-                      </button>
-                    )}
-                    {!isLoading && regeneratePhase === 'idle' && (
-                      <button
-                        type="button"
-                        onClick={() => handleEditMessage(m.id, m.content)}
-                        className="inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] text-[#737373] transition-colors hover:bg-[#f5f5f5] hover:text-[#171717]"
-                        title="编辑此消息"
-                      >
-                        <IconEdit className="h-3 w-3" />
-                        编辑
-                      </button>
-                    )}
+                  <div className="mt-1.5 flex items-center justify-between gap-1 px-1">
+                    {msg.createdAt && (() => {
+                      const formattedTime = formatTime(msg.createdAt, behavior.timestampFormat);
+                      if (formattedTime) {
+                        return <span className="text-[10px] text-[#a3a3a3]">{formattedTime}</span>;
+                      }
+                      return null;
+                    })()}
+                    <div className="flex items-center gap-1">
+                      {/* 引用按钮 - 悬停显示 */}
+                      {!isLoading && regeneratePhase === 'idle' && (
+                        <button
+                          type="button"
+                          onClick={() => handleReply(m)}
+                          className="inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] text-[#737373] transition-colors hover:bg-[#f5f5f5] hover:text-[#171717] opacity-0 group-hover:opacity-100"
+                          title="引用回复此消息"
+                        >
+                          <IconReply className="h-3 w-3" />
+                          引用
+                        </button>
+                      )}
+                      {!isLoading && regeneratePhase === 'idle' && (
+                        <button
+                          type="button"
+                          onClick={() => handleEditMessage(m.id, m.content)}
+                          className="inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] text-[#737373] transition-colors hover:bg-[#f5f5f5] hover:text-[#171717]"
+                          title="编辑此消息"
+                        >
+                          <IconEdit className="h-3 w-3" />
+                          编辑
+                        </button>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
