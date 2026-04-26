@@ -1012,6 +1012,20 @@ export default function ChatSession({
                       )}
                       <span>{isSharing ? '分享中…' : '分享'}</span>
                     </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        await fetchShares();
+                        setShowShareModal(true);
+                        setShowMenu(false);
+                      }}
+                      className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-[#171717] transition-colors hover:bg-[#fafafa]"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 text-[#737373]" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                      </svg>
+                      <span>分享记录</span>
+                    </button>
                     <div className="h-px bg-black/[0.06]" />
                     <button
                       type="button"
@@ -1542,39 +1556,48 @@ export default function ChatSession({
                 <div className="mb-4 flex justify-center">
                   <IconShare className="h-12 w-12 text-[#171717]" />
                 </div>
-                <h3 className="mb-2 text-center text-lg font-semibold text-[#171717]">分享链接已生成</h3>
-                <p className="mb-4 text-center text-sm text-[#737373]">
-                  任何人都可以通过以下链接查看此对话（只读）
-                </p>
-                {shareUrl && (
-                  <div className="mb-6 flex items-center gap-2 rounded-lg border border-black/[0.08] bg-[#fafafa] p-3">
-                    <span className="min-w-0 flex-1 truncate text-sm text-[#171717]">{shareUrl}</span>
-                    <button
-                      type="button"
-                      onClick={handleCopyShareUrl}
-                      className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
-                        copied
-                          ? 'border-[#22c55e] bg-[#f0fdf4] text-[#22c55e]'
-                          : 'border-black/[0.08] bg-white text-[#171717] hover:bg-[#f5f5f5]'
-                      }`}
-                    >
-                      {copied ? (
-                        <>
-                          <IconCheck className="h-3.5 w-3.5" />
-                          已复制
-                        </>
-                      ) : (
-                        <>
-                          <IconCopy className="h-3.5 w-3.5" />
-                          复制
-                        </>
-                      )}
-                    </button>
-                  </div>
+                {shareUrl ? (
+                  <>
+                    <h3 className="mb-2 text-center text-lg font-semibold text-[#171717]">分享链接已生成</h3>
+                    <p className="mb-4 text-center text-sm text-[#737373]">
+                      任何人都可以通过以下链接查看此对话（只读）
+                    </p>
+                    <div className="mb-6 flex items-center gap-2 rounded-lg border border-black/[0.08] bg-[#fafafa] p-3">
+                      <span className="min-w-0 flex-1 truncate text-sm text-[#171717]">{shareUrl}</span>
+                      <button
+                        type="button"
+                        onClick={handleCopyShareUrl}
+                        className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
+                          copied
+                            ? 'border-[#22c55e] bg-[#f0fdf4] text-[#22c55e]'
+                            : 'border-black/[0.08] bg-white text-[#171717] hover:bg-[#f5f5f5]'
+                        }`}
+                      >
+                        {copied ? (
+                          <>
+                            <IconCheck className="h-3.5 w-3.5" />
+                            已复制
+                          </>
+                        ) : (
+                          <>
+                            <IconCopy className="h-3.5 w-3.5" />
+                            复制
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <h3 className="mb-2 text-center text-lg font-semibold text-[#171717]">分享记录</h3>
+                    <p className="mb-4 text-center text-sm text-[#737373]">
+                      查看历史分享链接和访问统计
+                    </p>
+                  </>
                 )}
                 
                 {/* 历史分享记录 */}
-                <div className="mt-8">
+                <div className="mt-6">
                   <h4 className="mb-4 text-sm font-semibold text-[#171717]">历史分享记录</h4>
                   {isLoadingShares ? (
                     <div className="flex justify-center py-4">
