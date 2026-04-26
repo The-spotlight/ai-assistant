@@ -106,7 +106,10 @@ function CodeBlock({ language, code, highlightStyle }: CodeBlockProps) {
         style={style as any}
         language={language}
         PreTag="div"
-        className="!my-0 !rounded-lg !border !border-[rgba(0,0,0,0.08)] text-sm"
+        className="!my-0 !rounded-lg !border text-sm"
+        customStyle={{
+          borderColor: 'var(--theme-border, rgba(0,0,0,0.08))',
+        }}
       >
         {code}
       </SyntaxHighlighter>
