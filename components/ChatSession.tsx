@@ -187,6 +187,81 @@ function IconDownload(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
+function IconShare(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      {...props}
+    >
+      <circle cx="18" cy="5" r="3" />
+      <circle cx="6" cy="12" r="3" />
+      <circle cx="18" cy="19" r="3" />
+      <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
+      <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
+    </svg>
+  );
+}
+
+function IconCopy(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      {...props}
+    >
+      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+    </svg>
+  );
+}
+
+function IconLoader(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      {...props}
+    >
+      <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+    </svg>
+  );
+}
+
+function IconAlertCircle(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      {...props}
+    >
+      <circle cx="12" cy="12" r="10" />
+      <line x1="12" y1="8" x2="12" y2="12" />
+      <line x1="12" y1="16" x2="12.01" y2="16" />
+    </svg>
+  );
+}
+
 function IconReply(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg
@@ -271,6 +346,13 @@ export default function ChatSession({
   const [showSkills, setShowSkills] = useState(false);
   const [showTokenStats, setShowTokenStats] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+
+  // 分享相关状态
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [isSharing, setIsSharing] = useState(false);
+  const [shareError, setShareError] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   // 快捷指令相关状态
   const [matchingCommands, setMatchingCommands] = useState<QuickCommand[]>([]);
@@ -472,6 +554,59 @@ export default function ChatSession({
       alert('导出失败，请稍后重试');
     }
   }, [conversationId, deviceId]);
+
+  // 分享当前对话
+  const handleShare = useCallback(async () => {
+    if (messages.length === 0) {
+      setShareError('空对话无法分享');
+      setShowShareModal(true);
+      setShowMenu(false);
+      return;
+    }
+
+    try {
+      setIsSharing(true);
+      setShareError(null);
+
+      const response = await fetch(`/api/conversations/${conversationId}/share`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-device-id': deviceId,
+        },
+      });
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || '创建分享失败');
+      }
+
+      const data = (await response.json()) as { shareUrl: string };
+      setShareUrl(data.shareUrl);
+      setShowShareModal(true);
+      setShowMenu(false);
+    } catch (error) {
+      console.error('分享失败:', error);
+      setShareError(error instanceof Error ? error.message : '创建分享失败');
+      setShowShareModal(true);
+      setShowMenu(false);
+    } finally {
+      setIsSharing(false);
+    }
+  }, [conversationId, deviceId, messages.length]);
+
+  // 复制分享链接
+  const handleCopyShareUrl = useCallback(async () => {
+    if (!shareUrl) return;
+
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch (error) {
+      console.error('复制链接失败:', error);
+    }
+  }, [shareUrl]);
 
   // 点击外部关闭菜单
   useEffect(() => {
@@ -830,6 +965,20 @@ export default function ChatSession({
                 {/* 下拉菜单 */}
                 {showMenu && (
                   <div className="absolute right-0 top-full z-50 mt-1 w-44 overflow-hidden rounded-xl border border-black/[0.08] bg-white shadow-[0_4px_24px_rgba(0,0,0,0.12)]">
+                    <button
+                      type="button"
+                      onClick={handleShare}
+                      disabled={isSharing || messages.length === 0}
+                      className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-[#171717] transition-colors hover:bg-[#fafafa] disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isSharing ? (
+                        <IconLoader className="h-4 w-4 text-[#737373] animate-spin" />
+                      ) : (
+                        <IconShare className="h-4 w-4 text-[#737373]" />
+                      )}
+                      <span>{isSharing ? '分享中…' : '分享'}</span>
+                    </button>
+                    <div className="h-px bg-black/[0.06]" />
                     <button
                       type="button"
                       onClick={handleExport}
@@ -1329,6 +1478,84 @@ export default function ChatSession({
           <p className="mt-2 text-center text-[11px] text-[#808080]">内容由 AI 生成，请核对重要信息</p>
         </div>
       </div>
+
+      {/* 分享模态框 */}
+      {showShareModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-2xl border border-black/[0.08] bg-white p-6 shadow-2xl">
+            {shareError ? (
+              <>
+                <div className="mb-4 flex justify-center">
+                  <IconAlertCircle className="h-12 w-12 text-[#ef4444]" />
+                </div>
+                <h3 className="mb-2 text-center text-lg font-semibold text-[#171717]">分享失败</h3>
+                <p className="mb-6 text-center text-sm text-[#737373]">{shareError}</p>
+                <div className="flex justify-center">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowShareModal(false);
+                      setShareError(null);
+                    }}
+                    className="rounded-lg bg-[#171717] px-6 py-2 text-sm font-medium text-white transition hover:bg-black"
+                  >
+                    关闭
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="mb-4 flex justify-center">
+                  <IconShare className="h-12 w-12 text-[#171717]" />
+                </div>
+                <h3 className="mb-2 text-center text-lg font-semibold text-[#171717]">分享链接已生成</h3>
+                <p className="mb-4 text-center text-sm text-[#737373]">
+                  任何人都可以通过以下链接查看此对话（只读）
+                </p>
+                {shareUrl && (
+                  <div className="mb-6 flex items-center gap-2 rounded-lg border border-black/[0.08] bg-[#fafafa] p-3">
+                    <span className="min-w-0 flex-1 truncate text-sm text-[#171717]">{shareUrl}</span>
+                    <button
+                      type="button"
+                      onClick={handleCopyShareUrl}
+                      className={`inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
+                        copied
+                          ? 'border-[#22c55e] bg-[#f0fdf4] text-[#22c55e]'
+                          : 'border-black/[0.08] bg-white text-[#171717] hover:bg-[#f5f5f5]'
+                      }`}
+                    >
+                      {copied ? (
+                        <>
+                          <IconCheck className="h-3.5 w-3.5" />
+                          已复制
+                        </>
+                      ) : (
+                        <>
+                          <IconCopy className="h-3.5 w-3.5" />
+                          复制
+                        </>
+                      )}
+                    </button>
+                  </div>
+                )}
+                <div className="flex justify-center">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowShareModal(false);
+                      setShareUrl(null);
+                      setCopied(false);
+                    }}
+                    className="rounded-lg bg-[#171717] px-6 py-2 text-sm font-medium text-white transition hover:bg-black"
+                  >
+                    关闭
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
