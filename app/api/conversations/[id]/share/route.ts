@@ -110,14 +110,23 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
 
     const shareUrlPrefix = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/s/`;
 
-    const sharesWithUrl = shares.map((share) => ({
-      shareId: share.shareId,
-      shareUrl: `${shareUrlPrefix}${share.shareId}`,
-      title: share.title,
-      expiresAt: share.expiresAt?.toISOString() || null,
-      hasPassword: share.hasPassword,
-      createdAt: share.createdAt.toISOString(),
-    }));
+    // 为每个分享获取访问次数
+    const sharesWithUrl = await Promise.all(
+      shares.map(async (share) => {
+        const viewCount = await prisma.shareView.count({
+          where: { shareId: share.shareId },
+        });
+        return {
+          shareId: share.shareId,
+          shareUrl: `${shareUrlPrefix}${share.shareId}`,
+          title: share.title,
+          expiresAt: share.expiresAt?.toISOString() || null,
+          hasPassword: share.hasPassword,
+          createdAt: share.createdAt.toISOString(),
+          viewCount,
+        };
+      })
+    );
 
     return NextResponse.json(sharesWithUrl);
   } catch (e) {

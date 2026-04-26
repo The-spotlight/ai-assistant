@@ -353,6 +353,17 @@ export default function ChatSession({
   const [isSharing, setIsSharing] = useState(false);
   const [shareError, setShareError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  // 分享列表状态
+  const [shares, setShares] = useState<Array<{
+    shareId: string;
+    shareUrl: string;
+    title: string;
+    expiresAt: string | null;
+    hasPassword: boolean;
+    createdAt: string;
+    viewCount: number;
+  }>>([]);
+  const [isLoadingShares, setIsLoadingShares] = useState(false);
 
   // 快捷指令相关状态
   const [matchingCommands, setMatchingCommands] = useState<QuickCommand[]>([]);
@@ -555,6 +566,27 @@ export default function ChatSession({
     }
   }, [conversationId, deviceId]);
 
+  // 获取分享列表
+  const fetchShares = useCallback(async () => {
+    try {
+      setIsLoadingShares(true);
+      const response = await fetch(`/api/conversations/${conversationId}/share`, {
+        headers: { 'x-device-id': deviceId },
+      });
+
+      if (!response.ok) {
+        throw new Error('获取分享列表失败');
+      }
+
+      const data = await response.json();
+      setShares(data);
+    } catch (error) {
+      console.error('获取分享列表失败:', error);
+    } finally {
+      setIsLoadingShares(false);
+    }
+  }, [conversationId, deviceId]);
+
   // 分享当前对话
   const handleShare = useCallback(async () => {
     if (messages.length === 0) {
@@ -583,6 +615,8 @@ export default function ChatSession({
 
       const data = (await response.json()) as { shareUrl: string };
       setShareUrl(data.shareUrl);
+      // 生成新分享后获取分享列表
+      await fetchShares();
       setShowShareModal(true);
       setShowMenu(false);
     } catch (error) {
@@ -593,7 +627,7 @@ export default function ChatSession({
     } finally {
       setIsSharing(false);
     }
-  }, [conversationId, deviceId, messages.length]);
+  }, [conversationId, deviceId, messages.length, fetchShares]);
 
   // 复制分享链接
   const handleCopyShareUrl = useCallback(async () => {
@@ -1482,7 +1516,7 @@ export default function ChatSession({
       {/* 分享模态框 */}
       {showShareModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-md rounded-2xl border border-black/[0.08] bg-white p-6 shadow-2xl">
+          <div className="w-full max-w-md rounded-2xl border border-black/[0.08] bg-white p-6 shadow-2xl max-h-[80vh] overflow-y-auto">
             {shareError ? (
               <>
                 <div className="mb-4 flex justify-center">
@@ -1538,7 +1572,57 @@ export default function ChatSession({
                     </button>
                   </div>
                 )}
-                <div className="flex justify-center">
+                
+                {/* 历史分享记录 */}
+                <div className="mt-8">
+                  <h4 className="mb-4 text-sm font-semibold text-[#171717]">历史分享记录</h4>
+                  {isLoadingShares ? (
+                    <div className="flex justify-center py-4">
+                      <IconLoader className="h-5 w-5 text-[#737373] animate-spin" />
+                    </div>
+                  ) : shares.length === 0 ? (
+                    <p className="text-center text-sm text-[#a3a3a3]">暂无分享记录</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {shares.map((share) => (
+                        <div key={share.shareId} className="flex items-center justify-between rounded-lg border border-black/[0.08] p-3">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="min-w-0 flex-1 truncate text-sm font-medium text-[#171717]">{share.title || '未命名对话'}</span>
+                              <span className="inline-flex items-center gap-1 text-xs text-[#737373]">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                </svg>
+                                {share.viewCount}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 text-xs text-[#a3a3a3]">
+                              <span>{share.expiresAt ? '限时' : '永久'}</span>
+                              <span>·</span>
+                              <span>{new Date(share.createdAt).toLocaleDateString('zh-CN')}</span>
+                            </div>
+                            <div className="mt-2 truncate text-xs text-[#4d4d4d]">{share.shareUrl}</div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(share.shareUrl).then(() => {
+                                // 显示复制成功提示
+                                alert('链接已复制');
+                              });
+                            }}
+                            className="ml-3 shrink-0 rounded-lg border border-black/[0.08] bg-white px-3 py-1.5 text-xs font-medium text-[#171717] transition hover:bg-[#f5f5f5]"
+                          >
+                            复制
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                
+                <div className="mt-8 flex justify-center">
                   <button
                     type="button"
                     onClick={() => {
