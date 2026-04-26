@@ -19,6 +19,7 @@ import {
   getMatchingCommands,
 } from '@/lib/tools/quick-commands';
 import type { QuickCommand } from '@/lib/tools/quick-commands';
+import { useSettings, FONT_SIZES, BUBBLE_STYLES } from '@/lib/settings';
 
 const SUGGESTIONS = [
   '搜索今日新闻',
@@ -216,6 +217,10 @@ export default function ChatSession({
   templateContent,
   onTemplateUsed,
 }: ChatSessionProps) {
+  const { settings, themeColors } = useSettings();
+  const bubbleStyle = BUBBLE_STYLES[settings.bubbleStyle];
+  const fontSizeConfig = FONT_SIZES[settings.fontSize];
+
   // 引用回复相关 ref（放在 useChat 之前，用于动态 body）
   const replyingToRef = useRef<ReplyInfo | null>(null);
 
@@ -901,6 +906,14 @@ export default function ChatSession({
             }
           }
 
+          const messageBubbleStyle = {
+            fontSize: fontSizeConfig.value,
+            lineHeight: fontSizeConfig.lineHeight,
+            backgroundColor: m.role === 'user' ? themeColors.userBubble : themeColors.aiBubble,
+            color: m.role === 'user' ? themeColors.userText : themeColors.aiText,
+            borderRadius: m.role === 'user' ? undefined : undefined,
+          };
+
           return (
             <div
               key={m.id}
@@ -917,14 +930,18 @@ export default function ChatSession({
                 isHighlighted
                   ? 'ring-2 ring-[#f59e0b] ring-offset-2 rounded-xl p-1 -mx-1 animate-pulse'
                   : ''
-              }`}
+              } ${bubbleStyle.spacing}`}
             >
               <div
                 className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold ${
                   m.role === 'user'
-                    ? 'bg-[#171717] text-white'
-                    : 'border border-black/[0.06] bg-gradient-to-br from-[#f4f4f5] to-[#e4e4e7] text-[#525252]'
+                    ? 'text-white'
+                    : 'border bg-gradient-to-br from-[#f4f4f5] to-[#e4e4e7] text-[#525252]'
                 }`}
+                style={{
+                  backgroundColor: m.role === 'user' ? themeColors.primary : undefined,
+                  borderColor: themeColors.border,
+                }}
               >
                 {m.role === 'user' ? '我' : 'AI'}
               </div>
@@ -932,18 +949,15 @@ export default function ChatSession({
                 <div
                   className={`min-w-0 relative ${
                     m.role === 'user'
-                      ? 'rounded-2xl rounded-br-md bg-[#171717] px-4 py-3 text-[15px] leading-relaxed text-white'
-                      : 'rounded-2xl rounded-tl-md border border-black/[0.06] bg-[#fafafa] px-4 py-3 text-[15px] leading-relaxed text-[#171717]'
-                  } ${
+                      ? 'rounded-2xl rounded-br-md'
+                      : 'rounded-2xl rounded-tl-md border shadow-sm'
+                  } ${bubbleStyle.padding} ${
                     isHighlighted ? 'ring-2 ring-[#f59e0b]' : ''
                   }`}
-                  style={
-                    m.role === 'assistant'
-                      ? {
-                          boxShadow: 'rgba(0,0,0,0.08) 0px 0px 0px 1px, rgba(0,0,0,0.04) 0px 2px 2px, #fafafa 0px 0px 0px 1px',
-                        }
-                      : undefined
-                  }
+                  style={{
+                    ...messageBubbleStyle,
+                    borderColor: m.role === 'assistant' ? themeColors.border : undefined,
+                  }}
                 >
                   {m.role === 'assistant' && favoriteMessageIds.has(m.id) && (
                     <div className="absolute -top-1 -right-1">
