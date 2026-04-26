@@ -2337,6 +2337,11 @@ export default function Home() {
       <SettingsPanel
         visible={showSettingsPanel}
         onClose={() => setShowSettingsPanel(false)}
+        onTrashEmptied={() => {
+          if (deviceId) {
+            loadTrash(deviceId);
+          }
+        }}
       />
     </div>
   );
