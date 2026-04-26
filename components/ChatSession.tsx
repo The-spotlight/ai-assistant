@@ -19,7 +19,7 @@ import {
   getMatchingCommands,
 } from '@/lib/tools/quick-commands';
 import type { QuickCommand } from '@/lib/tools/quick-commands';
-import { useSettings, FONT_SIZES, BUBBLE_STYLES } from '@/lib/settings';
+import { useSettings, FONT_SIZES, BUBBLE_STYLES, type TimestampFormatKey, type SendShortcutKey } from '@/lib/settings';
 
 const SUGGESTIONS = [
   '搜索今日新闻',
@@ -217,7 +217,7 @@ export default function ChatSession({
   templateContent,
   onTemplateUsed,
 }: ChatSessionProps) {
-  const { settings, themeColors } = useSettings();
+  const { settings, themeColors, behavior, model } = useSettings();
   const bubbleStyle = BUBBLE_STYLES[settings.bubbleStyle];
   const fontSizeConfig = FONT_SIZES[settings.fontSize];
 
@@ -239,9 +239,12 @@ export default function ChatSession({
     initialMessages,
     body: () => {
       const body: Record<string, unknown> = { 
-        model: modelId, 
+        model: model.defaultModel || modelId, 
         conversationId, 
-        deviceId 
+        deviceId,
+        temperature: model.temperature,
+        maxTokens: model.maxTokens,
+        streaming: model.streaming,
       };
       
       // 如果有引用信息，添加到 body
@@ -299,26 +302,43 @@ export default function ChatSession({
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // 格式化时间显示
-  const formatTime = useCallback((dateStr: string) => {
+  // 格式化相对时间
+  const formatRelativeTime = useCallback((dateStr: string) => {
     const date = new Date(dateStr);
     const now = new Date();
-    const isToday = date.toDateString() === now.toDateString();
+    const diffMs = now.getTime() - date.getTime();
+    const diffSec = Math.floor(diffMs / 1000);
+    const diffMin = Math.floor(diffSec / 60);
+    const diffHour = Math.floor(diffMin / 60);
+    const diffDay = Math.floor(diffHour / 24);
+
+    if (diffSec < 60) return '刚刚';
+    if (diffMin < 60) return `${diffMin} 分钟前`;
+    if (diffHour < 24) return `${diffHour} 小时前`;
+    if (diffDay === 1) return '昨天';
+    if (diffDay < 7) return `${diffDay} 天前`;
     
-    if (isToday) {
-      return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' });
-    }
-    
-    const yesterday = new Date(now);
-    yesterday.setDate(yesterday.getDate() - 1);
-    const isYesterday = date.toDateString() === yesterday.toDateString();
-    
-    if (isYesterday) {
-      return `昨天 ${date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}`;
-    }
-    
-    return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' });
   }, []);
+
+  // 格式化绝对时间
+  const formatAbsoluteTime = useCallback((dateStr: string) => {
+    const date = new Date(dateStr);
+    return date.toLocaleString('zh-CN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  }, []);
+
+  // 根据设置格式化时间显示
+  const formatTime = useCallback((dateStr: string, format: TimestampFormatKey) => {
+    if (format === 'hidden') return null;
+    if (format === 'absolute') return formatAbsoluteTime(dateStr);
+    return formatRelativeTime(dateStr);
+  }, [formatAbsoluteTime, formatRelativeTime]);
 
   // 处理引用按钮点击
   const handleReply = useCallback((message: Message) => {
@@ -588,8 +608,23 @@ export default function ChatSession({
       }
     }
 
-    // 输入 / 时，快捷指令面板会自动显示，不再显示技能面板
-    // 技能面板只在点击"技能"按钮时显示
+    // 发送快捷键处理
+    const isEnter = e.key === 'Enter';
+    const isCtrlOrCmd = e.ctrlKey || e.metaKey;
+    
+    if (isEnter && input.trim() && !isLoading) {
+      if (behavior.sendShortcut === 'enter') {
+        if (!isCtrlOrCmd && !e.shiftKey) {
+          e.preventDefault();
+          handleFormSubmit(e);
+        }
+      } else if (behavior.sendShortcut === 'ctrlEnter') {
+        if (isCtrlOrCmd) {
+          e.preventDefault();
+          handleFormSubmit(e);
+        }
+      }
+    }
   };
 
   // 使用 useEffect 来处理重新生成的第二阶段：截断后发送消息
@@ -747,7 +782,7 @@ export default function ChatSession({
   return (
     <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-black/[0.06] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04),0_8px_24px_-4px_rgba(0,0,0,0.06)]">
       {/* 顶部状态栏：显示 token 和费用 */}
-      {messages.length > 0 && (
+      {messages.length > 0 && behavior.showTokenStats && (
         <div className="relative shrink-0 border-b border-black/[0.06] bg-white/80 px-4 py-2 text-xs text-[#737373]">
           <div className="flex items-center justify-between gap-2">
             <span className="truncate">
@@ -982,7 +1017,16 @@ export default function ChatSession({
                       <div className="flex items-center gap-1">
                         <IconReply className="h-3 w-3" />
                         <span className="font-medium">
-                          {isReplyDeleted ? '原消息已删除' : `引用 ${replyTime ? formatTime(replyTime) : ''}`}
+                          {isReplyDeleted 
+                            ? '原消息已删除' 
+                            : (() => {
+                                const formattedTime = replyTime ? formatTime(replyTime, behavior.timestampFormat) : null;
+                                if (formattedTime) {
+                                  return `引用 ${formattedTime}`;
+                                }
+                                return '引用';
+                              })()
+                          }
                         </span>
                       </div>
                       <div className="mt-1 truncate">
@@ -1207,9 +1251,17 @@ export default function ChatSession({
                   <span className="text-xs font-medium text-[#737373]">
                     引用 {replyingTo.role === 'user' ? '我' : 'AI'} 的消息
                   </span>
-                  <span className="text-xs text-[#a3a3a3]">
-                    {formatTime(replyingTo.createdAt)}
-                  </span>
+                  {(() => {
+                    const formattedTime = formatTime(replyingTo.createdAt, behavior.timestampFormat);
+                    if (formattedTime) {
+                      return (
+                        <span className="text-xs text-[#a3a3a3]">
+                          {formattedTime}
+                        </span>
+                      );
+                    }
+                    return null;
+                  })()}
                 </div>
                 <p className="truncate text-xs text-[#737373]">
                   {replyingTo.content}

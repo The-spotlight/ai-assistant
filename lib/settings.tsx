@@ -1,6 +1,131 @@
 'use client';
 
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
+import { DEFAULT_OPENROUTER_MODEL_ID, OPENROUTER_MODEL_OPTIONS } from '@/lib/openrouter-models';
+
+export const SEND_SHORTCUT_OPTIONS = {
+  enter: { name: 'Enter 发送', value: 'enter' },
+  ctrlEnter: { name: 'Ctrl+Enter 发送', value: 'ctrl+enter' },
+} as const;
+
+export const TIMESTAMP_FORMAT_OPTIONS = {
+  relative: { name: '相对时间', value: 'relative' },
+  absolute: { name: '绝对时间', value: 'absolute' },
+  hidden: { name: '不显示', value: 'hidden' },
+} as const;
+
+export type SendShortcutKey = keyof typeof SEND_SHORTCUT_OPTIONS;
+export type TimestampFormatKey = keyof typeof TIMESTAMP_FORMAT_OPTIONS;
+
+export interface BehaviorSettings {
+  sendShortcut: SendShortcutKey;
+  showTokenStats: boolean;
+  timestampFormat: TimestampFormatKey;
+}
+
+export interface ModelSettings {
+  defaultModel: string;
+  temperature: number;
+  maxTokens: number;
+  streaming: boolean;
+}
+
+export const DEFAULT_BEHAVIOR_SETTINGS: BehaviorSettings = {
+  sendShortcut: 'enter',
+  showTokenStats: true,
+  timestampFormat: 'relative',
+};
+
+export const DEFAULT_MODEL_SETTINGS: ModelSettings = {
+  defaultModel: DEFAULT_OPENROUTER_MODEL_ID,
+  temperature: 0.7,
+  maxTokens: 4096,
+  streaming: true,
+};
+
+const BEHAVIOR_SETTINGS_STORAGE_KEY = 'ai-assistant-behavior-settings';
+const MODEL_SETTINGS_STORAGE_KEY = 'ai-assistant-model-settings';
+
+export function loadBehaviorSettings(): BehaviorSettings {
+  if (typeof window === 'undefined') {
+    return DEFAULT_BEHAVIOR_SETTINGS;
+  }
+
+  try {
+    const stored = localStorage.getItem(BEHAVIOR_SETTINGS_STORAGE_KEY);
+    if (!stored) {
+      return DEFAULT_BEHAVIOR_SETTINGS;
+    }
+
+    const parsed = JSON.parse(stored) as Partial<BehaviorSettings>;
+    
+    return {
+      sendShortcut: (parsed.sendShortcut && parsed.sendShortcut in SEND_SHORTCUT_OPTIONS) 
+        ? parsed.sendShortcut as SendShortcutKey 
+        : DEFAULT_BEHAVIOR_SETTINGS.sendShortcut,
+      showTokenStats: typeof parsed.showTokenStats === 'boolean' 
+        ? parsed.showTokenStats 
+        : DEFAULT_BEHAVIOR_SETTINGS.showTokenStats,
+      timestampFormat: (parsed.timestampFormat && parsed.timestampFormat in TIMESTAMP_FORMAT_OPTIONS) 
+        ? parsed.timestampFormat as TimestampFormatKey 
+        : DEFAULT_BEHAVIOR_SETTINGS.timestampFormat,
+    };
+  } catch {
+    return DEFAULT_BEHAVIOR_SETTINGS;
+  }
+}
+
+export function saveBehaviorSettings(settings: BehaviorSettings): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(BEHAVIOR_SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+  } catch {
+    console.warn('Failed to save behavior settings');
+  }
+}
+
+export function loadModelSettings(): ModelSettings {
+  if (typeof window === 'undefined') {
+    return DEFAULT_MODEL_SETTINGS;
+  }
+
+  try {
+    const stored = localStorage.getItem(MODEL_SETTINGS_STORAGE_KEY);
+    if (!stored) {
+      return DEFAULT_MODEL_SETTINGS;
+    }
+
+    const parsed = JSON.parse(stored) as Partial<ModelSettings>;
+    
+    const allowedModelIds = new Set(OPENROUTER_MODEL_OPTIONS.map(m => m.id));
+    
+    return {
+      defaultModel: (parsed.defaultModel && allowedModelIds.has(parsed.defaultModel)) 
+        ? parsed.defaultModel 
+        : DEFAULT_MODEL_SETTINGS.defaultModel,
+      temperature: (typeof parsed.temperature === 'number' && parsed.temperature >= 0 && parsed.temperature <= 2) 
+        ? parsed.temperature 
+        : DEFAULT_MODEL_SETTINGS.temperature,
+      maxTokens: (typeof parsed.maxTokens === 'number' && parsed.maxTokens >= 1 && parsed.maxTokens <= 128000) 
+        ? parsed.maxTokens 
+        : DEFAULT_MODEL_SETTINGS.maxTokens,
+      streaming: typeof parsed.streaming === 'boolean' 
+        ? parsed.streaming 
+        : DEFAULT_MODEL_SETTINGS.streaming,
+    };
+  } catch {
+    return DEFAULT_MODEL_SETTINGS;
+  }
+}
+
+export function saveModelSettings(settings: ModelSettings): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(MODEL_SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+  } catch {
+    console.warn('Failed to save model settings');
+  }
+}
 
 export const THEME_PRESETS = {
   default: {
@@ -176,48 +301,109 @@ export function saveSettings(settings: AppearanceSettings): void {
 }
 
 interface SettingsContextType {
+  appearance: AppearanceSettings;
+  behavior: BehaviorSettings;
+  model: ModelSettings;
+  updateAppearance: <K extends keyof AppearanceSettings>(key: K, value: AppearanceSettings[K]) => void;
+  updateBehavior: <K extends keyof BehaviorSettings>(key: K, value: BehaviorSettings[K]) => void;
+  updateModel: <K extends keyof ModelSettings>(key: K, value: ModelSettings[K]) => void;
+  resetAppearance: () => void;
+  resetBehavior: () => void;
+  resetModel: () => void;
+  resetAll: () => void;
+  themeColors: typeof THEME_PRESETS[ThemeKey];
   settings: AppearanceSettings;
   updateSettings: <K extends keyof AppearanceSettings>(key: K, value: AppearanceSettings[K]) => void;
   resetSettings: () => void;
-  themeColors: typeof THEME_PRESETS[ThemeKey];
 }
 
 const SettingsContext = createContext<SettingsContextType | null>(null);
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
-  const [settings, setSettings] = useState<AppearanceSettings>(() => {
+  const [appearance, setAppearance] = useState<AppearanceSettings>(() => {
     if (typeof window !== 'undefined') {
       return loadSettings();
     }
     return DEFAULT_SETTINGS;
   });
+  const [behavior, setBehavior] = useState<BehaviorSettings>(() => {
+    if (typeof window !== 'undefined') {
+      return loadBehaviorSettings();
+    }
+    return DEFAULT_BEHAVIOR_SETTINGS;
+  });
+  const [model, setModel] = useState<ModelSettings>(() => {
+    if (typeof window !== 'undefined') {
+      return loadModelSettings();
+    }
+    return DEFAULT_MODEL_SETTINGS;
+  });
   const [isLoaded, setIsLoaded] = useState(typeof window !== 'undefined');
 
   useEffect(() => {
     if (!isLoaded) {
-      const loaded = loadSettings();
-      setSettings(loaded);
+      setAppearance(loadSettings());
+      setBehavior(loadBehaviorSettings());
+      setModel(loadModelSettings());
       setIsLoaded(true);
     }
   }, [isLoaded]);
 
-  const updateSettings = useCallback(<K extends keyof AppearanceSettings>(
+  const updateAppearance = useCallback(<K extends keyof AppearanceSettings>(
     key: K,
     value: AppearanceSettings[K]
   ) => {
-    setSettings((prev) => {
+    setAppearance((prev) => {
       const newSettings = { ...prev, [key]: value };
       saveSettings(newSettings);
       return newSettings;
     });
   }, []);
 
-  const resetSettings = useCallback(() => {
-    setSettings(DEFAULT_SETTINGS);
+  const updateBehavior = useCallback(<K extends keyof BehaviorSettings>(
+    key: K,
+    value: BehaviorSettings[K]
+  ) => {
+    setBehavior((prev) => {
+      const newSettings = { ...prev, [key]: value };
+      saveBehaviorSettings(newSettings);
+      return newSettings;
+    });
+  }, []);
+
+  const updateModel = useCallback(<K extends keyof ModelSettings>(
+    key: K,
+    value: ModelSettings[K]
+  ) => {
+    setModel((prev) => {
+      const newSettings = { ...prev, [key]: value };
+      saveModelSettings(newSettings);
+      return newSettings;
+    });
+  }, []);
+
+  const resetAppearance = useCallback(() => {
+    setAppearance(DEFAULT_SETTINGS);
     saveSettings(DEFAULT_SETTINGS);
   }, []);
 
-  const themeColors = THEME_PRESETS[settings.theme];
+  const resetBehavior = useCallback(() => {
+    setBehavior(DEFAULT_BEHAVIOR_SETTINGS);
+    saveBehaviorSettings(DEFAULT_BEHAVIOR_SETTINGS);
+  }, []);
+
+  const resetModel = useCallback(() => {
+    setModel(DEFAULT_MODEL_SETTINGS);
+    saveModelSettings(DEFAULT_MODEL_SETTINGS);
+  }, []);
+
+  const resetAll = useCallback(() => {
+    resetAppearance();
+    resetBehavior();
+    resetModel();
+  }, [resetAppearance, resetBehavior, resetModel]);
+
+  const themeColors = THEME_PRESETS[appearance.theme];
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -239,18 +425,28 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     root.style.setProperty('--theme-ai-bubble', themeColors.aiBubble);
     root.style.setProperty('--theme-ai-text', themeColors.aiText);
     
-    const fontSizeConfig = FONT_SIZES[settings.fontSize];
+    const fontSizeConfig = FONT_SIZES[appearance.fontSize];
     root.style.setProperty('--theme-font-size', fontSizeConfig.value);
     root.style.setProperty('--theme-line-height', fontSizeConfig.lineHeight);
-  }, [settings, themeColors]);
+  }, [appearance, themeColors]);
 
   return (
     <SettingsContext.Provider
       value={{
-        settings,
-        updateSettings,
-        resetSettings,
+        appearance,
+        behavior,
+        model,
+        updateAppearance,
+        updateBehavior,
+        updateModel,
+        resetAppearance,
+        resetBehavior,
+        resetModel,
+        resetAll,
         themeColors,
+        settings: appearance,
+        updateSettings: updateAppearance,
+        resetSettings: resetAppearance,
       }}
     >
       {children}
