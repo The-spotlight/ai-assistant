@@ -9,16 +9,24 @@ import {
   BUBBLE_STYLES,
   SEND_SHORTCUT_OPTIONS,
   TIMESTAMP_FORMAT_OPTIONS,
+  DEFAULT_SETTINGS,
+  DEFAULT_BEHAVIOR_SETTINGS,
+  DEFAULT_MODEL_SETTINGS,
   type ThemeKey,
   type CodeHighlightKey,
   type FontSizeKey,
   type BubbleStyleKey,
   type SendShortcutKey,
   type TimestampFormatKey,
+  type AppearanceSettings,
+  type BehaviorSettings,
+  type ModelSettings,
 } from '@/lib/settings';
 import { OPENROUTER_MODEL_OPTIONS } from '@/lib/openrouter-models';
+import { getOrCreateDeviceId } from '@/lib/device';
+import { downloadBlob } from '@/lib/export';
 
-type SettingsTab = 'appearance' | 'behavior' | 'model';
+type SettingsTab = 'appearance' | 'behavior' | 'model' | 'data';
 
 function IconX(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -174,6 +182,106 @@ function IconBot(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
+function IconDatabase(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      {...props}
+    >
+      <ellipse cx="12" cy="5" rx="9" ry="3" />
+      <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
+      <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+    </svg>
+  );
+}
+
+function IconDownload(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      {...props}
+    >
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="7 10 12 15 17 10" />
+      <line x1="12" x2="12" y1="15" y2="3" />
+    </svg>
+  );
+}
+
+function IconUpload(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      {...props}
+    >
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="17 8 12 3 7 8" />
+      <line x1="12" x2="12" y1="3" y2="15" />
+    </svg>
+  );
+}
+
+function IconTrash2(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      {...props}
+    >
+      <path d="M3 6h18" />
+      <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
+      <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
+      <line x1="10" x2="10" y1="11" y2="17" />
+      <line x1="14" x2="14" y1="11" y2="17" />
+    </svg>
+  );
+}
+
+function IconFileJson(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      {...props}
+    >
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <polyline points="14 2 14 8 20 8" />
+      <path d="M10 17h.01" />
+      <path d="M14 17h.01" />
+      <path d="M10 12h.01" />
+      <path d="M14 12h.01" />
+    </svg>
+  );
+}
+
 interface SettingsPanelProps {
   visible: boolean;
   onClose: () => void;
@@ -183,6 +291,7 @@ const TAB_CONFIG: { key: SettingsTab; label: string; icon: typeof IconPalette }[
   { key: 'appearance', label: '外观', icon: IconPalette },
   { key: 'behavior', label: '行为', icon: IconMousePointerClick },
   { key: 'model', label: '模型', icon: IconBot },
+  { key: 'data', label: '数据管理', icon: IconDatabase },
 ];
 
 export default function SettingsPanel({ visible, onClose }: SettingsPanelProps) {
@@ -250,6 +359,9 @@ export default function SettingsPanel({ visible, onClose }: SettingsPanelProps) 
       case 'model':
         resetModel();
         setResetSuccess('模型');
+        break;
+      case 'data':
+        setResetSuccess('数据管理');
         break;
     }
     setShowResetConfirm(false);
@@ -344,6 +456,16 @@ export default function SettingsPanel({ visible, onClose }: SettingsPanelProps) 
           {activeTab === 'model' && (
             <ModelTab
               model={model}
+              updateModel={updateModel}
+            />
+          )}
+          {activeTab === 'data' && (
+            <DataTab
+              appearance={appearance}
+              behavior={behavior}
+              model={model}
+              updateAppearance={updateAppearance}
+              updateBehavior={updateBehavior}
               updateModel={updateModel}
             />
           )}
@@ -815,6 +937,523 @@ function ModelTab({
             : '等待完整回复后一次性显示，适合低速网络'}
         </p>
       </div>
+    </div>
+  );
+}
+
+interface DataValidationError {
+  field: string;
+  message: string;
+}
+
+interface DataTabProps {
+  appearance: AppearanceSettings;
+  behavior: BehaviorSettings;
+  model: ModelSettings;
+  updateAppearance: <K extends keyof AppearanceSettings>(key: K, value: AppearanceSettings[K]) => void;
+  updateBehavior: <K extends keyof BehaviorSettings>(key: K, value: BehaviorSettings[K]) => void;
+  updateModel: <K extends keyof ModelSettings>(key: K, value: ModelSettings[K]) => void;
+}
+
+function DataTab({
+  appearance,
+  behavior,
+  model,
+  updateAppearance,
+  updateBehavior,
+  updateModel,
+}: DataTabProps) {
+  const [exportingConversations, setExportingConversations] = useState(false);
+  const [showEmptyTrashConfirm, setShowEmptyTrashConfirm] = useState(false);
+  const [emptyingTrash, setEmptyingTrash] = useState(false);
+  const [exportingConfig, setExportingConfig] = useState(false);
+  const [importingConfig, setImportingConfig] = useState(false);
+  const [importErrors, setImportErrors] = useState<DataValidationError[]>([]);
+  const [importSuccess, setImportSuccess] = useState(false);
+  const [trashCount, setTrashCount] = useState<number | null>(null);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const fetchTrashCount = async () => {
+      try {
+        const deviceId = getOrCreateDeviceId();
+        const response = await fetch('/api/trash', {
+          headers: {
+            'x-device-id': deviceId,
+          },
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setTrashCount(data.conversations?.length || 0);
+        }
+      } catch (error) {
+        console.error('Failed to fetch trash count:', error);
+      }
+    };
+    fetchTrashCount();
+  }, []);
+
+  const handleExportConversations = async () => {
+    setExportingConversations(true);
+    try {
+      const deviceId = getOrCreateDeviceId();
+      const response = await fetch('/api/conversations/export', {
+        headers: {
+          'x-device-id': deviceId,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('导出失败');
+      }
+
+      const blob = await response.blob();
+      const timestamp = new Date().toISOString().slice(0, 10);
+      const filename = `全部对话导出_${timestamp}.zip`;
+      downloadBlob(blob, filename);
+    } catch (error) {
+      console.error('导出会话失败:', error);
+      alert('导出失败，请稍后重试');
+    } finally {
+      setExportingConversations(false);
+    }
+  };
+
+  const handleEmptyTrash = async () => {
+    setEmptyingTrash(true);
+    try {
+      const deviceId = getOrCreateDeviceId();
+      const response = await fetch('/api/trash/empty', {
+        method: 'POST',
+        headers: {
+          'x-device-id': deviceId,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('清空回收站失败');
+      }
+
+      const data = await response.json();
+      setTrashCount(0);
+      setShowEmptyTrashConfirm(false);
+      alert(`已清空回收站，共删除 ${data.deletedCount} 个会话`);
+    } catch (error) {
+      console.error('清空回收站失败:', error);
+      alert('清空失败，请稍后重试');
+    } finally {
+      setEmptyingTrash(false);
+    }
+  };
+
+  const handleExportConfig = () => {
+    setExportingConfig(true);
+    try {
+      const config = {
+        version: '1.0',
+        exportedAt: new Date().toISOString(),
+        appearance,
+        behavior,
+        model,
+      };
+
+      const jsonString = JSON.stringify(config, null, 2);
+      const blob = new Blob([jsonString], { type: 'application/json' });
+      const timestamp = new Date().toISOString().slice(0, 10);
+      const filename = `配置备份_${timestamp}.json`;
+      downloadBlob(blob, filename);
+    } catch (error) {
+      console.error('导出配置失败:', error);
+      alert('导出失败，请稍后重试');
+    } finally {
+      setExportingConfig(false);
+    }
+  };
+
+  const validateConfig = (data: unknown): { valid: boolean; errors: DataValidationError[]; parsedConfig?: any } => {
+    const errors: DataValidationError[] = [];
+
+    if (typeof data !== 'object' || data === null) {
+      errors.push({ field: 'root', message: '配置文件格式无效，必须是一个对象' });
+      return { valid: false, errors };
+    }
+
+    const config = data as any;
+
+    if (config.version !== '1.0') {
+      errors.push({ field: 'version', message: `不支持的版本号: ${config.version}，当前支持版本: 1.0` });
+    }
+
+    if (config.appearance && typeof config.appearance === 'object') {
+      const appearanceConfig = config.appearance;
+      
+      if (appearanceConfig.theme !== undefined) {
+        if (!(appearanceConfig.theme in THEME_PRESETS)) {
+          errors.push({ 
+            field: 'appearance.theme', 
+            message: `无效的主题值: ${appearanceConfig.theme}，有效值: ${Object.keys(THEME_PRESETS).join(', ')}` 
+          });
+        }
+      }
+
+      if (appearanceConfig.fontSize !== undefined) {
+        if (!(appearanceConfig.fontSize in FONT_SIZES)) {
+          errors.push({ 
+            field: 'appearance.fontSize', 
+            message: `无效的字体大小: ${appearanceConfig.fontSize}，有效值: ${Object.keys(FONT_SIZES).join(', ')}` 
+          });
+        }
+      }
+
+      if (appearanceConfig.codeHighlight !== undefined) {
+        if (!(appearanceConfig.codeHighlight in CODE_HIGHLIGHT_THEMES)) {
+          errors.push({ 
+            field: 'appearance.codeHighlight', 
+            message: `无效的代码高亮主题: ${appearanceConfig.codeHighlight}，有效值: ${Object.keys(CODE_HIGHLIGHT_THEMES).join(', ')}` 
+          });
+        }
+      }
+
+      if (appearanceConfig.bubbleStyle !== undefined) {
+        if (!(appearanceConfig.bubbleStyle in BUBBLE_STYLES)) {
+          errors.push({ 
+            field: 'appearance.bubbleStyle', 
+            message: `无效的气泡样式: ${appearanceConfig.bubbleStyle}，有效值: ${Object.keys(BUBBLE_STYLES).join(', ')}` 
+          });
+        }
+      }
+    }
+
+    if (config.behavior && typeof config.behavior === 'object') {
+      const behaviorConfig = config.behavior;
+      
+      if (behaviorConfig.sendShortcut !== undefined) {
+        if (!(behaviorConfig.sendShortcut in SEND_SHORTCUT_OPTIONS)) {
+          errors.push({ 
+            field: 'behavior.sendShortcut', 
+            message: `无效的发送快捷键: ${behaviorConfig.sendShortcut}，有效值: ${Object.keys(SEND_SHORTCUT_OPTIONS).join(', ')}` 
+          });
+        }
+      }
+
+      if (behaviorConfig.showTokenStats !== undefined) {
+        if (typeof behaviorConfig.showTokenStats !== 'boolean') {
+          errors.push({ 
+            field: 'behavior.showTokenStats', 
+            message: 'showTokenStats 必须是布尔值' 
+          });
+        }
+      }
+
+      if (behaviorConfig.timestampFormat !== undefined) {
+        if (!(behaviorConfig.timestampFormat in TIMESTAMP_FORMAT_OPTIONS)) {
+          errors.push({ 
+            field: 'behavior.timestampFormat', 
+            message: `无效的时间戳格式: ${behaviorConfig.timestampFormat}，有效值: ${Object.keys(TIMESTAMP_FORMAT_OPTIONS).join(', ')}` 
+          });
+        }
+      }
+    }
+
+    if (config.model && typeof config.model === 'object') {
+      const modelConfig = config.model;
+      const allowedModelIds = new Set(OPENROUTER_MODEL_OPTIONS.map(m => m.id));
+      
+      if (modelConfig.defaultModel !== undefined) {
+        if (typeof modelConfig.defaultModel !== 'string' || !allowedModelIds.has(modelConfig.defaultModel)) {
+          errors.push({ 
+            field: 'model.defaultModel', 
+            message: `无效的默认模型: ${modelConfig.defaultModel}` 
+          });
+        }
+      }
+
+      if (modelConfig.temperature !== undefined) {
+        if (typeof modelConfig.temperature !== 'number' || modelConfig.temperature < 0 || modelConfig.temperature > 2) {
+          errors.push({ 
+            field: 'model.temperature', 
+            message: 'temperature 必须是 0-2 之间的数字' 
+          });
+        }
+      }
+
+      if (modelConfig.maxTokens !== undefined) {
+        if (typeof modelConfig.maxTokens !== 'number' || modelConfig.maxTokens < 1 || modelConfig.maxTokens > 128000) {
+          errors.push({ 
+            field: 'model.maxTokens', 
+            message: 'maxTokens 必须是 1-128000 之间的整数' 
+          });
+        }
+      }
+
+      if (modelConfig.streaming !== undefined) {
+        if (typeof modelConfig.streaming !== 'boolean') {
+          errors.push({ 
+            field: 'model.streaming', 
+            message: 'streaming 必须是布尔值' 
+          });
+        }
+      }
+    }
+
+    return { valid: errors.length === 0, errors, parsedConfig: config };
+  };
+
+  const applyConfig = (config: any) => {
+    if (config.appearance && typeof config.appearance === 'object') {
+      const appearanceConfig = config.appearance;
+      
+      if (appearanceConfig.theme && appearanceConfig.theme in THEME_PRESETS) {
+        updateAppearance('theme', appearanceConfig.theme as ThemeKey);
+      }
+      if (appearanceConfig.fontSize && appearanceConfig.fontSize in FONT_SIZES) {
+        updateAppearance('fontSize', appearanceConfig.fontSize as FontSizeKey);
+      }
+      if (appearanceConfig.codeHighlight && appearanceConfig.codeHighlight in CODE_HIGHLIGHT_THEMES) {
+        updateAppearance('codeHighlight', appearanceConfig.codeHighlight as CodeHighlightKey);
+      }
+      if (appearanceConfig.bubbleStyle && appearanceConfig.bubbleStyle in BUBBLE_STYLES) {
+        updateAppearance('bubbleStyle', appearanceConfig.bubbleStyle as BubbleStyleKey);
+      }
+    }
+
+    if (config.behavior && typeof config.behavior === 'object') {
+      const behaviorConfig = config.behavior;
+      
+      if (behaviorConfig.sendShortcut && behaviorConfig.sendShortcut in SEND_SHORTCUT_OPTIONS) {
+        updateBehavior('sendShortcut', behaviorConfig.sendShortcut as SendShortcutKey);
+      }
+      if (typeof behaviorConfig.showTokenStats === 'boolean') {
+        updateBehavior('showTokenStats', behaviorConfig.showTokenStats);
+      }
+      if (behaviorConfig.timestampFormat && behaviorConfig.timestampFormat in TIMESTAMP_FORMAT_OPTIONS) {
+        updateBehavior('timestampFormat', behaviorConfig.timestampFormat as TimestampFormatKey);
+      }
+    }
+
+    if (config.model && typeof config.model === 'object') {
+      const modelConfig = config.model;
+      const allowedModelIds = new Set(OPENROUTER_MODEL_OPTIONS.map(m => m.id));
+      
+      if (modelConfig.defaultModel && allowedModelIds.has(modelConfig.defaultModel)) {
+        updateModel('defaultModel', modelConfig.defaultModel);
+      }
+      if (typeof modelConfig.temperature === 'number' && modelConfig.temperature >= 0 && modelConfig.temperature <= 2) {
+        updateModel('temperature', modelConfig.temperature);
+      }
+      if (typeof modelConfig.maxTokens === 'number' && modelConfig.maxTokens >= 1 && modelConfig.maxTokens <= 128000) {
+        updateModel('maxTokens', modelConfig.maxTokens);
+      }
+      if (typeof modelConfig.streaming === 'boolean') {
+        updateModel('streaming', modelConfig.streaming);
+      }
+    }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setImportingConfig(true);
+    setImportErrors([]);
+    setImportSuccess(false);
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const content = event.target?.result as string;
+        const data = JSON.parse(content);
+
+        const { valid, errors, parsedConfig } = validateConfig(data);
+
+        if (!valid) {
+          setImportErrors(errors);
+          setImportingConfig(false);
+          return;
+        }
+
+        applyConfig(parsedConfig);
+        setImportSuccess(true);
+        setTimeout(() => setImportSuccess(false), 3000);
+      } catch (error) {
+        setImportErrors([{ field: 'root', message: 'JSON 解析失败，请检查文件格式' }]);
+      } finally {
+        setImportingConfig(false);
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
+      }
+    };
+    reader.onerror = () => {
+      setImportErrors([{ field: 'root', message: '文件读取失败' }]);
+      setImportingConfig(false);
+    };
+    reader.readAsText(file);
+  };
+
+  const handleImportConfig = () => {
+    setImportErrors([]);
+    setImportSuccess(false);
+    fileInputRef.current?.click();
+  };
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium text-[#171717]">会话数据</span>
+        </div>
+        <div className="flex flex-col gap-2">
+          <button
+            type="button"
+            onClick={handleExportConversations}
+            disabled={exportingConversations}
+            className="flex items-center justify-between gap-2 py-3 px-4 rounded-lg text-sm font-medium text-[#171717] bg-[#fafafa] border border-black/[0.08] hover:bg-[#f5f5f5] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <div className="flex items-center gap-2">
+              <IconDownload className="h-4 w-4 text-[#525252]" />
+              <span>导出全部会话数据</span>
+            </div>
+            {exportingConversations && (
+              <div className="w-4 h-4 border-2 border-[#171717] border-t-transparent rounded-full animate-spin" />
+            )}
+          </button>
+          <p className="text-[11px] text-[#a3a3a3]">
+            导出所有会话为 ZIP 压缩包，包含每个会话的 Markdown 文件
+          </p>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium text-[#171717]">回收站管理</span>
+          {trashCount !== null && (
+            <span className="rounded-full px-2 py-0.5 text-xs bg-[#e5e5e5] text-[#737373]">
+              {trashCount} 项
+            </span>
+          )}
+        </div>
+        <div className="flex flex-col gap-2">
+          <button
+            type="button"
+            onClick={() => setShowEmptyTrashConfirm(true)}
+            disabled={trashCount === 0 || emptyingTrash}
+            className="flex items-center justify-between gap-2 py-3 px-4 rounded-lg text-sm font-medium text-[#dc2626] bg-[#fef2f2] border border-[#fecaca] hover:bg-[#fee2e2] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <div className="flex items-center gap-2">
+              <IconTrash2 className="h-4 w-4" />
+              <span>一键清空回收站</span>
+            </div>
+            {emptyingTrash && (
+              <div className="w-4 h-4 border-2 border-[#dc2626] border-t-transparent rounded-full animate-spin" />
+            )}
+          </button>
+          <p className="text-[11px] text-[#a3a3a3]">
+            永久删除回收站中的所有会话，此操作不可恢复
+          </p>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium text-[#171717]">配置文件</span>
+        </div>
+        
+        {importSuccess && (
+          <div className="flex items-center gap-2 bg-[#f0fdf4] border border-[#bbf7d0] rounded-lg px-3 py-2.5">
+            <IconCheck className="h-4 w-4 text-[#22c55e] shrink-0" />
+            <span className="text-xs text-[#16a34a] font-medium">配置导入成功</span>
+          </div>
+        )}
+
+        {importErrors.length > 0 && (
+          <div className="flex flex-col gap-1 bg-[#fef2f2] border border-[#fecaca] rounded-lg px-3 py-2.5">
+            <div className="flex items-center gap-2">
+              <IconAlertTriangle className="h-4 w-4 text-[#dc2626] shrink-0" />
+              <span className="text-xs text-[#dc2626] font-medium">配置文件校验失败</span>
+            </div>
+            <ul className="ml-6 text-[10px] text-[#b91c1c] list-disc">
+              {importErrors.map((error, index) => (
+                <li key={index}>
+                  {error.field !== 'root' && <span className="font-mono">[{error.field}]</span>} {error.message}
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        <div className="flex flex-col gap-2">
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={handleExportConfig}
+              disabled={exportingConfig}
+              className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg text-sm font-medium text-[#171717] bg-[#fafafa] border border-black/[0.08] hover:bg-[#f5f5f5] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <IconFileJson className="h-4 w-4 text-[#525252]" />
+              <span>导出配置</span>
+              {exportingConfig && (
+                <div className="w-4 h-4 border-2 border-[#171717] border-t-transparent rounded-full animate-spin" />
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={handleImportConfig}
+              disabled={importingConfig}
+              className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg text-sm font-medium text-[#171717] bg-[#fafafa] border border-black/[0.08] hover:bg-[#f5f5f5] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <IconUpload className="h-4 w-4 text-[#525252]" />
+              <span>导入配置</span>
+              {importingConfig && (
+                <div className="w-4 h-4 border-2 border-[#171717] border-t-transparent rounded-full animate-spin" />
+              )}
+            </button>
+          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".json"
+            onChange={handleFileSelect}
+            className="hidden"
+          />
+          <p className="text-[11px] text-[#a3a3a3]">
+            导出当前配置为 JSON 文件，或从备份文件恢复设置。导入时会自动校验格式，无效字段不影响现有配置。
+          </p>
+        </div>
+      </div>
+
+      {showEmptyTrashConfirm && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50">
+          <div className="mx-4 w-full max-w-xs rounded-2xl border border-black/[0.08] bg-white p-5 shadow-lg">
+            <h3 className="mb-2 text-sm font-semibold text-[#171717]">清空回收站确认</h3>
+            <p className="mb-5 text-sm text-[#737373]">
+              确定要永久删除回收站中的所有会话吗？
+            </p>
+            <p className="mb-5 text-xs text-[#a3a3a3]">
+              此操作不可恢复，删除后将无法找回这些会话。
+            </p>
+            <div className="flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setShowEmptyTrashConfirm(false)}
+                className="rounded-lg px-4 py-2 text-sm text-[#737373] transition-colors hover:bg-[#f5f5f5] hover:text-[#171717]"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={handleEmptyTrash}
+                disabled={emptyingTrash}
+                className="rounded-lg bg-[#dc2626] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#b91c1c] disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {emptyingTrash ? '清空中...' : '确认清空'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
