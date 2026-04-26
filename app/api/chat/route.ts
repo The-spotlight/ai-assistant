@@ -293,6 +293,13 @@ export async function POST(req: Request) {
     data: { modelId },
   });
 
+  const validTemperature = (typeof temperature === 'number' && temperature >= 0 && temperature <= 2)
+    ? temperature
+    : 0.7;
+  const validMaxTokens = (typeof maxTokens === 'number' && maxTokens >= 1 && maxTokens <= 128000)
+    ? maxTokens
+    : 4096;
+
   const coreMessages = (messages ?? []) as CoreMessage[];
   const lastUser = lastUserFromMessages(coreMessages, conversationId);
   
@@ -324,8 +331,8 @@ export async function POST(req: Request) {
     model: openrouter(modelId),
     system: useTools ? SYSTEM_PROMPT : SYSTEM_PROMPT_NO_TOOLS,
     messages: coreMessages,
-    ...(temperature != null ? { temperature } : {}),
-    ...(maxTokens != null ? { maxTokens } : {}),
+    temperature: validTemperature,
+    maxTokens: validMaxTokens,
     ...(useTools ? { tools: chatTools, maxSteps: 8 } : { maxSteps: 1 }),
     // 勿在此 await 长时间 IO：SDK 会 await onFinish，阻塞 fullStream 收尾会导致客户端收不到 finish_message，界面一直「正在生成」。
     onFinish: (event) => {
