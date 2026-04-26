@@ -253,12 +253,15 @@ async function ensureConversationTitle(conversationId: string): Promise<void> {
 
 export async function POST(req: Request) {
   const body = await req.json();
-  const { messages, model: bodyModel, conversationId, deviceId, replyTo } = body as {
+  const { messages, model: bodyModel, conversationId, deviceId, replyTo, temperature, maxTokens, streaming } = body as {
     messages?: CoreMessage[];
     model?: string;
     conversationId?: string;
     deviceId?: string;
     replyTo?: ReplyToInfo | null;
+    temperature?: number;
+    maxTokens?: number;
+    streaming?: boolean;
   };
 
   if (!conversationId || typeof conversationId !== 'string') {
@@ -321,6 +324,8 @@ export async function POST(req: Request) {
     model: openrouter(modelId),
     system: useTools ? SYSTEM_PROMPT : SYSTEM_PROMPT_NO_TOOLS,
     messages: coreMessages,
+    ...(temperature != null ? { temperature } : {}),
+    ...(maxTokens != null ? { maxTokens } : {}),
     ...(useTools ? { tools: chatTools, maxSteps: 8 } : { maxSteps: 1 }),
     // 勿在此 await 长时间 IO：SDK 会 await onFinish，阻塞 fullStream 收尾会导致客户端收不到 finish_message，界面一直「正在生成」。
     onFinish: (event) => {
