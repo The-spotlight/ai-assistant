@@ -1,9 +1,9 @@
-'use client';
-
-import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { prisma } from '@/lib/db';
+import { isShareExpired } from '@/lib/share';
 import MarkdownRenderer from '@/components/MarkdownRenderer';
-import { useSettings, FONT_SIZES, BUBBLE_STYLES } from '@/lib/settings';
+import CopyLinkButton from '@/components/CopyLinkButton';
+import { DEFAULT_SETTINGS, THEME_PRESETS, FONT_SIZES, BUBBLE_STYLES, type ThemeKey } from '@/lib/settings';
+import { Metadata } from 'next';
 
 interface Message {
   id: string;
@@ -12,7 +12,7 @@ interface Message {
   createdAt: string;
 }
 
-interface ShareData {
+interface SharePageData {
   shareId: string;
   title: string;
   expiresAt: string | null;
@@ -39,15 +39,6 @@ function formatRelativeTime(iso: string): string {
   return d.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' });
 }
 
-function IconArrowLeft(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden {...props}>
-      <path d="M19 12H5" />
-      <path d="M12 19l-7-7 7-7" />
-    </svg>
-  );
-}
-
 function IconShare(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden {...props}>
@@ -60,19 +51,11 @@ function IconShare(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
-function IconCopy(props: React.SVGProps<SVGSVGElement>) {
+function IconArrowLeft(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden {...props}>
-      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-    </svg>
-  );
-}
-
-function IconCheck(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden {...props}>
-      <path d="M20 6 9 17l-5-5" />
+      <path d="M19 12H5" />
+      <path d="M12 19l-7-7 7-7" />
     </svg>
   );
 }
@@ -87,83 +70,98 @@ function IconAlertCircle(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
-function IconLoader(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden {...props}>
-      <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-    </svg>
-  );
+async function getShareData(shareId: string): Promise<SharePageData | null> {
+  const share = await prisma.share.findUnique({
+    where: { shareId },
+    include: {
+      conversation: {
+        include: {
+          messages: {
+            orderBy: { createdAt: 'asc' },
+          },
+        },
+      },
+    },
+  });
+
+  if (!share) return null;
+  if (isShareExpired(share.expiresAt)) return null;
+  if (!share.conversation || share.conversation.isDeleted) return null;
+  if (share.hasPassword) return null;
+
+  return {
+    shareId: share.shareId,
+    title: share.title || share.conversation.title || '未命名对话',
+    expiresAt: share.expiresAt?.toISOString() || null,
+    createdAt: share.createdAt.toISOString(),
+    conversation: {
+      title: share.conversation.title,
+      createdAt: share.conversation.createdAt.toISOString(),
+      messages: share.conversation.messages.map((m) => ({
+        id: m.clientMessageId ?? m.id,
+        role: m.role as 'user' | 'assistant' | 'system',
+        content: m.content,
+        createdAt: m.createdAt.toISOString(),
+      })),
+    },
+  };
 }
 
-export default function SharePage() {
-  const params = useParams();
-  const shareId = params.shareId as string;
-  const { settings, themeColors, behavior } = useSettings();
-  const bubbleStyle = BUBBLE_STYLES[settings.bubbleStyle];
-  const fontSizeConfig = FONT_SIZES[settings.fontSize];
-
-  const [shareData, setShareData] = useState<ShareData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
-
-  useEffect(() => {
-    async function loadShareData() {
-      try {
-        setLoading(true);
-        setError(null);
-
-        const response = await fetch(`/api/share/${shareId}`);
-        
-        if (!response.ok) {
-          const data = await response.json().catch(() => ({}));
-          if (response.status === 404) {
-            setError(data.error || '分享链接不存在或已过期');
-          } else if (response.status === 401 && data.requiresPassword) {
-            setError('此分享需要密码访问');
-          } else {
-            setError(data.error || '加载分享内容失败');
-          }
-          return;
-        }
-
-        const data = (await response.json()) as ShareData;
-        setShareData(data);
-      } catch (e) {
-        console.error('加载分享内容失败:', e);
-        setError('加载分享内容失败，请稍后重试');
-      } finally {
-        setLoading(false);
-      }
+export async function generateMetadata({ params }: { params: Promise<{ shareId: string }> }): Promise<Metadata> {
+  const { shareId } = await params;
+  
+  try {
+    const shareData = await getShareData(shareId);
+    
+    if (!shareData) {
+      return {
+        title: '分享不存在或已过期 - AI Assistant',
+        description: '该分享链接不存在或已过期',
+      };
     }
 
-    void loadShareData();
-  }, [shareId]);
+    const { conversation } = shareData;
+    const firstMessage = conversation.messages[0];
+    const preview = firstMessage ? firstMessage.content.slice(0, 150) : '';
 
-  const handleCopyLink = async () => {
-    try {
-      await navigator.clipboard.writeText(window.location.href);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (e) {
-      console.error('复制链接失败:', e);
-    }
-  };
-
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center" style={{ backgroundColor: 'var(--theme-bg-secondary, #f6f6f7)' }}>
-        <div className="flex flex-col items-center gap-3">
-          <IconLoader className="h-8 w-8 animate-spin text-[#171717]" />
-          <p className="text-sm text-[#737373]">加载分享内容中...</p>
-        </div>
-      </div>
-    );
+    return {
+      title: `${shareData.title} - AI Assistant 分享`,
+      description: preview || '分享的 AI 对话',
+    };
+  } catch (e) {
+    console.error('生成元数据失败:', e);
+    return {
+      title: 'AI Assistant 分享',
+      description: '分享的 AI 对话',
+    };
   }
+}
+
+export default async function SharePage({ params }: { params: Promise<{ shareId: string }> }) {
+  const { shareId } = await params;
+
+  const defaultTheme = THEME_PRESETS[DEFAULT_SETTINGS.theme as ThemeKey];
+  const defaultFontSize = FONT_SIZES[DEFAULT_SETTINGS.fontSize];
+  const defaultBubbleStyle = BUBBLE_STYLES[DEFAULT_SETTINGS.bubbleStyle];
+
+  let shareData: SharePageData | null = null;
+  let error: string | null = null;
+
+  try {
+    shareData = await getShareData(shareId);
+    if (!shareData) {
+      error = '分享链接不存在或已过期';
+    }
+  } catch (e) {
+    console.error('获取分享内容失败:', e);
+    error = '加载分享内容失败，请稍后重试';
+  }
+
+  const shareUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/s/${shareId}`;
 
   if (error || !shareData) {
     return (
-      <div className="flex min-h-screen items-center justify-center p-4" style={{ backgroundColor: 'var(--theme-bg-secondary, #f6f6f7)' }}>
+      <div className="flex min-h-screen items-center justify-center p-4" style={{ backgroundColor: defaultTheme.bgSecondary }}>
         <div className="w-full max-w-md rounded-2xl border border-black/[0.06] bg-white p-8 text-center shadow-[0_1px_2px_rgba(0,0,0,0.04),0_8px_24px_-4px_rgba(0,0,0,0.06)]">
           <div className="mb-4 flex justify-center">
             <IconAlertCircle className="h-12 w-12 text-[#ef4444]" />
@@ -183,10 +181,10 @@ export default function SharePage() {
   }
 
   const { conversation } = shareData;
-  const displayTitle = shareData.title || conversation.title || '未命名对话';
+  const displayTitle = shareData.title;
 
   return (
-    <div className="min-h-screen" style={{ backgroundColor: 'var(--theme-bg-secondary, #f6f6f7)' }}>
+    <div className="min-h-screen" style={{ backgroundColor: defaultTheme.bgSecondary }}>
       {/* 顶部导航栏 */}
       <div className="sticky top-0 z-10 border-b border-black/[0.06] bg-white/80 backdrop-blur-sm">
         <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-3">
@@ -203,22 +201,7 @@ export default function SharePage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              onClick={handleCopyLink}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-black/[0.08] bg-white px-3 py-1.5 text-xs font-medium text-[#171717] transition hover:bg-[#fafafa]"
-            >
-              {copied ? (
-                <>
-                  <IconCheck className="h-3.5 w-3.5 text-[#22c55e]" />
-                  已复制
-                </>
-              ) : (
-                <>
-                  <IconCopy className="h-3.5 w-3.5" />
-                  复制链接
-                </>
-              )}
-            </button>
+            <CopyLinkButton url={shareUrl} />
           </div>
         </div>
       </div>
@@ -233,10 +216,10 @@ export default function SharePage() {
           <div className="space-y-6">
             {conversation.messages.map((message) => {
               const messageBubbleStyle = {
-                fontSize: fontSizeConfig.value,
-                lineHeight: fontSizeConfig.lineHeight,
-                backgroundColor: message.role === 'user' ? themeColors.userBubble : themeColors.aiBubble,
-                color: message.role === 'user' ? themeColors.userText : themeColors.aiText,
+                fontSize: defaultFontSize.value,
+                lineHeight: defaultFontSize.lineHeight,
+                backgroundColor: message.role === 'user' ? defaultTheme.userBubble : defaultTheme.aiBubble,
+                color: message.role === 'user' ? defaultTheme.userText : defaultTheme.aiText,
               };
 
               return (
@@ -244,7 +227,7 @@ export default function SharePage() {
                   key={message.id}
                   className={`flex w-full gap-3 ${
                     message.role === 'user' ? 'flex-row-reverse' : 'flex-row'
-                  } ${bubbleStyle.spacing}`}
+                  } ${defaultBubbleStyle.spacing}`}
                 >
                   <div
                     className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold ${
@@ -253,8 +236,8 @@ export default function SharePage() {
                         : 'border bg-gradient-to-br from-[#f4f4f5] to-[#e4e4e7] text-[#525252]'
                     }`}
                     style={{
-                      backgroundColor: message.role === 'user' ? themeColors.primary : undefined,
-                      borderColor: themeColors.border,
+                      backgroundColor: message.role === 'user' ? defaultTheme.primary : undefined,
+                      borderColor: defaultTheme.border,
                     }}
                   >
                     {message.role === 'user' ? '我' : 'AI'}
@@ -265,10 +248,10 @@ export default function SharePage() {
                         message.role === 'user'
                           ? 'rounded-2xl rounded-br-md'
                           : 'rounded-2xl rounded-tl-md border shadow-sm'
-                      } ${bubbleStyle.padding}`}
+                      } ${defaultBubbleStyle.padding}`}
                       style={{
                         ...messageBubbleStyle,
-                        borderColor: message.role === 'assistant' ? themeColors.border : undefined,
+                        borderColor: message.role === 'assistant' ? defaultTheme.border : undefined,
                       }}
                     >
                       {message.role === 'assistant' && message.content ? (
