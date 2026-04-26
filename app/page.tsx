@@ -1289,31 +1289,10 @@ export default function Home() {
 
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hasAutoArchivedRef = useRef(false);
+  const prevAutoArchiveRef = useRef<boolean | null>(null);
+  const prevAutoArchiveDaysRef = useRef<number | null>(null);
 
   const { behavior } = useSettings();
-
-  const performAutoArchive = useCallback(async (did: string, days: number) => {
-    try {
-      const r = await fetch('/api/trash/auto-archive', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-device-id': did,
-        },
-        body: JSON.stringify({ days }),
-      });
-
-      if (r.ok) {
-        const data = (await r.json()) as { archivedCount?: number };
-        if (data.archivedCount && data.archivedCount > 0) {
-          await loadConversations(did);
-          await loadTrash(did);
-        }
-      }
-    } catch (error) {
-      console.error('自动归档失败:', error);
-    }
-  }, [loadConversations, loadTrash]);
 
   const loadConversations = useCallback(async (did: string) => {
     const r = await fetch('/api/conversations', { headers: { 'x-device-id': did } });
@@ -1360,6 +1339,30 @@ export default function Home() {
       setTrashList([]);
     }
   }, []);
+
+  // 自动归档
+  const performAutoArchive = useCallback(async (did: string, days: number) => {
+    try {
+      const r = await fetch('/api/trash/auto-archive', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-device-id': did,
+        },
+        body: JSON.stringify({ days }),
+      });
+
+      if (r.ok) {
+        const data = (await r.json()) as { archivedCount?: number };
+        if (data.archivedCount && data.archivedCount > 0) {
+          await loadConversations(did);
+          await loadTrash(did);
+        }
+      }
+    } catch (error) {
+      console.error('自动归档失败:', error);
+    }
+  }, [loadConversations, loadTrash]);
 
   // 恢复会话
   const restoreConversation = useCallback(async (id: string, e: React.MouseEvent) => {
@@ -1778,9 +1781,6 @@ export default function Home() {
       cancelled = true;
     };
   }, [loadConversations]);
-
-  const prevAutoArchiveRef = useRef<boolean | null>(null);
-  const prevAutoArchiveDaysRef = useRef<number | null>(null);
 
   useEffect(() => {
     if (!deviceId) return;
