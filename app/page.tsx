@@ -32,6 +32,7 @@ import SettingsPanel, { SettingsButton } from '@/components/SettingsPanel';
 import ResizablePanel, { useLayoutContext, AdaptiveText } from '@/components/ResizablePanel';
 import { DEFAULT_OPENROUTER_MODEL_ID, DEFAULT_OPENROUTER_MODEL_LABEL } from '@/lib/openrouter-models';
 import { CONVERSATION_STORAGE_KEY, getOrCreateDeviceId } from '@/lib/device';
+import { useSettings } from '@/lib/settings';
 
 type ConversationRow = {
   id: string;
@@ -1287,6 +1288,32 @@ export default function Home() {
   });
 
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const hasAutoArchivedRef = useRef(false);
+
+  const { behavior } = useSettings();
+
+  const performAutoArchive = useCallback(async (did: string, days: number) => {
+    try {
+      const r = await fetch('/api/trash/auto-archive', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-device-id': did,
+        },
+        body: JSON.stringify({ days }),
+      });
+
+      if (r.ok) {
+        const data = (await r.json()) as { archivedCount?: number };
+        if (data.archivedCount && data.archivedCount > 0) {
+          await loadConversations(did);
+          await loadTrash(did);
+        }
+      }
+    } catch (error) {
+      console.error('自动归档失败:', error);
+    }
+  }, [loadConversations, loadTrash]);
 
   const loadConversations = useCallback(async (did: string) => {
     const r = await fetch('/api/conversations', { headers: { 'x-device-id': did } });
@@ -1751,6 +1778,36 @@ export default function Home() {
       cancelled = true;
     };
   }, [loadConversations]);
+
+  const prevAutoArchiveRef = useRef<boolean | null>(null);
+  const prevAutoArchiveDaysRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!deviceId) return;
+
+    const isFirstRun = prevAutoArchiveRef.current === null;
+
+    if (isFirstRun) {
+      prevAutoArchiveRef.current = behavior.autoArchive;
+      prevAutoArchiveDaysRef.current = behavior.autoArchiveDays as number;
+
+      if (behavior.autoArchive && !hasAutoArchivedRef.current) {
+        hasAutoArchivedRef.current = true;
+        void performAutoArchive(deviceId, behavior.autoArchiveDays as number);
+      }
+      return;
+    }
+
+    const autoArchiveChanged = behavior.autoArchive !== prevAutoArchiveRef.current;
+    const autoArchiveDaysChanged = behavior.autoArchiveDays !== prevAutoArchiveDaysRef.current;
+
+    if (behavior.autoArchive && (autoArchiveChanged || autoArchiveDaysChanged)) {
+      void performAutoArchive(deviceId, behavior.autoArchiveDays as number);
+    }
+
+    prevAutoArchiveRef.current = behavior.autoArchive;
+    prevAutoArchiveDaysRef.current = behavior.autoArchiveDays as number;
+  }, [deviceId, behavior.autoArchive, behavior.autoArchiveDays, performAutoArchive]);
 
   async function selectConversation(id: string) {
     if (!deviceId) return;

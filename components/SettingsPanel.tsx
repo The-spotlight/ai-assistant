@@ -9,6 +9,7 @@ import {
   BUBBLE_STYLES,
   SEND_SHORTCUT_OPTIONS,
   TIMESTAMP_FORMAT_OPTIONS,
+  AUTO_ARCHIVE_DAYS_OPTIONS,
   DEFAULT_SETTINGS,
   DEFAULT_BEHAVIOR_SETTINGS,
   DEFAULT_MODEL_SETTINGS,
@@ -18,6 +19,7 @@ import {
   type BubbleStyleKey,
   type SendShortcutKey,
   type TimestampFormatKey,
+  type AutoArchiveDaysKey,
   type AppearanceSettings,
   type BehaviorSettings,
   type ModelSettings,
@@ -788,6 +790,63 @@ function BehaviorTab({
             : '不显示时间戳'}
         </p>
       </div>
+
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-medium text-[#171717]">自动归档</span>
+          <button
+            type="button"
+            onClick={() => updateBehavior('autoArchive', !behavior.autoArchive)}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+              behavior.autoArchive ? 'bg-[#171717]' : 'bg-[#d4d4d4]'
+            }`}
+            aria-checked={behavior.autoArchive}
+            role="switch"
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm ${
+                behavior.autoArchive ? 'translate-x-6' : 'translate-x-1'
+              }`}
+            />
+          </button>
+        </div>
+        <p className="text-[11px] text-[#a3a3a3]">
+          超过指定天数没有新消息的对话自动移入回收站
+        </p>
+      </div>
+
+      {behavior.autoArchive && (
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-[#171717]">归档天数</span>
+          </div>
+          <div className="flex gap-2">
+            {(Object.entries(AUTO_ARCHIVE_DAYS_OPTIONS) as [AutoArchiveDaysKey, typeof AUTO_ARCHIVE_DAYS_OPTIONS[AutoArchiveDaysKey]][]).map(
+              ([key, option]) => {
+                const isSelected = behavior.autoArchiveDays === key;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => updateBehavior('autoArchiveDays', key)}
+                    className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg text-sm transition-all ${
+                      isSelected
+                        ? 'bg-[#171717] text-white'
+                        : 'bg-[#fafafa] text-[#525252] hover:bg-[#f5f5f5]'
+                    }`}
+                  >
+                    {isSelected && <IconCheck className="h-4 w-4" />}
+                    <span>{option.name}</span>
+                  </button>
+                );
+              }
+            )}
+          </div>
+          <p className="text-[11px] text-[#a3a3a3]">
+            超过 {AUTO_ARCHIVE_DAYS_OPTIONS[behavior.autoArchiveDays].name} 没有新消息的对话将自动移入回收站
+          </p>
+        </div>
+      )}
     </div>
   );
 }
