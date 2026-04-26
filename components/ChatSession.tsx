@@ -655,6 +655,39 @@ export default function ChatSession({
     }
   }, []);
 
+  // 删除分享记录
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+  
+  const handleDeleteShare = useCallback((shareId: string) => {
+    setShowDeleteConfirm(shareId);
+  }, []);
+  
+  const handleConfirmDelete = useCallback(async (shareId: string) => {
+    try {
+      const response = await fetch(`/api/conversations/${conversationId}/share/${shareId}`, {
+        method: 'DELETE',
+        headers: {
+          'x-device-id': deviceId,
+        },
+      });
+      
+      if (response.ok) {
+        // 重新获取分享列表
+        await fetchShares();
+      } else {
+        console.error('删除分享失败');
+      }
+    } catch (error) {
+      console.error('删除分享失败:', error);
+    } finally {
+      setShowDeleteConfirm(null);
+    }
+  }, [conversationId, deviceId, fetchShares]);
+  
+  const handleCancelDelete = useCallback(() => {
+    setShowDeleteConfirm(null);
+  }, []);
+
   // 点击外部关闭菜单
   useEffect(() => {
     if (!showMenu) return;
@@ -1553,6 +1586,7 @@ export default function ChatSession({
                   setShareUrl(null);
                   setCopied(false);
                   setCopySuccess(null);
+                  setShowDeleteConfirm(null);
                 }}
                 className="rounded-lg p-2 text-[#a3a3a3] transition-colors hover:bg-[#f5f5f5] hover:text-[#171717]"
                 title="关闭"
@@ -1646,27 +1680,36 @@ export default function ChatSession({
                               </div>
                               <div className="mt-2 truncate text-xs text-[#4d4d4d]">{share.shareUrl}</div>
                             </div>
-                            <button
-                              type="button"
-                              onClick={() => handleCopyHistoryShareUrl(share.shareUrl)}
-                              className={`ml-3 shrink-0 rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
-                                copySuccess === share.shareUrl
-                                  ? 'border-[#22c55e] bg-[#f0fdf4] text-[#22c55e]'
-                                  : 'border-black/[0.08] bg-white text-[#171717] hover:bg-[#f5f5f5]'
-                              }`}
-                            >
-                              {copySuccess === share.shareUrl ? (
-                                <>
-                                  <IconCheck className="h-3.5 w-3.5" />
-                                  已复制
-                                </>
-                              ) : (
-                                <>
-                                  <IconCopy className="h-3.5 w-3.5" />
-                                  复制
-                                </>
-                              )}
-                            </button>
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleCopyHistoryShareUrl(share.shareUrl)}
+                                className={`shrink-0 rounded-lg border px-3 py-1.5 text-xs font-medium transition ${
+                                  copySuccess === share.shareUrl
+                                    ? 'border-[#22c55e] bg-[#f0fdf4] text-[#22c55e]'
+                                    : 'border-black/[0.08] bg-white text-[#171717] hover:bg-[#f5f5f5]'
+                                }`}
+                              >
+                                {copySuccess === share.shareUrl ? (
+                                  <>
+                                    <IconCheck className="h-3.5 w-3.5" />
+                                    已复制
+                                  </>
+                                ) : (
+                                  <>
+                                    <IconCopy className="h-3.5 w-3.5" />
+                                    复制
+                                  </>
+                                )}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteShare(share.shareId)}
+                                className="shrink-0 rounded-lg border border-black/[0.08] bg-white px-3 py-1.5 text-xs font-medium text-[#ef4444] transition hover:bg-red-50 hover:border-red-200"
+                              >
+                                <IconTrash className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
                           </div>
                         ))}
                       </div>
@@ -1674,6 +1717,39 @@ export default function ChatSession({
                   </div>
                 </>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 删除确认模态框 */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-sm rounded-2xl border border-black/[0.08] bg-white shadow-2xl">
+            <div className="p-6">
+              <div className="mb-4 flex justify-center">
+                <IconAlertCircle className="h-10 w-10 text-[#ef4444]" />
+              </div>
+              <h3 className="mb-2 text-center text-lg font-semibold text-[#171717]">确认删除</h3>
+              <p className="mb-6 text-center text-sm text-[#737373]">
+                确定要删除此分享链接吗？删除后该链接将失效，无法恢复。
+              </p>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={handleCancelDelete}
+                  className="flex-1 rounded-lg border border-black/[0.08] bg-white px-4 py-2.5 text-sm font-medium text-[#171717] transition hover:bg-[#f5f5f5]"
+                >
+                  取消
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleConfirmDelete(showDeleteConfirm)}
+                  className="flex-1 rounded-lg bg-[#ef4444] px-4 py-2.5 text-sm font-medium text-white transition hover:bg-[#dc2626]"
+                >
+                  确认删除
+                </button>
+              </div>
             </div>
           </div>
         </div>
