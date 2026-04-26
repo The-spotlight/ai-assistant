@@ -2,7 +2,7 @@ import { prisma } from '@/lib/db';
 import { isShareExpired } from '@/lib/share';
 import MarkdownRenderer from '@/components/MarkdownRenderer';
 import CopyLinkButton from '@/components/CopyLinkButton';
-import { DEFAULT_SETTINGS, THEME_PRESETS, FONT_SIZES, BUBBLE_STYLES, type ThemeKey } from '@/lib/settings';
+import { DEFAULT_SETTINGS, THEME_PRESETS, FONT_SIZES, BUBBLE_STYLES, type ThemeKey } from '@/lib/theme-constants';
 import { Metadata } from 'next';
 
 interface Message {
