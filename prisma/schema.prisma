@@ -31,6 +31,7 @@ model Conversation {
   updatedAt DateTime  @updatedAt
   messages  Message[]
   favorites Favorite[]
+  shares    Share[]
 
   @@index([deviceId, updatedAt(sort: Desc)])
   @@index([updatedAt(sort: Desc)])
@@ -101,4 +102,28 @@ model Template {
 
   @@index([deviceId, category, orderIndex(sort: Asc), createdAt(sort: Desc)])
   @@index([deviceId, orderIndex(sort: Asc), createdAt(sort: Desc)])
+}
+
+/// 分享的会话
+model Share {
+  id             String       @id @default(cuid())
+  /// 分享链接的唯一标识符（短ID）
+  shareId        String       @unique
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  deviceId       String
+  /// 分享的标题（从会话复制）
+  title          String?
+  /// 过期时间（可选，null 表示永不过期）
+  expiresAt      DateTime?
+  /// 是否启用访问密码
+  hasPassword    Boolean      @default(false)
+  /// 访问密码（哈希）
+  passwordHash   String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([shareId])
+  @@index([deviceId, createdAt(sort: Desc)])
+  @@index([conversationId])
 }
