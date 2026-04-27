@@ -54,21 +54,6 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    const dailyStats = await prisma.messageFeedback.groupBy({
-      by: ['createdAt'],
-      where: whereCondition,
-      _count: {
-        liked: true,
-      },
-      _sum: {
-        liked: true,
-        disliked: true,
-      },
-      orderBy: {
-        createdAt: 'asc',
-      },
-    });
-
     const formatDate = (date: Date) => {
       const d = new Date(date);
       return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -95,14 +80,52 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    dailyStats.forEach(item => {
+    const dailyLikes = await prisma.messageFeedback.groupBy({
+      by: ['createdAt'],
+      where: {
+        ...whereCondition,
+        liked: true,
+      },
+      _count: {
+        liked: true,
+      },
+      orderBy: {
+        createdAt: 'asc',
+      },
+    });
+
+    const dailyDislikes = await prisma.messageFeedback.groupBy({
+      by: ['createdAt'],
+      where: {
+        ...whereCondition,
+        disliked: true,
+      },
+      _count: {
+        disliked: true,
+      },
+      orderBy: {
+        createdAt: 'asc',
+      },
+    });
+
+    dailyLikes.forEach(item => {
       const dateStr = formatDate(item.createdAt);
       const existing = dailyData.find(d => d.date === dateStr);
       if (existing) {
-        existing.likes = item._sum.liked || 0;
-        existing.dislikes = item._sum.disliked || 0;
-        existing.total = item._count.liked;
+        existing.likes = item._count.liked;
       }
+    });
+
+    dailyDislikes.forEach(item => {
+      const dateStr = formatDate(item.createdAt);
+      const existing = dailyData.find(d => d.date === dateStr);
+      if (existing) {
+        existing.dislikes = item._count.disliked;
+      }
+    });
+
+    dailyData.forEach(item => {
+      item.total = item.likes + item.dislikes;
     });
 
     const stats = {
