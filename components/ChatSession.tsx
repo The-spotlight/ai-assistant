@@ -737,7 +737,7 @@ export default function ChatSession({
     try {
       setIsLoadingRecycle(true);
       setRecycleError(null);
-      const response = await fetch(`/api/conversations/${conversationId}/share/recycle`, {
+      const response = await fetch(`/api/conversations/${conversationId}/share?recycle=true`, {
         headers: { 'x-device-id': deviceId },
       });
 
