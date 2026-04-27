@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from '@/lib/prisma';
+import { prisma } from '@/lib/db';
 
 export async function POST(request: NextRequest) {
   try {
@@ -37,6 +37,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(feedback);
   } catch (error) {
     console.error('Error creating/updating message feedback:', error);
+    // 处理外键约束错误
+    if (error instanceof Error && error.message.includes('Foreign key constraint violated')) {
+      return NextResponse.json({ error: 'Invalid message or conversation ID' }, { status: 400 });
+    }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
