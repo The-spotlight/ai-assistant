@@ -228,6 +228,42 @@ function IconShare(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
+function IconThumbsUp(props: React.SVGProps<SVGSVGElement> & { filled?: boolean }) {
+  const { filled, ...rest } = props;
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill={filled ? 'currentColor' : 'none'}
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      {...rest}
+    >
+      <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" />
+    </svg>
+  );
+}
+
+function IconThumbsDown(props: React.SVGProps<SVGSVGElement> & { filled?: boolean }) {
+  const { filled, ...rest } = props;
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill={filled ? 'currentColor' : 'none'}
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      {...rest}
+    >
+      <path d="M10 15v4a3 3 0 0 1-3 3l-4-9V2h11.28a2 2 0 0 1 2 1.7l1.38 9a2 2 0 0 1-2 2.3zM17 2H20a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3" />
+    </svg>
+  );
+}
+
 function IconCopy(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg
@@ -401,6 +437,12 @@ export default function ChatSession({
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  // 消息反馈相关状态
+  const [messageFeedback, setMessageFeedback] = useState<Record<string, { liked: boolean; disliked: boolean; reason?: string; comment?: string }>>({});
+  const [showDislikeModal, setShowDislikeModal] = useState<string | null>(null);
+  const [dislikeReason, setDislikeReason] = useState<string>('');
+  const [dislikeComment, setDislikeComment] = useState<string>('');
+
   // 格式化相对时间
   const formatRelativeTime = useCallback((dateStr: string) => {
     const date = new Date(dateStr);
@@ -477,6 +519,57 @@ export default function ChatSession({
         setHighlightedMessageId(null);
       }, 3000);
     }
+  }, []);
+
+  // 处理点赞
+  const handleLike = useCallback((messageId: string) => {
+    setMessageFeedback(prev => {
+      const current = prev[messageId] || { liked: false, disliked: false };
+      if (current.liked) {
+        // 取消点赞
+        return { ...prev, [messageId]: { ...current, liked: false } };
+      } else {
+        // 点赞，同时取消点踩
+        return { ...prev, [messageId]: { liked: true, disliked: false } };
+      }
+    });
+  }, []);
+
+  // 处理点踩
+  const handleDislike = useCallback((messageId: string) => {
+    setShowDislikeModal(messageId);
+    setDislikeReason('');
+    setDislikeComment('');
+  }, []);
+
+  // 提交点踩原因
+  const handleDislikeSubmit = useCallback((messageId: string) => {
+    setMessageFeedback(prev => {
+      const current = prev[messageId] || { liked: false, disliked: false };
+      return { 
+        ...prev, 
+        [messageId]: { 
+          liked: false, 
+          disliked: true, 
+          reason: dislikeReason, 
+          comment: dislikeComment 
+        } 
+      };
+    });
+    setShowDislikeModal(null);
+  }, [dislikeReason, dislikeComment]);
+
+  // 取消点踩
+  const handleCancelDislike = useCallback(() => {
+    setShowDislikeModal(null);
+  }, []);
+
+  // 取消点踩状态
+  const handleUndoDislike = useCallback((messageId: string) => {
+    setMessageFeedback(prev => {
+      const current = prev[messageId] || { liked: false, disliked: false };
+      return { ...prev, [messageId]: { ...current, disliked: false, reason: undefined, comment: undefined } };
+    });
   }, []);
 
   // 清理高亮定时器
@@ -1282,6 +1375,34 @@ export default function ChatSession({
                         <IconReply className="h-3 w-3" />
                         引用
                       </button>
+                      {/* 点赞按钮 */}
+                      <button
+                        type="button"
+                        onClick={() => handleLike(m.id)}
+                        className={`inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] transition-colors hover:bg-[#f5f5f5] ${
+                          messageFeedback[m.id]?.liked
+                            ? 'text-[#10b981]'
+                            : 'text-[#737373] hover:text-[#171717]'
+                        }`}
+                        title={messageFeedback[m.id]?.liked ? '取消点赞' : '点赞此回复'}
+                      >
+                        <IconThumbsUp className="h-3 w-3" filled={messageFeedback[m.id]?.liked} />
+                        {messageFeedback[m.id]?.liked ? '已点赞' : '点赞'}
+                      </button>
+                      {/* 点踩按钮 */}
+                      <button
+                        type="button"
+                        onClick={() => messageFeedback[m.id]?.disliked ? handleUndoDislike(m.id) : handleDislike(m.id)}
+                        className={`inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] transition-colors hover:bg-[#f5f5f5] ${
+                          messageFeedback[m.id]?.disliked
+                            ? 'text-[#ef4444]'
+                            : 'text-[#737373] hover:text-[#171717]'
+                        }`}
+                        title={messageFeedback[m.id]?.disliked ? '取消点踩' : '点踩此回复'}
+                      >
+                        <IconThumbsDown className="h-3 w-3" filled={messageFeedback[m.id]?.disliked} />
+                        {messageFeedback[m.id]?.disliked ? '已点踩' : '点踩'}
+                      </button>
                       {onToggleFavorite && (
                         <button
                           type="button"
@@ -1487,6 +1608,64 @@ export default function ChatSession({
         timestampFormat={behavior.timestampFormat}
         formatTime={formatTime}
       />
+
+      {/* 点踩原因弹窗 */}
+      {showDislikeModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-lg">
+            <h3 className="mb-4 text-lg font-medium text-[#171717]">请选择点踩原因</h3>
+            <div className="mb-4 space-y-2">
+              {[
+                { value: 'inaccurate', label: '回答不准确' },
+                { value: 'off_topic', label: '答非所问' },
+                { value: 'too_long', label: '太啰嗦' },
+                { value: 'too_short', label: '太简短' },
+                { value: 'wrong_content', label: '内容有错' },
+                { value: 'other', label: '其他' }
+              ].map((option) => (
+                <label key={option.value} className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="dislikeReason"
+                    value={option.value}
+                    checked={dislikeReason === option.value}
+                    onChange={(e) => setDislikeReason(e.target.value)}
+                    className="h-4 w-4 text-[#ef4444] border-gray-300 focus:ring-[#ef4444]"
+                  />
+                  <span className="text-sm text-[#374151]">{option.label}</span>
+                </label>
+              ))}
+            </div>
+            <div className="mb-4">
+              <label className="block mb-1 text-sm font-medium text-[#374151]">补充说明（可选）</label>
+              <textarea
+                value={dislikeComment}
+                onChange={(e) => setDislikeComment(e.target.value)}
+                rows={3}
+                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#ef4444] focus:border-transparent"
+                placeholder="请输入您的补充说明..."
+              />
+            </div>
+            <div className="flex items-center justify-end gap-2">
+              <button
+                type="button"
+                onClick={handleCancelDislike}
+                className="rounded px-4 py-2 text-sm text-[#6b7280] transition-colors hover:bg-[#f3f4f6]"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={() => handleDislikeSubmit(showDislikeModal)}
+                disabled={!dislikeReason}
+                className="rounded bg-[#ef4444] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#dc2626] disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                提交
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
