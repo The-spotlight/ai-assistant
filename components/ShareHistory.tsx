@@ -127,6 +127,16 @@ interface RecycleShareItem extends ShareItem {
   deletedAt: string | null;
 }
 
+// 访问记录类型
+interface ShareViewItem {
+  id: string;
+  shareId: string;
+  viewedAt: string;
+  referrer: string | null;
+  ip: string | null;
+  userAgent: string | null;
+}
+
 // 组件属性
 type ShareHistoryProps = {
   isOpen: boolean;
@@ -153,6 +163,13 @@ export default function ShareHistory({ isOpen, onClose, conversationId, deviceId
   const [showPermanentDeleteConfirm, setShowPermanentDeleteConfirm] = useState<string | null>(null);
   const [isPermanentlyDeleting, setIsPermanentlyDeleting] = useState(false);
   const [permanentDeleteError, setPermanentDeleteError] = useState<string | null>(null);
+  
+  // 访问详情相关状态
+  const [showViewDetails, setShowViewDetails] = useState(false);
+  const [currentShareId, setCurrentShareId] = useState<string | null>(null);
+  const [viewDetails, setViewDetails] = useState<ShareViewItem[]>([]);
+  const [isLoadingViewDetails, setIsLoadingViewDetails] = useState(false);
+  const [viewDetailsError, setViewDetailsError] = useState<string | null>(null);
 
   // 获取分享列表
   const fetchShares = useCallback(async () => {
@@ -325,6 +342,43 @@ export default function ShareHistory({ isOpen, onClose, conversationId, deviceId
     setPermanentDeleteError(null);
   }, []);
 
+  // 获取分享的访问记录
+  const fetchShareViewDetails = useCallback(async (shareId: string) => {
+    try {
+      setIsLoadingViewDetails(true);
+      setViewDetailsError(null);
+      const response = await fetch(`/api/conversations/${conversationId}/share/${shareId}/views`, {
+        headers: { 'x-device-id': deviceId },
+      });
+
+      if (!response.ok) {
+        throw new Error('获取访问记录失败');
+      }
+
+      const data = await response.json();
+      setViewDetails(data);
+    } catch (error) {
+      console.error('获取访问记录失败:', error);
+      setViewDetailsError('获取访问记录失败');
+    } finally {
+      setIsLoadingViewDetails(false);
+    }
+  }, [conversationId, deviceId]);
+
+  // 打开访问详情面板
+  const handleOpenViewDetails = useCallback((shareId: string) => {
+    setCurrentShareId(shareId);
+    setShowViewDetails(true);
+    fetchShareViewDetails(shareId);
+  }, [fetchShareViewDetails]);
+
+  // 关闭访问详情面板
+  const handleCloseViewDetails = useCallback(() => {
+    setShowViewDetails(false);
+    setCurrentShareId(null);
+    setViewDetails([]);
+  }, []);
+
   // 处理背景点击关闭
   const handleBackgroundClick = useCallback((e: React.MouseEvent) => {
     if (e.target === e.currentTarget) {
@@ -429,6 +483,7 @@ export default function ShareHistory({ isOpen, onClose, conversationId, deviceId
                                   ? 'border-[#22c55e] bg-[#f0fdf4] text-[#22c55e]'
                                   : 'border-black/[0.08] bg-white text-[#171717] hover:bg-[#f5f5f5]'
                               }`}
+                              title="复制链接"
                             >
                               {copySuccess === share.shareUrl ? (
                                 <>
@@ -439,6 +494,16 @@ export default function ShareHistory({ isOpen, onClose, conversationId, deviceId
                                   <IconCopy className="h-3.5 w-3.5" />
                                 </>
                               )}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleOpenViewDetails(share.shareId)}
+                              className="shrink-0 rounded-lg border border-black/[0.08] bg-white p-1.5 text-[#a3a3a3] transition hover:bg-[#f5f5f5] hover:border-[#171717] hover:text-[#171717]"
+                              title="查看访问详情"
+                            >
+                              <svg xmlns="http://www.w3.org/2000/svg" className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                              </svg>
                             </button>
                             <button
                               type="button"
@@ -633,6 +698,75 @@ export default function ShareHistory({ isOpen, onClose, conversationId, deviceId
                   )}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 访问详情面板 */}
+      {showViewDetails && (
+        <div className="fixed inset-0 z-60 flex items-center justify-center bg-black/50 p-4" onClick={handleCloseViewDetails}>
+          <div className="w-full max-w-2xl rounded-2xl border border-black/[0.08] bg-white shadow-2xl max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            {/* 顶部关闭按钮 */}
+            <div className="flex justify-between items-center p-4 border-b border-black/[0.06]">
+              <h3 className="text-lg font-semibold text-[#171717]">访问详情</h3>
+              <button
+                type="button"
+                onClick={handleCloseViewDetails}
+                className="rounded-lg p-2 text-[#a3a3a3] transition-colors hover:bg-[#f5f5f5] hover:text-[#171717]"
+                title="关闭"
+              >
+                <IconX className="h-5 w-5" />
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-6">
+              {isLoadingViewDetails ? (
+                <div className="flex justify-center py-12">
+                  <IconLoader className="h-6 w-6 text-[#737373] animate-spin" />
+                </div>
+              ) : viewDetailsError ? (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <IconAlertCircle className="h-10 w-10 text-[#ef4444] mb-4" />
+                  <p className="text-sm text-[#ef4444]">{viewDetailsError}</p>
+                </div>
+              ) : viewDetails.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12 text-[#a3a3a3] mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                  </svg>
+                  <p className="text-sm text-[#a3a3a3]">暂无访问记录</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {viewDetails.map((view) => (
+                    <div key={view.id} className="rounded-lg border border-black/[0.08] p-4">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex-1">
+                          <div className="text-sm font-medium text-[#171717] mb-1">
+                            {new Date(view.viewedAt).toLocaleString('zh-CN')}
+                          </div>
+                          {view.referrer && (
+                            <div className="text-xs text-[#737373] mt-1">
+                              <span className="font-medium">来源:</span> {view.referrer}
+                            </div>
+                          )}
+                          {view.ip && (
+                            <div className="text-xs text-[#737373] mt-1">
+                              <span className="font-medium">IP:</span> {view.ip}
+                            </div>
+                          )}
+                          {view.userAgent && (
+                            <div className="text-xs text-[#737373] mt-1">
+                              <span className="font-medium">设备:</span> {view.userAgent}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>
