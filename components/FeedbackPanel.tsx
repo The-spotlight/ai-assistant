@@ -2,7 +2,16 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { getOrCreateDeviceId } from '@/lib/device';
-
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from 'recharts';
 function IconX(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden {...props}>
@@ -78,139 +87,35 @@ interface FeedbackPanelProps {
   onClose: () => void;
 }
 
-function SimpleLineChart({ data, height = 120 }: { data: FeedbackStats['dailyTrend']; height: number }) {
-  if (!data || data.length === 0) {
+const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: { dataKey: string; value: number; color: string }[]; label?: string }) => {
+  if (active && payload && payload.length) {
+    const date = new Date(label as string);
+    const formattedDate = `${date.getMonth() + 1}/${date.getDate()}`;
+    
     return (
-      <div className="flex items-center justify-center py-8 text-sm text-[#737373]">
-        暂无趋势数据
+      <div className="bg-white border border-[#e5e5e5] rounded-lg shadow-lg p-3">
+        <div className="text-sm font-medium text-[#171717] mb-2">{formattedDate}</div>
+        {payload.map((entry) => (
+          <div key={entry.dataKey} className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <div
+                className="w-3 h-3 rounded-full"
+                style={{ backgroundColor: entry.color }}
+              />
+              <span className="text-xs text-[#525252]">
+                {entry.dataKey === 'likes' ? '点赞' : '点踩'}
+              </span>
+            </div>
+            <span className="text-sm font-medium text-[#171717]">
+              {entry.value}
+            </span>
+          </div>
+        ))}
       </div>
     );
   }
-
-  const maxValue = Math.max(...data.map(d => Math.max(d.likes, d.dislikes)), 1);
-  const padding = 20;
-  const chartHeight = height - padding * 2;
-  const chartWidth = '100%';
-
-  const getY = (value: number) => padding + chartHeight * (1 - value / maxValue);
-
-  const likesPoints = data.map((d, i) => {
-    const x = (i / (data.length - 1)) * 100;
-    const y = getY(d.likes);
-    return `${x},${y}`;
-  }).join(' ');
-
-  const dislikesPoints = data.map((d, i) => {
-    const x = (i / (data.length - 1)) * 100;
-    const y = getY(d.dislikes);
-    return `${x},${y}`;
-  }).join(' ');
-
-  const likesAreaPoints = `0,${height} ${likesPoints} 100,${height}`;
-  const dislikesAreaPoints = `0,${height} ${dislikesPoints} 100,${height}`;
-
-  return (
-    <div className="relative w-full" style={{ height }}>
-      <svg viewBox={`0 0 100 ${height}`} preserveAspectRatio="none" className="w-full h-full">
-        <defs>
-          <linearGradient id="likesGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor="#22c55e" stopOpacity="0.3" />
-            <stop offset="100%" stopColor="#22c55e" stopOpacity="0" />
-          </linearGradient>
-          <linearGradient id="dislikesGradient" x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor="#ef4444" stopOpacity="0.3" />
-            <stop offset="100%" stopColor="#ef4444" stopOpacity="0" />
-          </linearGradient>
-        </defs>
-        
-        {[0.25, 0.5, 0.75, 1].map((ratio, i) => (
-          <line
-            key={i}
-            x1="0"
-            y1={padding + chartHeight * (1 - ratio)}
-            x2="100"
-            y2={padding + chartHeight * (1 - ratio)}
-            stroke="#f5f5f5"
-            strokeWidth="0.5"
-            strokeDasharray="2,2"
-          />
-        ))}
-
-        <polygon points={likesAreaPoints} fill="url(#likesGradient)" />
-        <polygon points={dislikesAreaPoints} fill="url(#dislikesGradient)" />
-
-        <polyline
-          points={likesPoints}
-          fill="none"
-          stroke="#22c55e"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-        <polyline
-          points={dislikesPoints}
-          fill="none"
-          stroke="#ef4444"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-
-        {data.map((d, i) => {
-          const x = (i / (data.length - 1)) * 100;
-          if (d.likes > 0) {
-            return (
-              <circle
-                key={`like-${i}`}
-                cx={x}
-                cy={getY(d.likes)}
-                r="2.5"
-                fill="#22c55e"
-                className="opacity-0 hover:opacity-100 transition-opacity"
-              />
-            );
-          }
-          return null;
-        })}
-
-        {data.map((d, i) => {
-          const x = (i / (data.length - 1)) * 100;
-          if (d.dislikes > 0) {
-            return (
-              <circle
-                key={`dislike-${i}`}
-                cx={x}
-                cy={getY(d.dislikes)}
-                r="2.5"
-                fill="#ef4444"
-                className="opacity-0 hover:opacity-100 transition-opacity"
-              />
-            );
-          }
-          return null;
-        })}
-      </svg>
-
-      <div className="flex justify-between mt-2 px-1">
-        {data.length <= 14 && data.map((d, i) => {
-          const date = new Date(d.date);
-          const label = data.length <= 7 
-            ? `${date.getMonth() + 1}/${date.getDate()}`
-            : `${date.getMonth() + 1}/${date.getDate()}`;
-          return (
-            <div
-              key={i}
-              className="text-xs text-[#737373] flex-1 text-center"
-              style={{ textAlign: data.length > 7 ? 'left' : 'center' }}
-            >
-              {label}
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
+  return null;
+};
 
 export default function FeedbackPanel({ visible, onClose }: FeedbackPanelProps) {
   const panelRef = useRef<HTMLDivElement>(null);
@@ -363,6 +268,11 @@ export default function FeedbackPanel({ visible, onClose }: FeedbackPanelProps) 
   const displayData = viewMode === 'weekly' && stats?.dailyTrend 
     ? getWeeklyData(stats.dailyTrend) 
     : stats?.dailyTrend;
+
+  const formatXAxis = (dateStr: string) => {
+    const date = new Date(dateStr);
+    return `${date.getMonth() + 1}/${date.getDate()}`;
+  };
 
   if (!visible) return null;
 
@@ -566,19 +476,55 @@ export default function FeedbackPanel({ visible, onClose }: FeedbackPanelProps) 
                   </div>
                 </div>
 
-                <div className="flex items-center gap-4 mb-2">
-                  <div className="flex items-center gap-1">
-                    <div className="w-3 h-0.5 bg-[#22c55e]"></div>
-                    <span className="text-xs text-[#525252]">点赞</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <div className="w-3 h-0.5 bg-[#ef4444]"></div>
-                    <span className="text-xs text-[#525252]">点踩</span>
-                  </div>
-                </div>
-
                 <div className="bg-[#fafafa] rounded-lg p-3 border border-[#e5e5e5]">
-                  <SimpleLineChart data={displayData || []} height={140} />
+                  {displayData && displayData.length > 0 ? (
+                    <ResponsiveContainer width="100%" height={200}>
+                      <LineChart data={displayData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#e5e5e5" />
+                        <XAxis
+                          dataKey="date"
+                          tickFormatter={formatXAxis}
+                          tick={{ fill: '#737373', fontSize: 11 }}
+                          axisLine={{ stroke: '#e5e5e5' }}
+                          tickLine={{ stroke: '#e5e5e5' }}
+                        />
+                        <YAxis
+                          tick={{ fill: '#737373', fontSize: 11 }}
+                          axisLine={{ stroke: '#e5e5e5' }}
+                          tickLine={{ stroke: '#e5e5e5' }}
+                          allowDecimals={false}
+                        />
+                        <Tooltip content={<CustomTooltip />} />
+                        <Legend
+                          wrapperStyle={{ paddingTop: '10px' }}
+                          iconType="circle"
+                          formatter={(value) => value === 'likes' ? '点赞' : '点踩'}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="likes"
+                          name="点赞"
+                          stroke="#22c55e"
+                          strokeWidth={2}
+                          dot={{ fill: '#22c55e', r: 4 }}
+                          activeDot={{ fill: '#22c55e', r: 6 }}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="dislikes"
+                          name="点踩"
+                          stroke="#ef4444"
+                          strokeWidth={2}
+                          dot={{ fill: '#ef4444', r: 4 }}
+                          activeDot={{ fill: '#ef4444', r: 6 }}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  ) : (
+                    <div className="flex items-center justify-center py-8 text-sm text-[#737373]">
+                      暂无趋势数据
+                    </div>
+                  )}
                 </div>
               </div>
 
