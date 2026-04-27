@@ -325,11 +325,18 @@ export default function ShareHistory({ isOpen, onClose, conversationId, deviceId
     setPermanentDeleteError(null);
   }, []);
 
+  // 处理背景点击关闭
+  const handleBackgroundClick = useCallback((e: React.MouseEvent) => {
+    if (e.target === e.currentTarget) {
+      onClose();
+    }
+  }, [onClose]);
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-md rounded-2xl border border-black/[0.08] bg-white shadow-2xl max-h-[80vh] flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={handleBackgroundClick}>
+      <div className="w-full max-w-md rounded-2xl border border-black/[0.08] bg-white shadow-2xl max-h-[80vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
         {/* 顶部关闭按钮 */}
         <div className="flex justify-end p-4 border-b border-black/[0.06]">
           <button
