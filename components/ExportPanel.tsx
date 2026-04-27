@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { useLayoutContext } from '@/components/ResizablePanel';
+import { ExportFormat } from '@/lib/export';
 
 type ConversationRow = {
   id: string;
@@ -12,6 +13,13 @@ type ConversationRow = {
   orderIndex: number | null;
   createdAt: string;
   updatedAt: string;
+};
+
+type MessageRow = {
+  id: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  createdAt: string;
 };
 
 interface ExportPanelProps {
@@ -130,6 +138,16 @@ export default function ExportPanel({
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [isExporting, setIsExporting] = useState<boolean>(false);
+  
+  // 新增状态
+  const [exportFormat, setExportFormat] = useState<ExportFormat>('markdown');
+  const [customTitle, setCustomTitle] = useState<string>('');
+  const [customNote, setCustomNote] = useState<string>('');
+  const [includeMetadata, setIncludeMetadata] = useState<boolean>(true);
+  const [selectedMessageIds, setSelectedMessageIds] = useState<Map<string, Set<string>>>(new Map());
+  const [expandedConversations, setExpandedConversations] = useState<Set<string>>(new Set());
+  const [loadingMessages, setLoadingMessages] = useState<Set<string>>(new Set());
+  const [conversationMessages, setConversationMessages] = useState<Map<string, MessageRow[]>>(new Map());
 
   const filteredConversations = useMemo(() => {
     if (!searchQuery.trim()) return conversations;
@@ -158,25 +176,124 @@ export default function ExportPanel({
       const next = new Set(prev);
       if (next.has(id)) {
         next.delete(id);
+        expandedConversations.delete(id);
+        selectedMessageIds.delete(id);
       } else {
         next.add(id);
       }
       return next;
     });
+  }, [expandedConversations, selectedMessageIds]);
+
+  const loadConversationMessages = useCallback(async (conversationId: string) => {
+    if (loadingMessages.has(conversationId) || conversationMessages.has(conversationId)) return;
+
+    setLoadingMessages(prev => new Set(prev).add(conversationId));
+    try {
+      const response = await fetch(`/api/conversations/${conversationId}/messages`, {
+        headers: {
+          'x-device-id': deviceId,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        const messages = data.messages.map((m: any) => ({
+          id: m.clientMessageId ?? m.id,
+          role: m.role as 'user' | 'assistant' | 'system',
+          content: m.content,
+          createdAt: m.createdAt,
+        }));
+        setConversationMessages(prev => new Map(prev).set(conversationId, messages));
+      }
+    } catch (error) {
+      console.error('加载消息失败:', error);
+    } finally {
+      setLoadingMessages(prev => {
+        const next = new Set(prev);
+        next.delete(conversationId);
+        return next;
+      });
+    }
+  }, [deviceId, loadingMessages, conversationMessages]);
+
+  const toggleExpandConversation = useCallback((conversationId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setExpandedConversations(prev => {
+      const next = new Set(prev);
+      if (next.has(conversationId)) {
+        next.delete(conversationId);
+      } else {
+        next.add(conversationId);
+        loadConversationMessages(conversationId);
+      }
+      return next;
+    });
+  }, [loadConversationMessages]);
+
+  const toggleSelectMessage = useCallback((conversationId: string, messageId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedMessageIds(prev => {
+      const next = new Map(prev);
+      const conversationMessages = next.get(conversationId) || new Set();
+      const updatedMessages = new Set(conversationMessages);
+      
+      if (updatedMessages.has(messageId)) {
+        updatedMessages.delete(messageId);
+      } else {
+        updatedMessages.add(messageId);
+      }
+      
+      if (updatedMessages.size > 0) {
+        next.set(conversationId, updatedMessages);
+      } else {
+        next.delete(conversationId);
+      }
+      
+      return next;
+    });
   }, []);
+
+  const toggleSelectAllMessages = useCallback((conversationId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const messages = conversationMessages.get(conversationId) || [];
+    const userMessages = messages.filter(m => m.role !== 'system');
+    
+    setSelectedMessageIds(prev => {
+      const next = new Map(prev);
+      const currentSelected = next.get(conversationId) || new Set();
+      
+      if (currentSelected.size === userMessages.length) {
+        next.delete(conversationId);
+      } else {
+        next.set(conversationId, new Set(userMessages.map(m => m.id)));
+      }
+      
+      return next;
+    });
+  }, [conversationMessages]);
 
   const handleExportSelected = useCallback(async () => {
     if (selectedIds.size === 0 || isExporting) return;
 
     setIsExporting(true);
     try {
+      const exportData = {
+        ids: Array.from(selectedIds),
+        format: exportFormat,
+        customTitle: customTitle.trim() || undefined,
+        customNote: customNote.trim() || undefined,
+        includeMetadata,
+        selectedMessages: Object.fromEntries(selectedMessageIds)
+      };
+
       const response = await fetch('/api/conversations/export', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'x-device-id': deviceId,
         },
-        body: JSON.stringify({ ids: Array.from(selectedIds) }),
+        body: JSON.stringify(exportData),
       });
 
       if (!response.ok) {
@@ -205,24 +322,35 @@ export default function ExportPanel({
       URL.revokeObjectURL(url);
 
       setSelectedIds(new Set());
+      setExpandedConversations(new Set());
+      setSelectedMessageIds(new Map());
     } catch (error) {
       console.error('导出失败:', error);
       alert('导出失败，请稍后重试');
     } finally {
       setIsExporting(false);
     }
-  }, [selectedIds, deviceId, isExporting]);
+  }, [selectedIds, deviceId, isExporting, exportFormat, customTitle, customNote, includeMetadata, selectedMessageIds, expandedConversations]);
 
   const handleExportAll = useCallback(async () => {
     if (isExporting) return;
 
     setIsExporting(true);
     try {
+      const exportData = {
+        format: exportFormat,
+        customTitle: customTitle.trim() || undefined,
+        customNote: customNote.trim() || undefined,
+        includeMetadata
+      };
+
       const response = await fetch('/api/conversations/export', {
-        method: 'GET',
+        method: 'POST',
         headers: {
+          'Content-Type': 'application/json',
           'x-device-id': deviceId,
         },
+        body: JSON.stringify(exportData),
       });
 
       if (!response.ok) {
@@ -255,7 +383,7 @@ export default function ExportPanel({
     } finally {
       setIsExporting(false);
     }
-  }, [deviceId, isExporting]);
+  }, [deviceId, isExporting, exportFormat, customTitle, customNote, includeMetadata]);
 
   useEffect(() => {
     if (!visible) return;
@@ -285,6 +413,13 @@ export default function ExportPanel({
     if (!visible) {
       setSelectedIds(new Set());
       setSearchQuery('');
+      setExportFormat('markdown');
+      setCustomTitle('');
+      setCustomNote('');
+      setIncludeMetadata(true);
+      setSelectedMessageIds(new Map());
+      setExpandedConversations(new Set());
+      setConversationMessages(new Map());
     }
   }, [visible]);
 
@@ -313,7 +448,7 @@ export default function ExportPanel({
         <div className="px-4 py-3 flex items-center justify-between border-b border-black/[0.06] bg-[#fafafa]">
           <div className="flex items-center gap-2">
             <IconPackage className="h-4 w-4 text-[#737373]" />
-            <span className="text-sm font-medium text-[#171717]">批量导出对话</span>
+            <span className="text-sm font-medium text-[#171717]">智能导出</span>
             <span className="rounded-full px-2 py-0.5 text-xs bg-[#e5e5e5] text-[#737373]">
               {conversations.length}
             </span>
@@ -328,9 +463,70 @@ export default function ExportPanel({
           </button>
         </div>
 
+        {/* 导出设置 */}
+        <div className="px-4 py-3 border-b border-black/[0.06] bg-white space-y-3">
+          {/* 导出格式 */}
+          <div>
+            <label className="block text-xs font-medium text-[#737373] mb-1.5">导出格式</label>
+            <div className="flex gap-2">
+              {(['markdown', 'plaintext', 'json'] as ExportFormat[]).map((format) => (
+                <button
+                  key={format}
+                  type="button"
+                  onClick={() => setExportFormat(format)}
+                  className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${exportFormat === format
+                    ? 'bg-[#171717] text-white'
+                    : 'bg-[#f5f5f5] text-[#737373] hover:bg-[#e5e5e5]'
+                    }`}
+                >
+                  {format === 'markdown' ? 'Markdown' : format === 'plaintext' ? '纯文本' : 'JSON'}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 自定义标题 */}
+          <div>
+            <label className="block text-xs font-medium text-[#737373] mb-1.5">自定义标题</label>
+            <input
+              type="text"
+              value={customTitle}
+              onChange={(e) => setCustomTitle(e.target.value)}
+              placeholder="为导出内容设置标题（可选）"
+              className="w-full px-3 py-2 text-sm bg-[#fafafa] border border-black/[0.08] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#171717]/20 focus:border-[#171717]/20 placeholder:text-[#a3a3a3]"
+            />
+          </div>
+
+          {/* 自定义备注 */}
+          <div>
+            <label className="block text-xs font-medium text-[#737373] mb-1.5">自定义备注</label>
+            <textarea
+              value={customNote}
+              onChange={(e) => setCustomNote(e.target.value)}
+              placeholder="添加备注信息（可选）"
+              rows={2}
+              className="w-full px-3 py-2 text-sm bg-[#fafafa] border border-black/[0.08] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#171717]/20 focus:border-[#171717]/20 placeholder:text-[#a3a3a3] resize-none"
+            />
+          </div>
+
+          {/* 包含元数据 */}
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="includeMetadata"
+              checked={includeMetadata}
+              onChange={(e) => setIncludeMetadata(e.target.checked)}
+              className="h-4 w-4 rounded border-gray-300 text-[#171717] focus:ring-[#171717]"
+            />
+            <label htmlFor="includeMetadata" className="text-xs text-[#737373] cursor-pointer">
+              包含对话元数据（创建时间、更新时间）
+            </label>
+          </div>
+        </div>
+
         <div className="px-4 py-2.5 border-b border-black/[0.06] bg-white">
           <p className="text-[11px] text-[#a3a3a3]">
-            勾选需要导出的对话，将打包为 ZIP 文件下载，每个对话一个 .md 文件
+            勾选需要导出的对话，可展开选择具体消息，支持多种格式导出
           </p>
         </div>
 
@@ -436,44 +632,146 @@ export default function ExportPanel({
             <div className="flex flex-col gap-1">
               {filteredConversations.map((c) => {
                 const isSelected = selectedIds.has(c.id);
-                return (
-                  <div
-                    key={c.id}
-                    className={`group relative flex items-stretch gap-0 overflow-hidden rounded-xl border transition-colors ${
-                      isSelected ? 'border-[#171717] bg-[#fafafa]' : 'border-[#e5e5e5] bg-white hover:bg-[#fafafa]'
-                    }`}
-                  >
-                    <button
-                      type="button"
-                      onClick={(e) => toggleSelectOne(c.id, e)}
-                      className="flex w-8 shrink-0 items-center justify-center transition-colors hover:bg-[#f5f5f5]"
-                      aria-label={isSelected ? '取消选择' : '选择'}
-                    >
-                      <div
-                        className="flex h-4 w-4 items-center justify-center rounded border transition-colors"
-                        style={{
-                          borderColor: isSelected ? '#171717' : '#d4d4d4',
-                          backgroundColor: isSelected ? '#171717' : 'transparent',
-                        }}
-                      >
-                        {isSelected && <IconCheck className="h-2.5 w-2.5 text-white" />}
-                      </div>
-                    </button>
+                const isExpanded = expandedConversations.has(c.id);
+                const messages = conversationMessages.get(c.id) || [];
+                const isLoading = loadingMessages.has(c.id);
+                const conversationSelectedMessages = selectedMessageIds.get(c.id) || new Set();
+                const userMessages = messages.filter(m => m.role !== 'system');
+                const allMessagesSelected = userMessages.length > 0 && userMessages.every(m => conversationSelectedMessages.has(m.id));
+                const someMessagesSelected = conversationSelectedMessages.size > 0 && !allMessagesSelected;
 
-                    <div className={`min-w-0 flex-1 ${itemPadding}`}>
-                      <span className={`${titleLines} text-[13px] font-medium leading-snug text-[#171717] ${
-                        isNarrow ? 'text-[12px]' : ''
-                      } ${isWide ? 'text-sm' : ''}`}>
-                        {c.title?.trim() || '新对话'}
-                      </span>
-                      {showTime && (
-                        <span className={`mt-1 block text-[11px] text-[#a3a3a3] ${
-                          isWide ? 'text-xs' : ''
-                        }`}>
-                          {formatRelativeTime(c.updatedAt)}
-                        </span>
-                      )}
+                return (
+                  <div key={c.id} className="space-y-1">
+                    <div
+                      className={`group relative flex items-stretch gap-0 overflow-hidden rounded-xl border transition-colors ${
+                        isSelected ? 'border-[#171717] bg-[#fafafa]' : 'border-[#e5e5e5] bg-white hover:bg-[#fafafa]'
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        onClick={(e) => toggleSelectOne(c.id, e)}
+                        className="flex w-8 shrink-0 items-center justify-center transition-colors hover:bg-[#f5f5f5]"
+                        aria-label={isSelected ? '取消选择' : '选择'}
+                      >
+                        <div
+                          className="flex h-4 w-4 items-center justify-center rounded border transition-colors"
+                          style={{
+                            borderColor: isSelected ? '#171717' : '#d4d4d4',
+                            backgroundColor: isSelected ? '#171717' : 'transparent',
+                          }}
+                        >
+                          {isSelected && <IconCheck className="h-2.5 w-2.5 text-white" />}
+                        </div>
+                      </button>
+
+                      <div className={`min-w-0 flex-1 ${itemPadding} flex items-center justify-between cursor-pointer`} onClick={() => isSelected && toggleExpandConversation(c.id, new MouseEvent('click'))}>
+                        <div className="min-w-0">
+                          <span className={`${titleLines} text-[13px] font-medium leading-snug text-[#171717] ${
+                            isNarrow ? 'text-[12px]' : ''
+                          } ${isWide ? 'text-sm' : ''}`}>
+                            {c.title?.trim() || '新对话'}
+                          </span>
+                          {showTime && (
+                            <span className={`mt-1 block text-[11px] text-[#a3a3a3] ${
+                              isWide ? 'text-xs' : ''
+                            }`}>
+                              {formatRelativeTime(c.updatedAt)}
+                            </span>
+                          )}
+                        </div>
+                        {isSelected && (
+                          <button
+                            type="button"
+                            onClick={(e) => toggleExpandConversation(c.id, e)}
+                            className="flex items-center justify-center p-1 text-[#737373] hover:text-[#171717] transition-colors"
+                            aria-label={isExpanded ? '折叠' : '展开'}
+                          >
+                            <svg
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                            >
+                              <path d="m6 9 6 6 6-6" />
+                            </svg>
+                          </button>
+                        )}
+                      </div>
                     </div>
+
+                    {/* 消息列表 */}
+                    {isExpanded && (
+                      <div className="ml-8 pl-4 border-l-2 border-[#e5e5e5] space-y-1">
+                        {isLoading ? (
+                          <div className="py-4 flex items-center justify-center">
+                            <span className="h-4 w-4 animate-spin rounded-full border-2 border-[#171717]/20 border-t-[#171717]"></span>
+                          </div>
+                        ) : messages.length === 0 ? (
+                          <div className="py-2 text-xs text-[#a3a3a3]">无消息</div>
+                        ) : (
+                          <>
+                            {/* 全选消息 */}
+                            <div className="flex items-center gap-2 px-2 py-1.5 text-xs text-[#737373] hover:bg-[#f5f5f5] rounded-lg cursor-pointer" onClick={(e) => toggleSelectAllMessages(c.id, e)}>
+                              <div
+                                className="flex h-3.5 w-3.5 items-center justify-center rounded border transition-colors"
+                                style={{
+                                  borderColor: allMessagesSelected || someMessagesSelected ? '#171717' : '#d4d4d4',
+                                  backgroundColor: allMessagesSelected || someMessagesSelected ? '#171717' : 'transparent',
+                                }}
+                              >
+                                {allMessagesSelected && <IconCheck className="h-2 w-2 text-white" />}
+                                {someMessagesSelected && <IconMinus className="h-2 w-2 text-white" />}
+                              </div>
+                              <span>全选消息 {conversationSelectedMessages.size > 0 && `(已选 ${conversationSelectedMessages.size} 项)`}</span>
+                            </div>
+
+                            {/* 消息列表 */}
+                            {messages.map((m) => {
+                              if (m.role === 'system') return null;
+                              const isMessageSelected = conversationSelectedMessages.has(m.id);
+                              const roleLabel = m.role === 'user' ? '我' : 'AI';
+                              const contentPreview = m.content.length > 50 ? `${m.content.substring(0, 50)}...` : m.content;
+
+                              return (
+                                <div
+                                  key={m.id}
+                                  className={`flex items-center gap-2 px-2 py-1.5 rounded-lg transition-colors ${
+                                    isMessageSelected ? 'bg-[#f0f0f0]' : 'hover:bg-[#f5f5f5]'
+                                  }`}
+                                >
+                                  <button
+                                    type="button"
+                                    onClick={(e) => toggleSelectMessage(c.id, m.id, e)}
+                                    className="flex h-3.5 w-3.5 items-center justify-center transition-colors hover:bg-[#e5e5e5] rounded"
+                                    aria-label={isMessageSelected ? '取消选择' : '选择'}
+                                  >
+                                    <div
+                                      className="flex h-3.5 w-3.5 items-center justify-center rounded border transition-colors"
+                                      style={{
+                                        borderColor: isMessageSelected ? '#171717' : '#d4d4d4',
+                                        backgroundColor: isMessageSelected ? '#171717' : 'transparent',
+                                      }}
+                                    >
+                                      {isMessageSelected && <IconCheck className="h-2 w-2 text-white" />}
+                                    </div>
+                                  </button>
+                                  <div className="min-w-0 flex-1">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-xs font-medium text-[#737373]">{roleLabel}</span>
+                                      <span className="text-[10px] text-[#a3a3a3]">{formatRelativeTime(m.createdAt)}</span>
+                                    </div>
+                                    <p className="text-xs text-[#404040] mt-0.5 line-clamp-2">{contentPreview}</p>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </>
+                        )}
+                      </div>
+                    )}
                   </div>
                 );
               })}
