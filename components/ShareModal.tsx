@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 
 // 导入图标
 function IconX(props: React.SVGProps<SVGSVGElement>) {
@@ -209,9 +209,14 @@ export default function ShareModal({ isOpen, onClose, conversationId, deviceId, 
     }
   }, [handleClose]);
 
+  // 当模态框关闭时重置状态
+  useEffect(() => {
+    if (!isOpen) {
+      resetState();
+    }
+  }, [isOpen, resetState]);
+
   if (!isOpen) {
-    // 当模态框关闭时重置状态
-    resetState();
     return null;
   }
 
