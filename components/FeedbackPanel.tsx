@@ -119,8 +119,13 @@ export default function FeedbackPanel({ visible, onClose }: FeedbackPanelProps) 
     return { startDate, endDate };
   }, [timeRange, customStartDate, customEndDate]);
 
+  const [isFirstLoad, setIsFirstLoad] = useState(true);
+
   const fetchFeedbackStats = useCallback(async () => {
-    setLoading(true);
+    // 只有首次加载或错误状态下才显示loading
+    if (isFirstLoad || error) {
+      setLoading(true);
+    }
     setError(null);
     
     try {
@@ -149,8 +154,9 @@ export default function FeedbackPanel({ visible, onClose }: FeedbackPanelProps) 
       setError('获取反馈统计数据失败');
     } finally {
       setLoading(false);
+      setIsFirstLoad(false);
     }
-  }, [getDateRange]);
+  }, [getDateRange, isFirstLoad, error]);
 
   useEffect(() => {
     if (visible) {
@@ -261,30 +267,51 @@ export default function FeedbackPanel({ visible, onClose }: FeedbackPanelProps) 
             </div>
             
             {timeRange === 'custom' && (
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-col gap-2 p-3 bg-[#fafafa] rounded-lg border border-[#e5e5e5]">
                 <div className="flex items-center gap-2">
-                  <label className="text-xs text-[#737373] w-20">开始日期</label>
+                  <label className="text-xs font-medium text-[#525252] w-20">开始日期</label>
                   <input
                     type="date"
                     value={customStartDate}
                     onChange={(e) => setCustomStartDate(e.target.value)}
-                    className="flex-1 px-2 py-1 text-xs border border-[#e5e5e5] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#171717]"
+                    className="flex-1 px-3 py-2 text-xs border border-[#e5e5e5] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#171717]/20 transition-all bg-white"
+                    style={{
+                      appearance: 'none',
+                      WebkitAppearance: 'none',
+                      MozAppearance: 'none',
+                      backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"%3E%3Cpath d=\"M8 3v4l3 3-3 3V6h5l3 3-3 3h5V3z\"/%3E%3C/svg%3E")',
+                      backgroundRepeat: 'no-repeat',
+                      backgroundPosition: 'right 8px center',
+                      backgroundSize: '16px 16px'
+                    }}
                   />
                 </div>
                 <div className="flex items-center gap-2">
-                  <label className="text-xs text-[#737373] w-20">结束日期</label>
+                  <label className="text-xs font-medium text-[#525252] w-20">结束日期</label>
                   <input
                     type="date"
                     value={customEndDate}
                     onChange={(e) => setCustomEndDate(e.target.value)}
-                    className="flex-1 px-2 py-1 text-xs border border-[#e5e5e5] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#171717]"
+                    className="flex-1 px-3 py-2 text-xs border border-[#e5e5e5] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#171717]/20 transition-all bg-white"
+                    style={{
+                      appearance: 'none',
+                      WebkitAppearance: 'none',
+                      MozAppearance: 'none',
+                      backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"%3E%3Cpath d=\"M8 3v4l3 3-3 3V6h5l3 3-3 3h5V3z\"/%3E%3C/svg%3E")',
+                      backgroundRepeat: 'no-repeat',
+                      backgroundPosition: 'right 8px center',
+                      backgroundSize: '16px 16px'
+                    }}
                   />
                 </div>
                 <button
                   type="button"
                   onClick={fetchFeedbackStats}
-                  className="mt-2 px-4 py-1.5 text-xs font-medium text-white bg-[#171717] rounded-lg hover:bg-black transition-colors"
+                  className="mt-3 px-4 py-2 text-xs font-medium text-white bg-[#171717] rounded-lg hover:bg-black transition-colors flex items-center justify-center gap-1"
                 >
+                  <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+                  </svg>
                   应用
                 </button>
               </div>
