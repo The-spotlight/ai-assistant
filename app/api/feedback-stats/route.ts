@@ -9,13 +9,18 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Missing device ID' }, { status: 400 });
     }
 
-    // 计算总点赞和点踩数
-    const totalStats = await prisma.messageFeedback.aggregate({
+    // 计算总点赞数
+    const totalLikes = await prisma.messageFeedback.count({
       where: {
         deviceId,
-      },
-      _sum: {
         liked: true,
+      },
+    });
+
+    // 计算总点踩数
+    const totalDislikes = await prisma.messageFeedback.count({
+      where: {
+        deviceId,
         disliked: true,
       },
     });
@@ -41,8 +46,8 @@ export async function GET(request: NextRequest) {
 
     // 格式化结果
     const stats = {
-      totalLikes: totalStats._sum.liked || 0,
-      totalDislikes: totalStats._sum.disliked || 0,
+      totalLikes,
+      totalDislikes,
       reasonDistribution: reasonStats.map(item => ({
         reason: item.reason,
         count: item._count.reason,
