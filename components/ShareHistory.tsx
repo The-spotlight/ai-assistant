@@ -170,6 +170,10 @@ export default function ShareHistory({ isOpen, onClose, conversationId, deviceId
   const [viewDetails, setViewDetails] = useState<ShareViewItem[]>([]);
   const [isLoadingViewDetails, setIsLoadingViewDetails] = useState(false);
   const [viewDetailsError, setViewDetailsError] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+  const pageSize = 20;
 
   // 获取分享列表
   const fetchShares = useCallback(async () => {
@@ -343,11 +347,11 @@ export default function ShareHistory({ isOpen, onClose, conversationId, deviceId
   }, []);
 
   // 获取分享的访问记录
-  const fetchShareViewDetails = useCallback(async (shareId: string) => {
+  const fetchShareViewDetails = useCallback(async (shareId: string, page: number = 1) => {
     try {
       setIsLoadingViewDetails(true);
       setViewDetailsError(null);
-      const response = await fetch(`/api/conversations/${conversationId}/share/${shareId}/views`, {
+      const response = await fetch(`/api/conversations/${conversationId}/share/${shareId}/views?page=${page}&pageSize=${pageSize}`, {
         headers: { 'x-device-id': deviceId },
       });
 
@@ -356,20 +360,23 @@ export default function ShareHistory({ isOpen, onClose, conversationId, deviceId
       }
 
       const data = await response.json();
-      setViewDetails(data);
+      setViewDetails(data.items || []);
+      setTotalItems(data.total || 0);
+      setTotalPages(data.totalPages || 1);
+      setCurrentPage(page);
     } catch (error) {
       console.error('获取访问记录失败:', error);
       setViewDetailsError('获取访问记录失败');
     } finally {
       setIsLoadingViewDetails(false);
     }
-  }, [conversationId, deviceId]);
+  }, [conversationId, deviceId, pageSize]);
 
   // 打开访问详情面板
   const handleOpenViewDetails = useCallback((shareId: string) => {
     setCurrentShareId(shareId);
     setShowViewDetails(true);
-    fetchShareViewDetails(shareId);
+    fetchShareViewDetails(shareId, 1);
   }, [fetchShareViewDetails]);
 
   // 关闭访问详情面板
@@ -377,7 +384,17 @@ export default function ShareHistory({ isOpen, onClose, conversationId, deviceId
     setShowViewDetails(false);
     setCurrentShareId(null);
     setViewDetails([]);
+    setCurrentPage(1);
+    setTotalPages(1);
+    setTotalItems(0);
   }, []);
+
+  // 处理分页
+  const handlePageChange = useCallback((newPage: number) => {
+    if (currentShareId) {
+      fetchShareViewDetails(currentShareId, newPage);
+    }
+  }, [currentShareId, fetchShareViewDetails]);
 
   // 处理背景点击关闭
   const handleBackgroundClick = useCallback((e: React.MouseEvent) => {
@@ -738,33 +755,71 @@ export default function ShareHistory({ isOpen, onClose, conversationId, deviceId
                   <p className="text-sm text-[#a3a3a3]">暂无访问记录</p>
                 </div>
               ) : (
-                <div className="space-y-4">
-                  {viewDetails.map((view) => (
-                    <div key={view.id} className="rounded-lg border border-black/[0.08] p-4">
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex-1">
-                          <div className="text-sm font-medium text-[#171717] mb-1">
-                            {new Date(view.viewedAt).toLocaleString('zh-CN')}
+                <div className="flex flex-col space-y-4">
+                  <div className="space-y-4">
+                    {viewDetails.map((view) => (
+                      <div key={view.id} className="rounded-lg border border-black/[0.08] p-4">
+                        <div className="flex items-start justify-between mb-3">
+                          <div className="flex-1">
+                            <div className="text-sm font-medium text-[#171717] mb-1">
+                              {new Date(view.viewedAt).toLocaleString('zh-CN')}
+                            </div>
+                            {view.referrer && (
+                              <div className="text-xs text-[#737373] mt-1">
+                                <span className="font-medium">来源:</span> {view.referrer}
+                              </div>
+                            )}
+                            {view.ip && (
+                              <div className="text-xs text-[#737373] mt-1">
+                                <span className="font-medium">IP:</span> {view.ip}
+                              </div>
+                            )}
+                            {view.userAgent && (
+                              <div className="text-xs text-[#737373] mt-1">
+                                <span className="font-medium">设备:</span> {view.userAgent}
+                              </div>
+                            )}
                           </div>
-                          {view.referrer && (
-                            <div className="text-xs text-[#737373] mt-1">
-                              <span className="font-medium">来源:</span> {view.referrer}
-                            </div>
-                          )}
-                          {view.ip && (
-                            <div className="text-xs text-[#737373] mt-1">
-                              <span className="font-medium">IP:</span> {view.ip}
-                            </div>
-                          )}
-                          {view.userAgent && (
-                            <div className="text-xs text-[#737373] mt-1">
-                              <span className="font-medium">设备:</span> {view.userAgent}
-                            </div>
-                          )}
                         </div>
                       </div>
+                    ))}
+                  </div>
+                  
+                  {/* 分页控件 */}
+                  <div className="flex items-center justify-between pt-4 border-t border-black/[0.06]">
+                    <div className="text-sm text-[#737373]">
+                      共 {totalItems} 条记录
                     </div>
-                  ))}
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handlePageChange(currentPage - 1)}
+                        disabled={currentPage === 1 || isLoadingViewDetails}
+                        className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition ${
+                          currentPage === 1 || isLoadingViewDetails
+                            ? 'border-black/[0.08] bg-[#f5f5f5] text-[#a3a3a3] cursor-not-allowed'
+                            : 'border-black/[0.08] bg-white text-[#171717] hover:bg-[#f5f5f5]'
+                        }`}
+                      >
+                        上一页
+                      </button>
+                      <span className="text-sm text-[#171717]">
+                        {currentPage} / {totalPages}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handlePageChange(currentPage + 1)}
+                        disabled={currentPage === totalPages || isLoadingViewDetails}
+                        className={`rounded-lg border px-3 py-1.5 text-sm font-medium transition ${
+                          currentPage === totalPages || isLoadingViewDetails
+                            ? 'border-black/[0.08] bg-[#f5f5f5] text-[#a3a3a3] cursor-not-allowed'
+                            : 'border-black/[0.08] bg-white text-[#171717] hover:bg-[#f5f5f5]'
+                        }`}
+                      >
+                        下一页
+                      </button>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
