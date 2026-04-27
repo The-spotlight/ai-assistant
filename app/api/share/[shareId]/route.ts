@@ -32,6 +32,14 @@ export async function GET(req: Request, ctx: { params: Promise<{ shareId: string
       );
     }
 
+    // 检查是否已删除
+    if (share.isDeleted) {
+      return NextResponse.json(
+        { error: '分享链接已被删除' },
+        { status: 404 }
+      );
+    }
+
     // 检查是否过期
     if (isShareExpired(share.expiresAt)) {
       return NextResponse.json(
@@ -122,6 +130,14 @@ export async function POST(req: Request, ctx: { params: Promise<{ shareId: strin
     if (!share) {
       return NextResponse.json(
         { error: '分享链接不存在或已过期' },
+        { status: 404 }
+      );
+    }
+
+    // 检查是否已删除
+    if (share.isDeleted) {
+      return NextResponse.json(
+        { error: '分享链接已被删除' },
         { status: 404 }
       );
     }

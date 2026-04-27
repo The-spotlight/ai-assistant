@@ -120,6 +120,10 @@ model Share {
   hasPassword    Boolean      @default(false)
   /// 访问密码（哈希）
   passwordHash   String?
+  /// 是否被删除（软删除标记）
+  isDeleted      Boolean      @default(false)
+  /// 删除时间（用于回收站，7天后自动清理）
+  deletedAt      DateTime?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
   /// 访问记录
@@ -128,6 +132,8 @@ model Share {
   @@index([shareId])
   @@index([deviceId, createdAt(sort: Desc)])
   @@index([conversationId])
+  @@index([deviceId, isDeleted(sort: Asc), createdAt(sort: Desc)])
+  @@index([deviceId, isDeleted(sort: Desc), deletedAt(sort: Desc)])
 }
 
 /// 分享访问记录
