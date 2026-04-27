@@ -11,7 +11,6 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Missing device ID' }, { status: 400 });
     }
 
-    // 构建时间过滤条件
     const whereCondition: any = {
       deviceId,
     };
@@ -23,7 +22,6 @@ export async function GET(request: NextRequest) {
       };
     }
 
-    // 计算总点赞数
     const totalLikes = await prisma.messageFeedback.count({
       where: {
         ...whereCondition,
@@ -31,7 +29,6 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // 计算总点踩数
     const totalDislikes = await prisma.messageFeedback.count({
       where: {
         ...whereCondition,
@@ -39,7 +36,6 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // 计算各原因的分布
     const reasonStats = await prisma.messageFeedback.groupBy({
       by: ['reason'],
       where: {
@@ -58,7 +54,57 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // 格式化结果
+    const dailyStats = await prisma.messageFeedback.groupBy({
+      by: ['createdAt'],
+      where: whereCondition,
+      _count: {
+        liked: true,
+      },
+      _sum: {
+        liked: true,
+        disliked: true,
+      },
+      orderBy: {
+        createdAt: 'asc',
+      },
+    });
+
+    const formatDate = (date: Date) => {
+      const d = new Date(date);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    };
+
+    const dailyData: { date: string; likes: number; dislikes: number; total: number }[] = [];
+    
+    if (startDate && endDate) {
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      start.setHours(0, 0, 0, 0);
+      end.setHours(23, 59, 59, 999);
+
+      const current = new Date(start);
+      while (current <= end) {
+        const dateStr = formatDate(current);
+        dailyData.push({
+          date: dateStr,
+          likes: 0,
+          dislikes: 0,
+          total: 0,
+        });
+        current.setDate(current.getDate() + 1);
+      }
+    }
+
+    dailyStats.forEach(item => {
+      const dateStr = formatDate(item.createdAt);
+      const existing = dailyData.find(d => d.date === dateStr);
+      if (existing) {
+        existing.likes = item._sum.liked || 0;
+        existing.dislikes = item._sum.disliked || 0;
+        existing.total = item._count.liked;
+      }
+    });
+
     const stats = {
       totalLikes,
       totalDislikes,
@@ -66,6 +112,7 @@ export async function GET(request: NextRequest) {
         reason: item.reason,
         count: item._count.reason,
       })),
+      dailyTrend: dailyData,
     };
 
     return NextResponse.json(stats);
