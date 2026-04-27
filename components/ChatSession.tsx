@@ -536,7 +536,7 @@ export default function ChatSession({
 
     // 然后发送到服务器
     try {
-      await fetch('/api/message-feedback', {
+      const response = await fetch('/api/message-feedback', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -550,6 +550,16 @@ export default function ChatSession({
           disliked: newDisliked,
         }),
       });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Error sending like feedback:', errorData.error);
+        // 如果发送失败，回滚本地状态
+        setMessageFeedback(prev => ({
+          ...prev, 
+          [messageId]: current
+        }));
+      }
     } catch (error) {
       console.error('Error sending like feedback:', error);
       // 如果发送失败，回滚本地状态
@@ -586,7 +596,7 @@ export default function ChatSession({
 
     // 然后发送到服务器
     try {
-      await fetch('/api/message-feedback', {
+      const response = await fetch('/api/message-feedback', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -599,6 +609,16 @@ export default function ChatSession({
           ...newFeedback,
         }),
       });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Error sending dislike feedback:', errorData.error);
+        // 如果发送失败，回滚本地状态
+        setMessageFeedback(prev => ({
+          ...prev,
+          [messageId]: current
+        }));
+      }
     } catch (error) {
       console.error('Error sending dislike feedback:', error);
       // 如果发送失败，回滚本地状态
@@ -632,7 +652,7 @@ export default function ChatSession({
 
     // 然后发送到服务器
     try {
-      await fetch('/api/message-feedback', {
+      const response = await fetch('/api/message-feedback', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -645,6 +665,16 @@ export default function ChatSession({
           ...newFeedback,
         }),
       });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('Error sending undo dislike feedback:', errorData.error);
+        // 如果发送失败，回滚本地状态
+        setMessageFeedback(prev => ({
+          ...prev,
+          [messageId]: current
+        }));
+      }
     } catch (error) {
       console.error('Error sending undo dislike feedback:', error);
       // 如果发送失败，回滚本地状态

@@ -10,10 +10,25 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
+    // 先尝试通过messageId查找消息，如果找不到，再尝试通过clientMessageId查找
+    let message = await prisma.message.findUnique({
+      where: { id: messageId }
+    });
+
+    if (!message) {
+      message = await prisma.message.findFirst({
+        where: { clientMessageId: messageId }
+      });
+    }
+
+    if (!message) {
+      return NextResponse.json({ error: 'Invalid message ID' }, { status: 400 });
+    }
+
     const feedback = await prisma.messageFeedback.upsert({
       where: {
         messageId_deviceId: {
-          messageId,
+          messageId: message.id,
           deviceId,
         },
       },
@@ -24,7 +39,7 @@ export async function POST(request: NextRequest) {
         comment,
       },
       create: {
-        messageId,
+        messageId: message.id,
         conversationId,
         deviceId,
         liked,
@@ -38,7 +53,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Error creating/updating message feedback:', error);
     // 处理外键约束错误
-    if (error instanceof Error && error.message.includes('Foreign key constraint violated')) {
+    if (error instanceof Error && (error.message.includes('Foreign key constraint') || error.message.includes('The required connected records were not found'))) {
       return NextResponse.json({ error: 'Invalid message or conversation ID' }, { status: 400 });
     }
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
@@ -79,10 +94,25 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Missing required parameters' }, { status: 400 });
     }
 
+    // 先尝试通过messageId查找消息，如果找不到，再尝试通过clientMessageId查找
+    let message = await prisma.message.findUnique({
+      where: { id: messageId }
+    });
+
+    if (!message) {
+      message = await prisma.message.findFirst({
+        where: { clientMessageId: messageId }
+      });
+    }
+
+    if (!message) {
+      return NextResponse.json({ error: 'Invalid message ID' }, { status: 400 });
+    }
+
     await prisma.messageFeedback.delete({
       where: {
         messageId_deviceId: {
-          messageId,
+          messageId: message.id,
           deviceId,
         },
       },
