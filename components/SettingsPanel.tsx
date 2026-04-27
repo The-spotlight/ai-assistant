@@ -29,7 +29,7 @@ import { OPENROUTER_MODEL_OPTIONS } from '@/lib/openrouter-models';
 import { getOrCreateDeviceId } from '@/lib/device';
 import { downloadBlob } from '@/lib/export';
 
-type SettingsTab = 'appearance' | 'behavior' | 'model' | 'presets' | 'data';
+type SettingsTab = 'appearance' | 'behavior' | 'model' | 'keyboard' | 'presets' | 'data';
 
 function IconX(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -347,10 +347,33 @@ interface SettingsPanelProps {
   onTrashEmptied?: () => void;
 }
 
+function IconKeyboard(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      {...props}
+    >
+      <rect width="20" height="16" x="2" y="4" rx="2" />
+      <path d="M6 8h4" />
+      <path d="M14 8h4" />
+      <path d="M6 12h8" />
+      <path d="M14 16h4" />
+      <path d="M6 16h2" />
+    </svg>
+  );
+}
+
 const TAB_CONFIG: { key: SettingsTab; label: string; icon: typeof IconPalette }[] = [
   { key: 'appearance', label: '外观', icon: IconPalette },
   { key: 'behavior', label: '行为', icon: IconMousePointerClick },
   { key: 'model', label: '模型', icon: IconBot },
+  { key: 'keyboard', label: '快捷键', icon: IconKeyboard },
   { key: 'presets', label: '配置方案', icon: IconLayers },
   { key: 'data', label: '数据管理', icon: IconDatabase },
 ];
@@ -361,12 +384,15 @@ export default function SettingsPanel({ visible, onClose, onTrashEmptied }: Sett
     appearance,
     behavior,
     model,
+    keyboardShortcuts,
     updateAppearance,
     updateBehavior,
     updateModel,
+    updateKeyboardShortcuts,
     resetAppearance,
     resetBehavior,
     resetModel,
+    resetKeyboardShortcuts,
     resetAll,
     themeColors,
     presets,
@@ -428,6 +454,10 @@ export default function SettingsPanel({ visible, onClose, onTrashEmptied }: Sett
       case 'model':
         resetModel();
         setResetSuccess('模型');
+        break;
+      case 'keyboard':
+        resetKeyboardShortcuts();
+        setResetSuccess('快捷键');
         break;
       case 'data':
         setResetSuccess('数据管理');
@@ -532,6 +562,12 @@ export default function SettingsPanel({ visible, onClose, onTrashEmptied }: Sett
             <ModelTab
               model={model}
               updateModel={updateModel}
+            />
+          )}
+          {activeTab === 'keyboard' && (
+            <KeyboardTab
+              keyboardShortcuts={keyboardShortcuts}
+              updateKeyboardShortcuts={updateKeyboardShortcuts}
             />
           )}
           {activeTab === 'presets' && (
@@ -1120,6 +1156,96 @@ type ToastType = 'success' | 'error' | 'info';
 interface ToastMessage {
   type: ToastType;
   message: string;
+}
+
+function KeyboardTab({
+  keyboardShortcuts,
+  updateKeyboardShortcuts,
+}: {
+  keyboardShortcuts: any;
+  updateKeyboardShortcuts: any;
+}) {
+  const [editingKey, setEditingKey] = useState<string | null>(null);
+  const [currentValue, setCurrentValue] = useState<string>('');
+
+  const handleKeyDown = (e: React.KeyboardEvent, action: string) => {
+    e.preventDefault();
+    
+    let shortcut = '';
+    if (e.ctrlKey) shortcut += 'Ctrl+';
+    if (e.shiftKey) shortcut += 'Shift+';
+    if (e.altKey) shortcut += 'Alt+';
+    
+    const key = e.key.toUpperCase();
+    if (key.length === 1 || ['Enter', 'Space', 'Tab', 'Backspace', 'Delete', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(key)) {
+      shortcut += key;
+    }
+    
+    if (shortcut) {
+      updateKeyboardShortcuts(action as any, shortcut);
+      setEditingKey(null);
+    }
+  };
+
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium text-[#171717]">快捷键设置</span>
+        </div>
+        <p className="text-[11px] text-[#a3a3a3]">
+          点击输入框后，按下想要设置的快捷键组合
+        </p>
+      </div>
+
+      <div className="flex flex-col gap-4">
+        <div className="flex flex-col gap-2">
+          <label className="text-sm text-[#525252]">新建对话</label>
+          <div 
+            className={`flex items-center gap-2 p-3 border border-black/[0.08] rounded-lg transition-all ${editingKey === 'newConversation' ? 'ring-2 ring-[#171717]' : 'hover:bg-[#fafafa]'}`}
+            onKeyDown={(e) => editingKey === 'newConversation' && handleKeyDown(e, 'newConversation')}
+            onClick={() => setEditingKey('newConversation')}
+            tabIndex={0}
+          >
+            <span className="text-sm font-mono">{keyboardShortcuts.newConversation}</span>
+            {editingKey === 'newConversation' && (
+              <span className="text-xs text-[#a3a3a3]">请按下新的快捷键</span>
+            )}
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <label className="text-sm text-[#525252]">发送消息</label>
+          <div 
+            className={`flex items-center gap-2 p-3 border border-black/[0.08] rounded-lg transition-all ${editingKey === 'sendMessage' ? 'ring-2 ring-[#171717]' : 'hover:bg-[#fafafa]'}`}
+            onKeyDown={(e) => editingKey === 'sendMessage' && handleKeyDown(e, 'sendMessage')}
+            onClick={() => setEditingKey('sendMessage')}
+            tabIndex={0}
+          >
+            <span className="text-sm font-mono">{keyboardShortcuts.sendMessage}</span>
+            {editingKey === 'sendMessage' && (
+              <span className="text-xs text-[#a3a3a3]">请按下新的快捷键</span>
+            )}
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <label className="text-sm text-[#525252]">切换 AI 模型</label>
+          <div 
+            className={`flex items-center gap-2 p-3 border border-black/[0.08] rounded-lg transition-all ${editingKey === 'switchModel' ? 'ring-2 ring-[#171717]' : 'hover:bg-[#fafafa]'}`}
+            onKeyDown={(e) => editingKey === 'switchModel' && handleKeyDown(e, 'switchModel')}
+            onClick={() => setEditingKey('switchModel')}
+            tabIndex={0}
+          >
+            <span className="text-sm font-mono">{keyboardShortcuts.switchModel}</span>
+            {editingKey === 'switchModel' && (
+              <span className="text-xs text-[#a3a3a3]">请按下新的快捷键</span>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function DataTab({

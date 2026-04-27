@@ -33,6 +33,20 @@ export const SEND_SHORTCUT_OPTIONS = {
   ctrlEnter: { name: 'Ctrl+Enter 发送', value: 'ctrl+enter' },
 } as const;
 
+export interface KeyboardShortcuts {
+  newConversation: string;
+  sendMessage: string;
+  switchModel: string;
+}
+
+export const DEFAULT_KEYBOARD_SHORTCUTS: KeyboardShortcuts = {
+  newConversation: 'Ctrl+N',
+  sendMessage: 'Ctrl+Enter',
+  switchModel: 'Ctrl+Shift+P',
+};
+
+const KEYBOARD_SHORTCUTS_STORAGE_KEY = 'ai-assistant-keyboard-shortcuts';
+
 export const TIMESTAMP_FORMAT_OPTIONS = {
   relative: { name: '相对时间', value: 'relative' },
   absolute: { name: '绝对时间', value: 'absolute' },
@@ -367,7 +381,37 @@ export function saveModelSettings(settings: ModelSettings): void {
   }
 }
 
+export function loadKeyboardShortcuts(): KeyboardShortcuts {
+  if (typeof window === 'undefined') {
+    return DEFAULT_KEYBOARD_SHORTCUTS;
+  }
 
+  try {
+    const stored = localStorage.getItem(KEYBOARD_SHORTCUTS_STORAGE_KEY);
+    if (!stored) {
+      return DEFAULT_KEYBOARD_SHORTCUTS;
+    }
+
+    const parsed = JSON.parse(stored) as Partial<KeyboardShortcuts>;
+    
+    return {
+      newConversation: parsed.newConversation || DEFAULT_KEYBOARD_SHORTCUTS.newConversation,
+      sendMessage: parsed.sendMessage || DEFAULT_KEYBOARD_SHORTCUTS.sendMessage,
+      switchModel: parsed.switchModel || DEFAULT_KEYBOARD_SHORTCUTS.switchModel,
+    };
+  } catch {
+    return DEFAULT_KEYBOARD_SHORTCUTS;
+  }
+}
+
+export function saveKeyboardShortcuts(settings: KeyboardShortcuts): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(KEYBOARD_SHORTCUTS_STORAGE_KEY, JSON.stringify(settings));
+  } catch {
+    console.warn('Failed to save keyboard shortcuts');
+  }
+}
 
 const SETTINGS_STORAGE_KEY = 'ai-assistant-appearance-settings';
 
@@ -408,12 +452,15 @@ interface SettingsContextType {
   appearance: AppearanceSettings;
   behavior: BehaviorSettings;
   model: ModelSettings;
+  keyboardShortcuts: KeyboardShortcuts;
   updateAppearance: <K extends keyof AppearanceSettings>(key: K, value: AppearanceSettings[K]) => void;
   updateBehavior: <K extends keyof BehaviorSettings>(key: K, value: BehaviorSettings[K]) => void;
   updateModel: <K extends keyof ModelSettings>(key: K, value: ModelSettings[K]) => void;
+  updateKeyboardShortcuts: <K extends keyof KeyboardShortcuts>(key: K, value: KeyboardShortcuts[K]) => void;
   resetAppearance: () => void;
   resetBehavior: () => void;
   resetModel: () => void;
+  resetKeyboardShortcuts: () => void;
   resetAll: () => void;
   themeColors: typeof THEME_PRESETS[ThemeKey];
   settings: AppearanceSettings;
@@ -449,6 +496,12 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     }
     return DEFAULT_MODEL_SETTINGS;
   });
+  const [keyboardShortcuts, setKeyboardShortcuts] = useState<KeyboardShortcuts>(() => {
+    if (typeof window !== 'undefined') {
+      return loadKeyboardShortcuts();
+    }
+    return DEFAULT_KEYBOARD_SHORTCUTS;
+  });
   const [isLoaded, setIsLoaded] = useState(typeof window !== 'undefined');
   const [presets, setPresets] = useState<SettingsPreset[]>(() => {
     if (typeof window !== 'undefined') {
@@ -468,6 +521,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setAppearance(loadSettings());
       setBehavior(loadBehaviorSettings());
       setModel(loadModelSettings());
+      setKeyboardShortcuts(loadKeyboardShortcuts());
       setPresets(loadPresets());
       setActivePresetId(loadActivePresetId());
       setIsLoaded(true);
@@ -550,6 +604,17 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const updateKeyboardShortcuts = useCallback(<K extends keyof KeyboardShortcuts>(
+    key: K,
+    value: KeyboardShortcuts[K]
+  ) => {
+    setKeyboardShortcuts((prev) => {
+      const newSettings = { ...prev, [key]: value };
+      saveKeyboardShortcuts(newSettings);
+      return newSettings;
+    });
+  }, []);
+
   const resetAppearance = useCallback(() => {
     setAppearance(DEFAULT_SETTINGS);
     saveSettings(DEFAULT_SETTINGS);
@@ -565,11 +630,17 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     saveModelSettings(DEFAULT_MODEL_SETTINGS);
   }, []);
 
+  const resetKeyboardShortcuts = useCallback(() => {
+    setKeyboardShortcuts(DEFAULT_KEYBOARD_SHORTCUTS);
+    saveKeyboardShortcuts(DEFAULT_KEYBOARD_SHORTCUTS);
+  }, []);
+
   const resetAll = useCallback(() => {
     resetAppearance();
     resetBehavior();
     resetModel();
-  }, [resetAppearance, resetBehavior, resetModel]);
+    resetKeyboardShortcuts();
+  }, [resetAppearance, resetBehavior, resetModel, resetKeyboardShortcuts]);
 
   const themeColors = THEME_PRESETS[appearance.theme];
 
@@ -604,12 +675,15 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         appearance,
         behavior,
         model,
+        keyboardShortcuts,
         updateAppearance,
         updateBehavior,
         updateModel,
+        updateKeyboardShortcuts,
         resetAppearance,
         resetBehavior,
         resetModel,
+        resetKeyboardShortcuts,
         resetAll,
         themeColors,
         settings: appearance,
