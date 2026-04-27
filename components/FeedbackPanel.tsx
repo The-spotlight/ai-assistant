@@ -312,31 +312,19 @@ export default function FeedbackPanel({ visible, onClose }: FeedbackPanelProps) 
             <IconFeedback className="h-4 w-4 text-[#171717]" />
             <span className="text-sm font-medium text-[#171717]">反馈统计</span>
           </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => stats && downloadFeedbackStatsAsCsv(stats)}
-              disabled={!stats || loading}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#525252] bg-white border border-[#e5e5e5] rounded-lg hover:bg-[#fafafa] hover:border-[#d4d4d4] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              aria-label="导出CSV"
-            >
-              <IconDownload className="h-3.5 w-3.5" />
-              导出CSV
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              className="text-[#737373] hover:text-[#404040] transition-colors"
-              aria-label="关闭"
-            >
-              <IconX className="h-4 w-4" />
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="text-[#737373] hover:text-[#404040] transition-colors"
+            aria-label="关闭"
+          >
+            <IconX className="h-4 w-4" />
+          </button>
         </div>
 
         <div className="flex-1 overflow-y-auto p-4">
           <div className="mb-6">
-            <div className="flex flex-wrap gap-2 mb-3">
+            <div className="flex flex-wrap items-center gap-2 mb-3">
               <button
                 type="button"
                 className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${timeRange === 'today' ? 'bg-[#171717] text-white' : 'bg-[#f5f5f5] text-[#525252] hover:bg-[#e5e5e5]'}`}
@@ -364,6 +352,17 @@ export default function FeedbackPanel({ visible, onClose }: FeedbackPanelProps) 
                 onClick={() => setTimeRange('custom')}
               >
                 自定义
+              </button>
+              <div className="flex-1"></div>
+              <button
+                type="button"
+                onClick={() => stats && downloadFeedbackStatsAsCsv(stats)}
+                disabled={loading || !stats || (timeRange === 'custom' && (!customStartDate || !customEndDate))}
+                className="flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full transition-all border disabled:cursor-not-allowed disabled:opacity-40 disabled:bg-[#fafafa] disabled:border-[#e5e5e5] disabled:text-[#a3a3a3] disabled:hover:bg-[#fafafa] disabled:hover:border-[#e5e5e5] disabled:hover:text-[#a3a3a3] bg-white border border-[#d4d4d4] text-[#525252] hover:bg-[#fafafa] hover:border-[#171717] hover:text-[#171717]"
+                aria-label="导出CSV"
+              >
+                <IconDownload className="h-3.5 w-3.5" />
+                导出CSV
               </button>
             </div>
             
