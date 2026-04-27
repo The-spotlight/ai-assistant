@@ -36,7 +36,14 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     role: m.role,
     content: m.content,
     createdAt: m.createdAt.toISOString(),
+    toolInvocations: m.toolInvocations,
+    promptTokens: m.promptTokens,
+    completionTokens: m.completionTokens,
+    totalTokens: m.totalTokens,
+    replyToId: m.replyToId,
+    replyToSnapshot: m.replyToSnapshot,
   }));
+
 
   return NextResponse.json({ messages });
 }

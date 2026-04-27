@@ -499,13 +499,19 @@ export default function ExportPanel({
 
           {/* 自定义备注 */}
           <div>
-            <label className="block text-xs font-medium text-[#737373] mb-1.5">自定义备注</label>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="block text-xs font-medium text-[#737373]">自定义备注</label>
+              <span className={`text-[10px] ${customNote.length > 500 ? 'text-[#ef4444]' : 'text-[#a3a3a3]'}`}>
+                {customNote.length}/500
+              </span>
+            </div>
             <textarea
               value={customNote}
-              onChange={(e) => setCustomNote(e.target.value)}
-              placeholder="添加备注信息（可选）"
+              onChange={(e) => setCustomNote(e.target.value.slice(0, 500))}
+              placeholder="添加备注信息（可选，最多 500 字）"
               rows={2}
               className="w-full px-3 py-2 text-sm bg-[#fafafa] border border-black/[0.08] rounded-xl focus:outline-none focus:ring-2 focus:ring-[#171717]/20 focus:border-[#171717]/20 placeholder:text-[#a3a3a3] resize-none"
+              maxLength={500}
             />
           </div>
 
