@@ -14,6 +14,7 @@ import {
   type BubbleStyleKey,
   type AppearanceSettings,
 } from '@/lib/theme-constants';
+import { getOrCreateDeviceId } from '@/lib/device';
 
 export {
   THEME_PRESETS,
@@ -516,17 +517,86 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     return null;
   });
 
-  useEffect(() => {
-    if (!isLoaded) {
+  // 从服务器加载设置
+  const loadSettingsFromServer = useCallback(async () => {
+    try {
+      const deviceId = getOrCreateDeviceId();
+      const response = await fetch('/api/settings', {
+        headers: {
+          'x-device-id': deviceId,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.appearance) {
+          setAppearance(data.appearance);
+          saveSettings(data.appearance);
+        }
+        if (data.behavior) {
+          setBehavior(data.behavior);
+          saveBehaviorSettings(data.behavior);
+        }
+        if (data.model) {
+          setModel(data.model);
+          saveModelSettings(data.model);
+        }
+        if (data.keyboardShortcuts) {
+          setKeyboardShortcuts(data.keyboardShortcuts);
+          saveKeyboardShortcuts(data.keyboardShortcuts);
+        }
+      }
+    } catch (error) {
+      console.error('从服务器加载设置失败:', error);
+      // 加载失败时使用本地存储的设置
       setAppearance(loadSettings());
       setBehavior(loadBehaviorSettings());
       setModel(loadModelSettings());
       setKeyboardShortcuts(loadKeyboardShortcuts());
+    }
+  }, []);
+
+  // 保存设置到服务器
+  const saveSettingsToServer = useCallback(async () => {
+    try {
+      const deviceId = getOrCreateDeviceId();
+      const response = await fetch('/api/settings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-device-id': deviceId,
+        },
+        body: JSON.stringify({
+          appearance,
+          behavior,
+          model,
+          keyboardShortcuts,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('保存设置失败');
+      }
+    } catch (error) {
+      console.error('保存设置到服务器失败:', error);
+    }
+  }, [appearance, behavior, model, keyboardShortcuts]);
+
+  useEffect(() => {
+    if (!isLoaded) {
+      loadSettingsFromServer();
       setPresets(loadPresets());
       setActivePresetId(loadActivePresetId());
       setIsLoaded(true);
     }
-  }, [isLoaded]);
+  }, [isLoaded, loadSettingsFromServer]);
+
+  // 当设置更改时，保存到服务器
+  useEffect(() => {
+    if (isLoaded) {
+      saveSettingsToServer();
+    }
+  }, [appearance, behavior, model, keyboardShortcuts, isLoaded, saveSettingsToServer]);
 
   const refreshPresets = useCallback(() => {
     setPresets(loadPresets());

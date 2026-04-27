@@ -1292,7 +1292,7 @@ export default function Home() {
   const prevAutoArchiveRef = useRef<boolean | null>(null);
   const prevAutoArchiveDaysRef = useRef<number | null>(null);
 
-  const { behavior } = useSettings();
+  const { behavior, keyboardShortcuts } = useSettings();
 
   const loadConversations = useCallback(async (did: string) => {
     const r = await fetch('/api/conversations', { headers: { 'x-device-id': did } });
@@ -1808,6 +1808,54 @@ export default function Home() {
     prevAutoArchiveRef.current = behavior.autoArchive;
     prevAutoArchiveDaysRef.current = behavior.autoArchiveDays as number;
   }, [deviceId, behavior.autoArchive, behavior.autoArchiveDays, performAutoArchive]);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // 检查是否按下了Ctrl键
+      const isCtrlPressed = e.ctrlKey;
+      // 检查是否按下了Shift键
+      const isShiftPressed = e.shiftKey;
+      // 检查是否按下了Alt键
+      const isAltPressed = e.altKey;
+      // 获取按下的键
+      const key = e.key.toUpperCase();
+
+      // 构建当前按下的快捷键字符串
+      let currentShortcut = '';
+      if (isCtrlPressed) currentShortcut += 'Ctrl+';
+      if (isShiftPressed) currentShortcut += 'Shift+';
+      if (isAltPressed) currentShortcut += 'Alt+';
+      currentShortcut += key;
+
+      // 检查是否匹配新建对话的快捷键
+      if (currentShortcut === keyboardShortcuts.newConversation) {
+        e.preventDefault();
+        void newChat();
+      }
+
+      // 检查是否匹配发送消息的快捷键
+      if (currentShortcut === keyboardShortcuts.sendMessage) {
+        // 发送消息的逻辑将在ChatSession组件中处理
+        // 这里只需要阻止默认行为
+        e.preventDefault();
+      }
+
+      // 检查是否匹配切换模型的快捷键
+      if (currentShortcut === keyboardShortcuts.switchModel) {
+        e.preventDefault();
+        // 切换模型的逻辑将在后续实现
+        console.log('切换模型快捷键被触发');
+      }
+    };
+
+    // 添加键盘事件监听器
+    document.addEventListener('keydown', handleKeyDown);
+
+    // 清理函数
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [keyboardShortcuts, newChat]);
 
   async function selectConversation(id: string) {
     if (!deviceId) return;

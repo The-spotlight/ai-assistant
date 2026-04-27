@@ -153,3 +153,22 @@ model ShareView {
   @@index([shareId])
   @@index([shareId, viewedAt(sort: Desc)])
 }
+
+/// 用户设置
+model UserSetting {
+  id                String   @id @default(cuid())
+  deviceId          String
+  /// 外观设置（JSON）
+  appearance        Json?
+  /// 行为设置（JSON）
+  behavior          Json?
+  /// 模型设置（JSON）
+  model             Json?
+  /// 快捷键设置（JSON）
+  keyboardShortcuts Json?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([deviceId])
+  @@index([deviceId])
+}
