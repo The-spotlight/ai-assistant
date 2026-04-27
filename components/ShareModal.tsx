@@ -202,11 +202,22 @@ export default function ShareModal({ isOpen, onClose, conversationId, deviceId, 
     onClose();
   }, [onClose, resetState]);
 
-  if (!isOpen) return null;
+  // 处理背景点击关闭
+  const handleBackgroundClick = useCallback((e: React.MouseEvent) => {
+    if (e.target === e.currentTarget) {
+      handleClose();
+    }
+  }, [handleClose]);
+
+  if (!isOpen) {
+    // 当模态框关闭时重置状态
+    resetState();
+    return null;
+  }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-      <div className="w-full max-w-md rounded-2xl border border-black/[0.08] bg-white shadow-2xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={handleBackgroundClick}>
+      <div className="w-full max-w-md rounded-2xl border border-black/[0.08] bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
         {/* 顶部关闭按钮 */}
         <div className="flex justify-end p-4 border-b border-black/[0.06]">
           <button
@@ -227,6 +238,17 @@ export default function ShareModal({ isOpen, onClose, conversationId, deviceId, 
               </div>
               <h3 className="mb-2 text-center text-lg font-semibold text-[#171717]">分享失败</h3>
               <p className="mb-6 text-center text-sm text-[#737373]">{shareError}</p>
+              <div className="flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShareError(null);
+                  }}
+                  className="inline-flex items-center gap-2 rounded-lg border border-black/[0.08] bg-white px-4 py-2 text-sm font-medium text-[#171717] transition-colors hover:bg-[#f5f5f5]"
+                >
+                  重试
+                </button>
+              </div>
             </>
           ) : shareUrl ? (
             <>
