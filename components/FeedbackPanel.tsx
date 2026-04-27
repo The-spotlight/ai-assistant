@@ -62,13 +62,154 @@ type FeedbackStats = {
     reason: string;
     count: number;
   }[];
+  dailyTrend: {
+    date: string;
+    likes: number;
+    dislikes: number;
+    total: number;
+  }[];
 };
 
 type TimeRange = 'today' | 'last7days' | 'last30days' | 'custom';
+type ViewMode = 'daily' | 'weekly';
 
 interface FeedbackPanelProps {
   visible: boolean;
   onClose: () => void;
+}
+
+function SimpleLineChart({ data, height = 120 }: { data: FeedbackStats['dailyTrend']; height: number }) {
+  if (!data || data.length === 0) {
+    return (
+      <div className="flex items-center justify-center py-8 text-sm text-[#737373]">
+        暂无趋势数据
+      </div>
+    );
+  }
+
+  const maxValue = Math.max(...data.map(d => Math.max(d.likes, d.dislikes)), 1);
+  const padding = 20;
+  const chartHeight = height - padding * 2;
+  const chartWidth = '100%';
+
+  const getY = (value: number) => padding + chartHeight * (1 - value / maxValue);
+
+  const likesPoints = data.map((d, i) => {
+    const x = (i / (data.length - 1)) * 100;
+    const y = getY(d.likes);
+    return `${x},${y}`;
+  }).join(' ');
+
+  const dislikesPoints = data.map((d, i) => {
+    const x = (i / (data.length - 1)) * 100;
+    const y = getY(d.dislikes);
+    return `${x},${y}`;
+  }).join(' ');
+
+  const likesAreaPoints = `0,${height} ${likesPoints} 100,${height}`;
+  const dislikesAreaPoints = `0,${height} ${dislikesPoints} 100,${height}`;
+
+  return (
+    <div className="relative w-full" style={{ height }}>
+      <svg viewBox={`0 0 100 ${height}`} preserveAspectRatio="none" className="w-full h-full">
+        <defs>
+          <linearGradient id="likesGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor="#22c55e" stopOpacity="0.3" />
+            <stop offset="100%" stopColor="#22c55e" stopOpacity="0" />
+          </linearGradient>
+          <linearGradient id="dislikesGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stopColor="#ef4444" stopOpacity="0.3" />
+            <stop offset="100%" stopColor="#ef4444" stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        
+        {[0.25, 0.5, 0.75, 1].map((ratio, i) => (
+          <line
+            key={i}
+            x1="0"
+            y1={padding + chartHeight * (1 - ratio)}
+            x2="100"
+            y2={padding + chartHeight * (1 - ratio)}
+            stroke="#f5f5f5"
+            strokeWidth="0.5"
+            strokeDasharray="2,2"
+          />
+        ))}
+
+        <polygon points={likesAreaPoints} fill="url(#likesGradient)" />
+        <polygon points={dislikesAreaPoints} fill="url(#dislikesGradient)" />
+
+        <polyline
+          points={likesPoints}
+          fill="none"
+          stroke="#22c55e"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <polyline
+          points={dislikesPoints}
+          fill="none"
+          stroke="#ef4444"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+
+        {data.map((d, i) => {
+          const x = (i / (data.length - 1)) * 100;
+          if (d.likes > 0) {
+            return (
+              <circle
+                key={`like-${i}`}
+                cx={x}
+                cy={getY(d.likes)}
+                r="2.5"
+                fill="#22c55e"
+                className="opacity-0 hover:opacity-100 transition-opacity"
+              />
+            );
+          }
+          return null;
+        })}
+
+        {data.map((d, i) => {
+          const x = (i / (data.length - 1)) * 100;
+          if (d.dislikes > 0) {
+            return (
+              <circle
+                key={`dislike-${i}`}
+                cx={x}
+                cy={getY(d.dislikes)}
+                r="2.5"
+                fill="#ef4444"
+                className="opacity-0 hover:opacity-100 transition-opacity"
+              />
+            );
+          }
+          return null;
+        })}
+      </svg>
+
+      <div className="flex justify-between mt-2 px-1">
+        {data.length <= 14 && data.map((d, i) => {
+          const date = new Date(d.date);
+          const label = data.length <= 7 
+            ? `${date.getMonth() + 1}/${date.getDate()}`
+            : `${date.getMonth() + 1}/${date.getDate()}`;
+          return (
+            <div
+              key={i}
+              className="text-xs text-[#737373] flex-1 text-center"
+              style={{ textAlign: data.length > 7 ? 'left' : 'center' }}
+            >
+              {label}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 export default function FeedbackPanel({ visible, onClose }: FeedbackPanelProps) {
@@ -76,7 +217,8 @@ export default function FeedbackPanel({ visible, onClose }: FeedbackPanelProps) 
   const [stats, setStats] = useState<FeedbackStats | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [timeRange, setTimeRange] = useState<TimeRange>('today');
+  const [timeRange, setTimeRange] = useState<TimeRange>('last7days');
+  const [viewMode, setViewMode] = useState<ViewMode>('daily');
   const [customStartDate, setCustomStartDate] = useState<string>('');
   const [customEndDate, setCustomEndDate] = useState<string>('');
 
@@ -122,7 +264,6 @@ export default function FeedbackPanel({ visible, onClose }: FeedbackPanelProps) 
   const [isFirstLoad, setIsFirstLoad] = useState(true);
 
   const fetchFeedbackStats = useCallback(async () => {
-    // 只有首次加载或错误状态下才显示loading
     if (isFirstLoad || error) {
       setLoading(true);
     }
@@ -165,7 +306,6 @@ export default function FeedbackPanel({ visible, onClose }: FeedbackPanelProps) 
   }, [visible, fetchFeedbackStats]);
 
   useEffect(() => {
-    // 当时间范围改变时自动更新数据（除了自定义范围）
     if (visible && timeRange !== 'custom') {
       fetchFeedbackStats();
     }
@@ -195,13 +335,42 @@ export default function FeedbackPanel({ visible, onClose }: FeedbackPanelProps) 
     };
   }, [visible, onClose]);
 
+  const getWeeklyData = (dailyData: FeedbackStats['dailyTrend']) => {
+    const weeklyMap = new Map<string, { likes: number; dislikes: number; total: number }>();
+    
+    dailyData.forEach(item => {
+      const date = new Date(item.date);
+      const dayOfWeek = date.getDay();
+      const monday = new Date(date);
+      monday.setDate(date.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1));
+      const weekStart = monday.toISOString().split('T')[0];
+      
+      if (!weeklyMap.has(weekStart)) {
+        weeklyMap.set(weekStart, { likes: 0, dislikes: 0, total: 0 });
+      }
+      const weekData = weeklyMap.get(weekStart)!;
+      weekData.likes += item.likes;
+      weekData.dislikes += item.dislikes;
+      weekData.total += item.total;
+    });
+    
+    return Array.from(weeklyMap.entries()).map(([date, data]) => ({
+      date,
+      ...data,
+    }));
+  };
+
+  const displayData = viewMode === 'weekly' && stats?.dailyTrend 
+    ? getWeeklyData(stats.dailyTrend) 
+    : stats?.dailyTrend;
+
   if (!visible) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
       <div
         ref={panelRef}
-        className="mx-4 w-full max-w-md max-h-[80vh] flex flex-col overflow-hidden rounded-2xl border border-black/[0.06] bg-white shadow-[0_4px_24px_-4px_rgba(0,0,0,0.1),0_1px_2px_rgba(0,0,0,0.04)]"
+        className="mx-4 w-full max-w-lg max-h-[80vh] flex flex-col overflow-hidden rounded-2xl border border-black/[0.06] bg-white shadow-[0_4px_24px_-4px_rgba(0,0,0,0.1),0_1px_2px_rgba(0,0,0,0.04)]"
         style={{ animation: 'scaleIn 0.2s ease-out' }}
       >
         <style>{`
@@ -233,7 +402,6 @@ export default function FeedbackPanel({ visible, onClose }: FeedbackPanelProps) 
         </div>
 
         <div className="flex-1 overflow-y-auto p-4">
-          {/* 时间范围选择 */}
           <div className="mb-6">
             <div className="flex flex-wrap gap-2 mb-3">
               <button
@@ -359,7 +527,6 @@ export default function FeedbackPanel({ visible, onClose }: FeedbackPanelProps) 
             </div>
           ) : stats ? (
             <div className="flex flex-col gap-6">
-              {/* 总反馈统计 */}
               <div className="flex items-center justify-around gap-4 py-4 border-b border-black/[0.06]">
                 <div className="flex flex-col items-center gap-2">
                   <div className="flex items-center justify-center w-12 h-12 rounded-full bg-[#f0fdf4] text-[#22c55e]">
@@ -378,7 +545,43 @@ export default function FeedbackPanel({ visible, onClose }: FeedbackPanelProps) 
                 </div>
               </div>
 
-              {/* 原因分布 */}
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-medium text-[#171717]">赞踩趋势</h3>
+                  <div className="flex gap-1">
+                    <button
+                      type="button"
+                      className={`px-2 py-1 text-xs font-medium rounded-md transition-colors ${viewMode === 'daily' ? 'bg-[#171717] text-white' : 'bg-[#f5f5f5] text-[#525252] hover:bg-[#e5e5e5]'}`}
+                      onClick={() => setViewMode('daily')}
+                    >
+                      每日
+                    </button>
+                    <button
+                      type="button"
+                      className={`px-2 py-1 text-xs font-medium rounded-md transition-colors ${viewMode === 'weekly' ? 'bg-[#171717] text-white' : 'bg-[#f5f5f5] text-[#525252] hover:bg-[#e5e5e5]'}`}
+                      onClick={() => setViewMode('weekly')}
+                    >
+                      每周
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-4 mb-2">
+                  <div className="flex items-center gap-1">
+                    <div className="w-3 h-0.5 bg-[#22c55e]"></div>
+                    <span className="text-xs text-[#525252]">点赞</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <div className="w-3 h-0.5 bg-[#ef4444]"></div>
+                    <span className="text-xs text-[#525252]">点踩</span>
+                  </div>
+                </div>
+
+                <div className="bg-[#fafafa] rounded-lg p-3 border border-[#e5e5e5]">
+                  <SimpleLineChart data={displayData || []} height={140} />
+                </div>
+              </div>
+
               <div>
                 <h3 className="text-sm font-medium text-[#171717] mb-3">反馈原因分布</h3>
                 {stats.reasonDistribution.length > 0 ? (
@@ -391,7 +594,7 @@ export default function FeedbackPanel({ visible, onClose }: FeedbackPanelProps) 
                         </div>
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-medium text-[#171717]">{item.count}</span>
-                          <div className="flex-1 h-2 bg-[#f5f5f5] rounded-full ml-2">
+                          <div className="flex-1 h-2 bg-[#f5f5f5] rounded-full ml-2 max-w-[120px]">
                             <div 
                               className="h-full bg-[#171717] rounded-full transition-all"
                               style={{ 
