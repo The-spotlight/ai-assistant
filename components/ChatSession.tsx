@@ -312,7 +312,7 @@ export default function ChatSession({
   templateContent,
   onTemplateUsed,
 }: ChatSessionProps) {
-  const { settings, themeColors, behavior, model } = useSettings();
+  const { settings, themeColors, behavior, model, keyboardShortcuts } = useSettings();
   const bubbleStyle = BUBBLE_STYLES[settings.bubbleStyle];
   const fontSizeConfig = FONT_SIZES[settings.fontSize];
 
@@ -723,19 +723,20 @@ export default function ChatSession({
     // 发送快捷键处理
     const isEnter = e.key === 'Enter';
     const isCtrlOrCmd = e.ctrlKey || e.metaKey;
+    const isShiftPressed = e.shiftKey;
+    const isAltPressed = e.altKey;
     
-    if (isEnter && input.trim() && !isLoading) {
-      if (behavior.sendShortcut === 'enter') {
-        if (!isCtrlOrCmd && !e.shiftKey) {
-          e.preventDefault();
-          handleFormSubmit(e);
-        }
-      } else if (behavior.sendShortcut === 'ctrlEnter') {
-        if (isCtrlOrCmd) {
-          e.preventDefault();
-          handleFormSubmit(e);
-        }
-      }
+    // 构建当前按下的快捷键字符串
+    let currentShortcut = '';
+    if (isCtrlOrCmd) currentShortcut += 'Ctrl+';
+    if (isShiftPressed) currentShortcut += 'Shift+';
+    if (isAltPressed) currentShortcut += 'Alt+';
+    currentShortcut += e.key.toUpperCase();
+
+    // 检查是否匹配发送消息的快捷键
+    if (currentShortcut === keyboardShortcuts.sendMessage && input.trim() && !isLoading) {
+      e.preventDefault();
+      handleFormSubmit(e);
     }
   };
 
