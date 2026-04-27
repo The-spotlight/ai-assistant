@@ -15,6 +15,16 @@ interface ConversationExport {
   updatedAt?: string;
 }
 
+export type ExportFormat = 'markdown' | 'plaintext' | 'json';
+
+export interface ExportOptions {
+  format: ExportFormat;
+  includeMetadata?: boolean;
+  selectedMessageIds?: string[];
+  customTitle?: string;
+  customNote?: string;
+}
+
 function sanitizeFilename(name: string): string {
   return name.replace(/[<>:"/\\|?*]/g, '_').replace(/\s+/g, '_').substring(0, 100);
 }
@@ -35,16 +45,35 @@ function formatMessageForExport(message: Message, prefix?: string): string {
   return `## ${rolePrefix}${roleLabel}\n\n${content}\n\n`;
 }
 
+function formatMessageForPlainText(message: Message): string {
+  const roleLabel = message.role === 'user' ? '我' : message.role === 'assistant' ? 'AI' : '系统';
+  const content = message.content.trim();
+  const timestamp = message.createdAt ? new Date(message.createdAt).toLocaleString('zh-CN') : '';
+  
+  return `${roleLabel} ${timestamp ? `(${timestamp})` : ''}\n${content}\n\n`;
+}
+
+function getFilteredMessages(conversation: ConversationExport, selectedMessageIds?: string[]): Message[] {
+  if (!selectedMessageIds || selectedMessageIds.length === 0) {
+    return conversation.messages.filter(m => m.role !== 'system');
+  }
+  return conversation.messages.filter(m => m.role !== 'system' && selectedMessageIds.includes(m.id));
+}
+
 export function conversationToMarkdown(
   conversation: ConversationExport,
-  options?: { includeMetadata?: boolean }
+  options?: ExportOptions
 ): string {
-  const { includeMetadata = true } = options || {};
+  const { includeMetadata = true, selectedMessageIds, customTitle, customNote } = options || {};
   
   let markdown = '';
   
-  const title = conversation.title?.trim() || '未命名对话';
+  const title = customTitle?.trim() || conversation.title?.trim() || '未命名对话';
   markdown += `# ${title}\n\n`;
+  
+  if (customNote) {
+    markdown += `## 备注\n\n${customNote}\n\n`;
+  }
   
   if (includeMetadata) {
     if (conversation.createdAt) {
@@ -58,23 +87,99 @@ export function conversationToMarkdown(
     markdown += `---\n\n`;
   }
   
-  for (const message of conversation.messages) {
-    if (message.role === 'system') continue;
+  const messages = getFilteredMessages(conversation, selectedMessageIds);
+  for (const message of messages) {
     markdown += formatMessageForExport(message);
   }
   
   return markdown;
 }
 
+export function conversationToPlainText(
+  conversation: ConversationExport,
+  options?: ExportOptions
+): string {
+  const { includeMetadata = true, selectedMessageIds, customTitle, customNote } = options || {};
+  
+  let plainText = '';
+  
+  const title = customTitle?.trim() || conversation.title?.trim() || '未命名对话';
+  plainText += `${title}\n${'='.repeat(title.length)}\n\n`;
+  
+  if (customNote) {
+    plainText += `备注:\n${customNote}\n\n`;
+  }
+  
+  if (includeMetadata) {
+    if (conversation.createdAt) {
+      const createdDate = new Date(conversation.createdAt);
+      plainText += `创建时间: ${createdDate.toLocaleString('zh-CN')}\n`;
+    }
+    if (conversation.updatedAt) {
+      const updatedDate = new Date(conversation.updatedAt);
+      plainText += `更新时间: ${updatedDate.toLocaleString('zh-CN')}\n`;
+    }
+    plainText += `\n`;
+  }
+  
+  const messages = getFilteredMessages(conversation, selectedMessageIds);
+  for (const message of messages) {
+    plainText += formatMessageForPlainText(message);
+  }
+  
+  return plainText;
+}
+
+export function conversationToJson(
+  conversation: ConversationExport,
+  options?: ExportOptions
+): string {
+  const { selectedMessageIds, customTitle, customNote } = options || {};
+  
+  const messages = getFilteredMessages(conversation, selectedMessageIds);
+  
+  const exportData = {
+    id: conversation.id,
+    title: customTitle?.trim() || conversation.title?.trim() || '未命名对话',
+    note: customNote,
+    metadata: {
+      createdAt: conversation.createdAt,
+      updatedAt: conversation.updatedAt
+    },
+    messages: messages
+  };
+  
+  return JSON.stringify(exportData, null, 2);
+}
+
+export function conversationToFormat(
+  conversation: ConversationExport,
+  options: ExportOptions
+): string {
+  switch (options.format) {
+    case 'markdown':
+      return conversationToMarkdown(conversation, options);
+    case 'plaintext':
+      return conversationToPlainText(conversation, options);
+    case 'json':
+      return conversationToJson(conversation, options);
+    default:
+      return conversationToMarkdown(conversation, options);
+  }
+}
+
 export async function createZipFromConversations(
-  conversations: ConversationExport[]
+  conversations: ConversationExport[],
+  options?: ExportOptions
 ): Promise<Uint8Array> {
   const zip = new JSZip();
+  const format = options?.format || 'markdown';
   
   for (const conv of conversations) {
-    const title = conv.title?.trim() || '未命名对话';
-    const filename = `${sanitizeFilename(title)}.md`;
-    const content = conversationToMarkdown(conv);
+    const title = options?.customTitle?.trim() || conv.title?.trim() || '未命名对话';
+    const extension = format === 'markdown' ? 'md' : format === 'plaintext' ? 'txt' : 'json';
+    const filename = `${sanitizeFilename(title)}.${extension}`;
+    const content = conversationToFormat(conv, { ...options, format });
     zip.file(filename, content);
   }
   
