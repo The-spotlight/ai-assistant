@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { getOrCreateDeviceId } from '@/lib/device';
+import { downloadFeedbackStatsAsCsv } from '@/lib/export';
 import {
   LineChart,
   Line,
@@ -60,6 +61,16 @@ function IconLoader(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden {...props}>
       <path d="M21 12a9 9 0 1 1-6.219-8.56" />
+    </svg>
+  );
+}
+
+function IconDownload(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden {...props}>
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="7 10 12 15 17 10" />
+      <line x1="12" y1="15" x2="12" y2="3" />
     </svg>
   );
 }
@@ -301,14 +312,26 @@ export default function FeedbackPanel({ visible, onClose }: FeedbackPanelProps) 
             <IconFeedback className="h-4 w-4 text-[#171717]" />
             <span className="text-sm font-medium text-[#171717]">反馈统计</span>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-[#737373] hover:text-[#404040] transition-colors"
-            aria-label="关闭"
-          >
-            <IconX className="h-4 w-4" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => stats && downloadFeedbackStatsAsCsv(stats)}
+              disabled={!stats || loading}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-[#525252] bg-white border border-[#e5e5e5] rounded-lg hover:bg-[#fafafa] hover:border-[#d4d4d4] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              aria-label="导出CSV"
+            >
+              <IconDownload className="h-3.5 w-3.5" />
+              导出CSV
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="text-[#737373] hover:text-[#404040] transition-colors"
+              aria-label="关闭"
+            >
+              <IconX className="h-4 w-4" />
+            </button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto p-4">

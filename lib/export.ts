@@ -196,3 +196,63 @@ export function downloadBlob(blob: Blob, filename: string): void {
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
 }
+
+interface FeedbackStats {
+  totalLikes: number;
+  totalDislikes: number;
+  reasonDistribution: {
+    reason: string;
+    count: number;
+  }[];
+  dailyTrend: {
+    date: string;
+    likes: number;
+    dislikes: number;
+    total: number;
+  }[];
+}
+
+function escapeCsvField(field: string | number): string {
+  const value = String(field);
+  if (value.includes(',') || value.includes('"') || value.includes('\n')) {
+    return `"${value.replace(/"/g, '""')}"`;
+  }
+  return value;
+}
+
+export function feedbackStatsToCsv(stats: FeedbackStats): string {
+  let csv = '';
+  
+  csv += '# 反馈统计报告\n';
+  csv += `统计时间: ${new Date().toLocaleString('zh-CN')}\n`;
+  csv += '\n';
+  
+  csv += '# 总体统计\n';
+  csv += '指标,数值\n';
+  csv += `总赞数,${stats.totalLikes}\n`;
+  csv += `总踩数,${stats.totalDislikes}\n`;
+  csv += `总反馈数,${stats.totalLikes + stats.totalDislikes}\n`;
+  csv += '\n';
+  
+  csv += '# 每日趋势\n';
+  csv += '日期,赞数,踩数,总数\n';
+  stats.dailyTrend.forEach(item => {
+    csv += `${escapeCsvField(item.date)},${item.likes},${item.dislikes},${item.total}\n`;
+  });
+  csv += '\n';
+  
+  csv += '# 反馈原因分布\n';
+  csv += '原因,数量\n';
+  stats.reasonDistribution.forEach(item => {
+    csv += `${escapeCsvField(item.reason)},${item.count}\n`;
+  });
+  
+  return csv;
+}
+
+export function downloadFeedbackStatsAsCsv(stats: FeedbackStats): void {
+  const csv = feedbackStatsToCsv(stats);
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const filename = `反馈统计_${new Date().toISOString().split('T')[0]}.csv`;
+  downloadBlob(blob, filename);
+}
