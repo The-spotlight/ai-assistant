@@ -64,6 +64,8 @@ type FeedbackStats = {
   }[];
 };
 
+type TimeRange = 'today' | 'last7days' | 'last30days' | 'custom';
+
 interface FeedbackPanelProps {
   visible: boolean;
   onClose: () => void;
@@ -74,6 +76,48 @@ export default function FeedbackPanel({ visible, onClose }: FeedbackPanelProps) 
   const [stats, setStats] = useState<FeedbackStats | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [timeRange, setTimeRange] = useState<TimeRange>('today');
+  const [customStartDate, setCustomStartDate] = useState<string>('');
+  const [customEndDate, setCustomEndDate] = useState<string>('');
+
+  const getDateRange = useCallback(() => {
+    const now = new Date();
+    const endDate = new Date(now);
+    endDate.setHours(23, 59, 59, 999);
+    
+    let startDate: Date;
+    
+    switch (timeRange) {
+      case 'today':
+        startDate = new Date(now);
+        startDate.setHours(0, 0, 0, 0);
+        break;
+      case 'last7days':
+        startDate = new Date(now);
+        startDate.setDate(now.getDate() - 7);
+        startDate.setHours(0, 0, 0, 0);
+        break;
+      case 'last30days':
+        startDate = new Date(now);
+        startDate.setDate(now.getDate() - 30);
+        startDate.setHours(0, 0, 0, 0);
+        break;
+      case 'custom':
+        if (!customStartDate || !customEndDate) {
+          return { startDate: null, endDate: null };
+        }
+        startDate = new Date(customStartDate);
+        startDate.setHours(0, 0, 0, 0);
+        const customEnd = new Date(customEndDate);
+        customEnd.setHours(23, 59, 59, 999);
+        return { startDate, endDate: customEnd };
+      default:
+        startDate = new Date(now);
+        startDate.setHours(0, 0, 0, 0);
+    }
+    
+    return { startDate, endDate };
+  }, [timeRange, customStartDate, customEndDate]);
 
   const fetchFeedbackStats = useCallback(async () => {
     setLoading(true);
@@ -81,7 +125,14 @@ export default function FeedbackPanel({ visible, onClose }: FeedbackPanelProps) 
     
     try {
       const deviceId = getOrCreateDeviceId();
-      const response = await fetch('/api/feedback-stats', {
+      const { startDate, endDate } = getDateRange();
+      
+      let url = '/api/feedback-stats';
+      if (startDate && endDate) {
+        url += `?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`;
+      }
+      
+      const response = await fetch(url, {
         headers: {
           'x-device-id': deviceId,
         },
@@ -99,13 +150,20 @@ export default function FeedbackPanel({ visible, onClose }: FeedbackPanelProps) 
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [getDateRange]);
 
   useEffect(() => {
     if (visible) {
       fetchFeedbackStats();
     }
   }, [visible, fetchFeedbackStats]);
+
+  useEffect(() => {
+    // 当时间范围改变时自动更新数据（除了自定义范围）
+    if (visible && timeRange !== 'custom') {
+      fetchFeedbackStats();
+    }
+  }, [timeRange, visible, fetchFeedbackStats]);
 
   useEffect(() => {
     if (!visible) return;
@@ -169,6 +227,70 @@ export default function FeedbackPanel({ visible, onClose }: FeedbackPanelProps) 
         </div>
 
         <div className="flex-1 overflow-y-auto p-4">
+          {/* 时间范围选择 */}
+          <div className="mb-6">
+            <div className="flex flex-wrap gap-2 mb-3">
+              <button
+                type="button"
+                className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${timeRange === 'today' ? 'bg-[#171717] text-white' : 'bg-[#f5f5f5] text-[#525252] hover:bg-[#e5e5e5]'}`}
+                onClick={() => setTimeRange('today')}
+              >
+                今天
+              </button>
+              <button
+                type="button"
+                className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${timeRange === 'last7days' ? 'bg-[#171717] text-white' : 'bg-[#f5f5f5] text-[#525252] hover:bg-[#e5e5e5]'}`}
+                onClick={() => setTimeRange('last7days')}
+              >
+                最近7天
+              </button>
+              <button
+                type="button"
+                className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${timeRange === 'last30days' ? 'bg-[#171717] text-white' : 'bg-[#f5f5f5] text-[#525252] hover:bg-[#e5e5e5]'}`}
+                onClick={() => setTimeRange('last30days')}
+              >
+                最近30天
+              </button>
+              <button
+                type="button"
+                className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${timeRange === 'custom' ? 'bg-[#171717] text-white' : 'bg-[#f5f5f5] text-[#525252] hover:bg-[#e5e5e5]'}`}
+                onClick={() => setTimeRange('custom')}
+              >
+                自定义
+              </button>
+            </div>
+            
+            {timeRange === 'custom' && (
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-[#737373] w-20">开始日期</label>
+                  <input
+                    type="date"
+                    value={customStartDate}
+                    onChange={(e) => setCustomStartDate(e.target.value)}
+                    className="flex-1 px-2 py-1 text-xs border border-[#e5e5e5] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#171717]"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-[#737373] w-20">结束日期</label>
+                  <input
+                    type="date"
+                    value={customEndDate}
+                    onChange={(e) => setCustomEndDate(e.target.value)}
+                    className="flex-1 px-2 py-1 text-xs border border-[#e5e5e5] rounded-lg focus:outline-none focus:ring-1 focus:ring-[#171717]"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={fetchFeedbackStats}
+                  className="mt-2 px-4 py-1.5 text-xs font-medium text-white bg-[#171717] rounded-lg hover:bg-black transition-colors"
+                >
+                  应用
+                </button>
+              </div>
+            )}
+          </div>
+
           {loading ? (
             <div className="flex flex-col items-center justify-center py-12">
               <IconLoader className="h-8 w-8 text-[#d4d4d4] animate-spin mb-3" />
@@ -195,7 +317,7 @@ export default function FeedbackPanel({ visible, onClose }: FeedbackPanelProps) 
                     <IconThumbsUp className="h-6 w-6" />
                   </div>
                   <div className="text-2xl font-bold text-[#171717]">{stats.totalLikes}</div>
-                  <div className="text-xs text-[#737373]">总点赞</div>
+                  <div className="text-xs text-[#737373]">点赞</div>
                 </div>
                 <div className="w-px h-12 bg-[#e5e5e5]"></div>
                 <div className="flex flex-col items-center gap-2">
@@ -203,7 +325,7 @@ export default function FeedbackPanel({ visible, onClose }: FeedbackPanelProps) 
                     <IconThumbsDown className="h-6 w-6" />
                   </div>
                   <div className="text-2xl font-bold text-[#171717]">{stats.totalDislikes}</div>
-                  <div className="text-xs text-[#737373]">总点踩</div>
+                  <div className="text-xs text-[#737373]">点踩</div>
                 </div>
               </div>
 
