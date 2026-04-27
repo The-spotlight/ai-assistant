@@ -270,39 +270,61 @@ export default function FeedbackPanel({ visible, onClose }: FeedbackPanelProps) 
               <div className="flex flex-col gap-2 p-3 bg-[#fafafa] rounded-lg border border-[#e5e5e5]">
                 <div className="flex items-center gap-2">
                   <label className="text-xs font-medium text-[#525252] w-20">开始日期</label>
-                  <input
-                    type="date"
-                    value={customStartDate}
-                    onChange={(e) => setCustomStartDate(e.target.value)}
-                    className="flex-1 px-3 py-2 text-xs border border-[#e5e5e5] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#171717]/20 transition-all bg-white"
-                    style={{
-                      appearance: 'none',
-                      WebkitAppearance: 'none',
-                      MozAppearance: 'none',
-                      backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"%3E%3Cpath d=\"M8 3v4l3 3-3 3V6h5l3 3-3 3h5V3z\"/%3E%3C/svg%3E")',
-                      backgroundRepeat: 'no-repeat',
-                      backgroundPosition: 'right 8px center',
-                      backgroundSize: '16px 16px'
-                    }}
-                  />
+                  <div className="flex-1 relative">
+                    <input
+                      type="text"
+                      value={customStartDate}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        const dateInput = document.createElement('input');
+                        dateInput.type = 'date';
+                        dateInput.value = customStartDate;
+                        dateInput.onchange = (ev) => {
+                          setCustomStartDate((ev.target as HTMLInputElement).value);
+                        };
+                        dateInput.click();
+                      }}
+                      className="w-full px-3 py-2 text-xs border border-[#e5e5e5] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#171717]/20 transition-all bg-white cursor-pointer"
+                      placeholder="选择开始日期"
+                    />
+                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-[#737373]">
+                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect width="18" height="18" x="3" y="4" rx="2" ry="2" />
+                        <line x1="16" x2="16" y1="2" y2="6" />
+                        <line x1="8" x2="8" y1="2" y2="6" />
+                        <line x1="3" x2="21" y1="10" y2="10" />
+                      </svg>
+                    </div>
+                  </div>
                 </div>
                 <div className="flex items-center gap-2">
                   <label className="text-xs font-medium text-[#525252] w-20">结束日期</label>
-                  <input
-                    type="date"
-                    value={customEndDate}
-                    onChange={(e) => setCustomEndDate(e.target.value)}
-                    className="flex-1 px-3 py-2 text-xs border border-[#e5e5e5] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#171717]/20 transition-all bg-white"
-                    style={{
-                      appearance: 'none',
-                      WebkitAppearance: 'none',
-                      MozAppearance: 'none',
-                      backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\"http://www.w3.org/2000/svg\" width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"%3E%3Cpath d=\"M8 3v4l3 3-3 3V6h5l3 3-3 3h5V3z\"/%3E%3C/svg%3E")',
-                      backgroundRepeat: 'no-repeat',
-                      backgroundPosition: 'right 8px center',
-                      backgroundSize: '16px 16px'
-                    }}
-                  />
+                  <div className="flex-1 relative">
+                    <input
+                      type="text"
+                      value={customEndDate}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        const dateInput = document.createElement('input');
+                        dateInput.type = 'date';
+                        dateInput.value = customEndDate;
+                        dateInput.onchange = (ev) => {
+                          setCustomEndDate((ev.target as HTMLInputElement).value);
+                        };
+                        dateInput.click();
+                      }}
+                      className="w-full px-3 py-2 text-xs border border-[#e5e5e5] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#171717]/20 transition-all bg-white cursor-pointer"
+                      placeholder="选择结束日期"
+                    />
+                    <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-[#737373]">
+                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <rect width="18" height="18" x="3" y="4" rx="2" ry="2" />
+                        <line x1="16" x2="16" y1="2" y2="6" />
+                        <line x1="8" x2="8" y1="2" y2="6" />
+                        <line x1="3" x2="21" y1="10" y2="10" />
+                      </svg>
+                    </div>
+                  </div>
                 </div>
                 <button
                   type="button"
