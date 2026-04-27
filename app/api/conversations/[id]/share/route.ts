@@ -102,9 +102,9 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
       return NextResponse.json({ error: '会话不存在' }, { status: 404 });
     }
 
-    // 获取该会话的所有分享记录
+    // 获取该会话的未删除分享记录
     const shares = await prisma.share.findMany({
-      where: { conversationId, deviceId },
+      where: { conversationId, deviceId, isDeleted: false },
       orderBy: { createdAt: 'desc' },
     });
 
@@ -137,5 +137,73 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
   } catch (e) {
     console.error('[GET /api/conversations/:id/share]', e);
     return NextResponse.json({ error: '获取分享列表失败' }, { status: 500 });
+  }
+}
+
+/**
+ * 获取会话的回收区分享记录（已删除的分享）
+ */
+export async function GET_RECYCLE(req: Request, ctx: { params: Promise<{ id: string }> }) {
+  const { id: conversationId } = await ctx.params;
+  const deviceId = req.headers.get('x-device-id');
+  
+  if (!deviceId) {
+    return NextResponse.json({ error: '缺少 X-Device-Id' }, { status: 400 });
+  }
+
+  try {
+    // 检查会话是否存在且属于当前设备
+    const conversation = await prisma.conversation.findFirst({
+      where: { id: conversationId, deviceId, isDeleted: false },
+    });
+
+    if (!conversation) {
+      return NextResponse.json({ error: '会话不存在' }, { status: 404 });
+    }
+
+    // 获取该会话的已删除分享记录（7天内）
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    
+    const shares = await prisma.share.findMany({
+      where: {
+        conversationId,
+        deviceId,
+        isDeleted: true,
+        deletedAt: { gte: sevenDaysAgo },
+      },
+      orderBy: { deletedAt: 'desc' },
+    });
+
+    const shareUrlPrefix = `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/s/`;
+
+    // 为每个分享获取访问次数和最近一次访问时间
+    const sharesWithUrl = await Promise.all(
+      shares.map(async (share) => {
+        const viewCount = await prisma.shareView.count({
+          where: { shareId: share.shareId },
+        });
+        const latestView = await prisma.shareView.findFirst({
+          where: { shareId: share.shareId },
+          orderBy: { viewedAt: 'desc' },
+        });
+        return {
+          shareId: share.shareId,
+          shareUrl: `${shareUrlPrefix}${share.shareId}`,
+          title: share.title,
+          expiresAt: share.expiresAt?.toISOString() || null,
+          hasPassword: share.hasPassword,
+          createdAt: share.createdAt.toISOString(),
+          deletedAt: share.deletedAt?.toISOString() || null,
+          viewCount,
+          lastViewedAt: latestView?.viewedAt.toISOString() || null,
+        };
+      })
+    );
+
+    return NextResponse.json(sharesWithUrl);
+  } catch (e) {
+    console.error('[GET /api/conversations/:id/share/recycle]', e);
+    return NextResponse.json({ error: '获取回收区分享列表失败' }, { status: 500 });
   }
 }

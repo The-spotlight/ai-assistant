@@ -37,9 +37,13 @@ export async function DELETE(req: Request, ctx: { params: Promise<{ id: string; 
       return NextResponse.json({ error: '分享记录不存在' }, { status: 404 });
     }
 
-    // 删除分享记录
-    await prisma.share.delete({
+    // 软删除分享记录
+    await prisma.share.update({
       where: { id: share.id },
+      data: {
+        isDeleted: true,
+        deletedAt: new Date(),
+      },
     });
 
     return NextResponse.json({ success: true });
