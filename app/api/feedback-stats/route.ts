@@ -4,15 +4,29 @@ import { prisma } from '@/lib/db';
 export async function GET(request: NextRequest) {
   try {
     const deviceId = request.headers.get('x-device-id');
+    const startDate = request.nextUrl.searchParams.get('startDate');
+    const endDate = request.nextUrl.searchParams.get('endDate');
 
     if (!deviceId) {
       return NextResponse.json({ error: 'Missing device ID' }, { status: 400 });
     }
 
+    // 构建时间过滤条件
+    const whereCondition: any = {
+      deviceId,
+    };
+
+    if (startDate && endDate) {
+      whereCondition.createdAt = {
+        gte: new Date(startDate),
+        lte: new Date(endDate),
+      };
+    }
+
     // 计算总点赞数
     const totalLikes = await prisma.messageFeedback.count({
       where: {
-        deviceId,
+        ...whereCondition,
         liked: true,
       },
     });
@@ -20,7 +34,7 @@ export async function GET(request: NextRequest) {
     // 计算总点踩数
     const totalDislikes = await prisma.messageFeedback.count({
       where: {
-        deviceId,
+        ...whereCondition,
         disliked: true,
       },
     });
@@ -29,7 +43,7 @@ export async function GET(request: NextRequest) {
     const reasonStats = await prisma.messageFeedback.groupBy({
       by: ['reason'],
       where: {
-        deviceId,
+        ...whereCondition,
         reason: {
           not: null,
         },
