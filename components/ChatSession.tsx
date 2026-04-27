@@ -442,6 +442,7 @@ export default function ChatSession({
   const [showDislikeModal, setShowDislikeModal] = useState<string | null>(null);
   const [dislikeReason, setDislikeReason] = useState<string>('');
   const [dislikeComment, setDislikeComment] = useState<string>('');
+  const [isLoadingFeedback, setIsLoadingFeedback] = useState(false);
 
   // 格式化相对时间
   const formatRelativeTime = useCallback((dateStr: string) => {
@@ -522,18 +523,42 @@ export default function ChatSession({
   }, []);
 
   // 处理点赞
-  const handleLike = useCallback((messageId: string) => {
-    setMessageFeedback(prev => {
-      const current = prev[messageId] || { liked: false, disliked: false };
-      if (current.liked) {
-        // 取消点赞
-        return { ...prev, [messageId]: { ...current, liked: false } };
-      } else {
-        // 点赞，同时取消点踩
-        return { ...prev, [messageId]: { liked: true, disliked: false } };
-      }
-    });
-  }, []);
+  const handleLike = useCallback(async (messageId: string) => {
+    const current = messageFeedback[messageId] || { liked: false, disliked: false };
+    const newLiked = !current.liked;
+    const newDisliked = false;
+
+    // 先更新本地状态
+    setMessageFeedback(prev => ({
+      ...prev, 
+      [messageId]: { ...current, liked: newLiked, disliked: newDisliked }
+    }));
+
+    // 然后发送到服务器
+    try {
+      await fetch('/api/message-feedback', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-device-id': deviceId,
+        },
+        body: JSON.stringify({
+          messageId,
+          conversationId,
+          deviceId,
+          liked: newLiked,
+          disliked: newDisliked,
+        }),
+      });
+    } catch (error) {
+      console.error('Error sending like feedback:', error);
+      // 如果发送失败，回滚本地状态
+      setMessageFeedback(prev => ({
+        ...prev, 
+        [messageId]: current
+      }));
+    }
+  }, [messageFeedback, deviceId, conversationId]);
 
   // 处理点踩
   const handleDislike = useCallback((messageId: string) => {
@@ -543,21 +568,46 @@ export default function ChatSession({
   }, []);
 
   // 提交点踩原因
-  const handleDislikeSubmit = useCallback((messageId: string) => {
-    setMessageFeedback(prev => {
-      const current = prev[messageId] || { liked: false, disliked: false };
-      return { 
-        ...prev, 
-        [messageId]: { 
-          liked: false, 
-          disliked: true, 
-          reason: dislikeReason, 
-          comment: dislikeComment 
-        } 
-      };
-    });
+  const handleDislikeSubmit = useCallback(async (messageId: string) => {
+    const current = messageFeedback[messageId] || { liked: false, disliked: false };
+    const newFeedback = {
+      liked: false,
+      disliked: true,
+      reason: dislikeReason,
+      comment: dislikeComment
+    };
+
+    // 先更新本地状态
+    setMessageFeedback(prev => ({
+      ...prev,
+      [messageId]: newFeedback
+    }));
     setShowDislikeModal(null);
-  }, [dislikeReason, dislikeComment]);
+
+    // 然后发送到服务器
+    try {
+      await fetch('/api/message-feedback', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-device-id': deviceId,
+        },
+        body: JSON.stringify({
+          messageId,
+          conversationId,
+          deviceId,
+          ...newFeedback,
+        }),
+      });
+    } catch (error) {
+      console.error('Error sending dislike feedback:', error);
+      // 如果发送失败，回滚本地状态
+      setMessageFeedback(prev => ({
+        ...prev,
+        [messageId]: current
+      }));
+    }
+  }, [messageFeedback, dislikeReason, dislikeComment, deviceId, conversationId]);
 
   // 取消点踩
   const handleCancelDislike = useCallback(() => {
@@ -565,12 +615,45 @@ export default function ChatSession({
   }, []);
 
   // 取消点踩状态
-  const handleUndoDislike = useCallback((messageId: string) => {
-    setMessageFeedback(prev => {
-      const current = prev[messageId] || { liked: false, disliked: false };
-      return { ...prev, [messageId]: { ...current, disliked: false, reason: undefined, comment: undefined } };
-    });
-  }, []);
+  const handleUndoDislike = useCallback(async (messageId: string) => {
+    const current = messageFeedback[messageId] || { liked: false, disliked: false };
+    const newFeedback = {
+      ...current,
+      disliked: false,
+      reason: undefined,
+      comment: undefined
+    };
+
+    // 先更新本地状态
+    setMessageFeedback(prev => ({
+      ...prev,
+      [messageId]: newFeedback
+    }));
+
+    // 然后发送到服务器
+    try {
+      await fetch('/api/message-feedback', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-device-id': deviceId,
+        },
+        body: JSON.stringify({
+          messageId,
+          conversationId,
+          deviceId,
+          ...newFeedback,
+        }),
+      });
+    } catch (error) {
+      console.error('Error sending undo dislike feedback:', error);
+      // 如果发送失败，回滚本地状态
+      setMessageFeedback(prev => ({
+        ...prev,
+        [messageId]: current
+      }));
+    }
+  }, [messageFeedback, deviceId, conversationId]);
 
   // 清理高亮定时器
   useEffect(() => {
@@ -580,6 +663,44 @@ export default function ChatSession({
       }
     };
   }, []);
+
+  // 加载消息反馈数据
+  useEffect(() => {
+    const loadFeedback = async () => {
+      if (!deviceId) return;
+
+      setIsLoadingFeedback(true);
+      try {
+        const response = await fetch('/api/message-feedback', {
+          headers: {
+            'x-device-id': deviceId,
+          },
+        });
+
+        if (response.ok) {
+          const feedbacks = await response.json();
+          const feedbackMap: Record<string, { liked: boolean; disliked: boolean; reason?: string; comment?: string }> = {};
+
+          feedbacks.forEach((feedback: any) => {
+            feedbackMap[feedback.messageId] = {
+              liked: feedback.liked,
+              disliked: feedback.disliked,
+              reason: feedback.reason,
+              comment: feedback.comment,
+            };
+          });
+
+          setMessageFeedback(feedbackMap);
+        }
+      } catch (error) {
+        console.error('Error loading message feedback:', error);
+      } finally {
+        setIsLoadingFeedback(false);
+      }
+    };
+
+    loadFeedback();
+  }, [deviceId]);
 
   // 计算总 token 数和费用
   const { totalTokens, totalCost } = useMemo(() => {

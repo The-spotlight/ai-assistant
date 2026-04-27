@@ -32,6 +32,7 @@ model Conversation {
   messages  Message[]
   favorites Favorite[]
   shares    Share[]
+  feedbacks MessageFeedback[]
 
   @@index([deviceId, updatedAt(sort: Desc)])
   @@index([updatedAt(sort: Desc)])
@@ -73,6 +74,7 @@ model Message {
   @@index([replyToId])
   
   favorites Favorite[]
+  feedbacks MessageFeedback[]
 }
 
 /// 收藏的消息
@@ -171,4 +173,25 @@ model UserSetting {
 
   @@unique([deviceId])
   @@index([deviceId])
+}
+
+/// 消息反馈
+model MessageFeedback {
+  id            String   @id @default(cuid())
+  messageId     String
+  message       Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  conversationId String
+  conversation  Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  deviceId      String
+  liked         Boolean  @default(false)
+  disliked      Boolean  @default(false)
+  reason        String?
+  comment       String?   @db.Text
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([messageId, deviceId])
+  @@index([deviceId, createdAt(sort: Desc)])
+  @@index([messageId])
+  @@index([conversationId])
 }
