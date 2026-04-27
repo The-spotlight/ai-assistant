@@ -670,7 +670,7 @@ export default function ExportPanel({
                         </div>
                       </button>
 
-                      <div className={`min-w-0 flex-1 ${itemPadding} flex items-center justify-between cursor-pointer`} onClick={() => isSelected && toggleExpandConversation(c.id, new MouseEvent('click'))}>
+                      <div className={`min-w-0 flex-1 ${itemPadding} flex items-center justify-between cursor-pointer`} onClick={(e) => isSelected && toggleExpandConversation(c.id, e)}>
                         <div className="min-w-0">
                           <span className={`${titleLines} text-[13px] font-medium leading-snug text-[#171717] ${
                             isNarrow ? 'text-[12px]' : ''

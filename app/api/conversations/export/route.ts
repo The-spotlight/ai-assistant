@@ -91,7 +91,7 @@ export async function POST(req: Request) {
   const filename = ids && ids.length > 0 ? `对话导出_${timestamp}.zip` : `全部对话导出_${timestamp}.zip`;
   const sanitizedFilename = encodeURIComponent(filename);
 
-  return new Response(zipBuffer, {
+  return new Response(Buffer.from(zipBuffer), {
     headers: {
       'Content-Type': 'application/zip',
       'Content-Disposition': `attachment; filename*=UTF-8''${sanitizedFilename}`,
@@ -142,7 +142,7 @@ export async function GET(req: Request) {
   const filename = `全部对话导出_${timestamp}.zip`;
   const sanitizedFilename = encodeURIComponent(filename);
 
-  return new Response(zipBuffer, {
+  return new Response(Buffer.from(zipBuffer), {
     headers: {
       'Content-Type': 'application/zip',
       'Content-Disposition': `attachment; filename*=UTF-8''${sanitizedFilename}`,

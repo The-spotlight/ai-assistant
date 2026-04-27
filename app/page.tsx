@@ -77,6 +77,8 @@ type FavoriteItem = {
   messageCreatedAt: string;
   conversationTitle: string | null;
   createdAt: string;
+  replyToId: string | null;
+  replyToSnapshot: string | null;
 };
 
 type TrashedConversationRow = {

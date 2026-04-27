@@ -955,14 +955,15 @@ function BehaviorTab({
             <span className="text-sm font-medium text-[#171717]">归档天数</span>
           </div>
           <div className="flex gap-2">
-            {(Object.entries(AUTO_ARCHIVE_DAYS_OPTIONS) as [AutoArchiveDaysKey, typeof AUTO_ARCHIVE_DAYS_OPTIONS[AutoArchiveDaysKey]][]).map(
+            {Object.entries(AUTO_ARCHIVE_DAYS_OPTIONS).map(
               ([key, option]) => {
-                const isSelected = behavior.autoArchiveDays === key;
+                const numKey = Number(key) as AutoArchiveDaysKey;
+                const isSelected = behavior.autoArchiveDays === numKey;
                 return (
                   <button
                     key={key}
                     type="button"
-                    onClick={() => updateBehavior('autoArchiveDays', key)}
+                    onClick={() => updateBehavior('autoArchiveDays', numKey)}
                     className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg text-sm transition-all ${
                       isSelected
                         ? 'bg-[#171717] text-white'

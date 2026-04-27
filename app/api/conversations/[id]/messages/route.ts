@@ -3,13 +3,12 @@ import { prisma } from '@/lib/db';
 
 export const runtime = 'nodejs';
 
-export async function GET(req: Request, { params }: { params: { id: string } }) {
+export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }) {
+  const { id } = await ctx.params;
   const deviceId = req.headers.get('x-device-id');
   if (!deviceId) {
     return NextResponse.json({ error: '缺少 X-Device-Id' }, { status: 400 });
   }
-
-  const { id } = params;
   if (!id) {
     return NextResponse.json({ error: '缺少对话 ID' }, { status: 400 });
   }
