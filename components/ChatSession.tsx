@@ -908,15 +908,13 @@ export default function ChatSession({
                 </span>
               </div>
               <div className="relative" ref={menuContainerRef}>
-                <Button
-                  variant="ghost"
-                  size="icon"
+                <div
                   onClick={() => setShowMenu(!showMenu)}
                   title="更多选项"
-                  className="text-[#a3a3a3] hover:text-[#171717]"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-[#a3a3a3] hover:text-[#171717] hover:bg-[#f5f5f5] cursor-pointer transition-colors"
                 >
-                  <MoreVertical className="h-4 w-4" />
-                </Button>
+                  <MoreVertical className="h-5 w-5" />
+                </div>
 
                 {/* 下拉菜单 */}
                 {showMenu && (

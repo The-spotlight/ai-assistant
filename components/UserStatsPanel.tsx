@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { getOrCreateDeviceId } from '@/lib/device';
 import { CloseButton } from '@/components/ui/Dialog';
-import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
+import { BarChart, Bar, XAxis, ResponsiveContainer, Label } from 'recharts';
 import { Calendar, Clock, BarChart3, Loader2, User } from 'lucide-react';
 
 type UserStats = {
@@ -40,19 +40,17 @@ function formatDate(dateStr: string): string {
   return `${date.getMonth() + 1}/${date.getDate()}`;
 }
 
-const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: { dataKey: string; value: number; payload: { date: string } }[]; label?: string }) => {
-  if (active && payload && payload.length) {
-    return (
-      <div className="bg-white border border-[#e5e5e5] rounded-lg shadow-lg p-3">
-        <div className="text-sm font-medium text-[#171717] mb-2">{payload[0].payload.date}</div>
-        <div className="flex items-center justify-between gap-4">
-          <span className="text-xs text-[#525252]">会话数</span>
-          <span className="text-sm font-medium text-[#171717]">{payload[0].value}</span>
-        </div>
-      </div>
-    );
-  }
-  return null;
+const CustomLabel = ({ x, y, value }: { x: number; y: number; value: number }) => {
+  return (
+    <text
+      x={x}
+      y={y - 8}
+      textAnchor="middle"
+      className="text-xs font-medium fill-[#171717]"
+    >
+      {value}
+    </text>
+  );
 };
 
 export default function UserStatsPanel({ visible, onClose }: UserStatsPanelProps) {
@@ -194,7 +192,7 @@ export default function UserStatsPanel({ visible, onClose }: UserStatsPanelProps
 
                 <div className="bg-[#fafafa] rounded-xl p-4 border border-[#e5e5e5]">
                   <ResponsiveContainer width="100%" height={180}>
-                    <BarChart data={stats.last7DaysUsage}>
+                    <BarChart data={stats.last7DaysUsage} margin={{ top: 20, right: 10, left: 10, bottom: 5 }}>
                       <XAxis
                         dataKey="date"
                         tickFormatter={formatDate}
@@ -202,17 +200,11 @@ export default function UserStatsPanel({ visible, onClose }: UserStatsPanelProps
                         axisLine={{ stroke: '#e5e5e5' }}
                         tickLine={{ stroke: '#e5e5e5' }}
                       />
-                      <YAxis
-                        tick={{ fill: '#737373', fontSize: 11 }}
-                        axisLine={{ stroke: '#e5e5e5' }}
-                        tickLine={{ stroke: '#e5e5e5' }}
-                        allowDecimals={false}
-                      />
-                      <Tooltip content={<CustomTooltip />} />
                       <Bar
                         dataKey="conversationCount"
                         fill="#171717"
                         radius={[4, 4, 0, 0]}
+                        label={{ position: 'top', content: CustomLabel }}
                       />
                     </BarChart>
                   </ResponsiveContainer>
