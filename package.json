@@ -36,6 +36,7 @@
     "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "crypto-browserify": "^3.12.1",
     "html2canvas": "^1.4.1",
     "jose": "^6.2.3",
     "jsonwebtoken": "^9.0.3",

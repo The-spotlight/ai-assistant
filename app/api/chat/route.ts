@@ -100,6 +100,7 @@ async function persistUserMessage(
   conversationId: string,
   clientId: string,
   text: string,
+  userId: string,
   replyTo?: ReplyToInfo | null
 ): Promise<void> {
   try {
@@ -142,6 +143,7 @@ async function persistUserMessage(
 
     await prisma.message.create({
       data: {
+        userId,
         conversationId,
         role: 'user',
         content: text,
@@ -279,6 +281,7 @@ export async function POST(req: Request) {
 
   const conv = await prisma.conversation.findFirst({
     where: { id: conversationId, deviceId },
+    select: { id: true, userId: true },
   });
   if (!conv) {
     return new Response(JSON.stringify({ error: '会话不存在或无权访问' }), {
@@ -306,7 +309,7 @@ export async function POST(req: Request) {
   // 保存用户消息时传递引用信息
   let lastUserMessageId: string | null = null;
   if (lastUser) {
-    await persistUserMessage(conversationId, lastUser.clientId, lastUser.text, replyTo);
+    await persistUserMessage(conversationId, lastUser.clientId, lastUser.text, conv.userId, replyTo);
     
     // 查找刚保存的用户消息 ID，用于 AI 回复的引用
     const savedUserMessage = await prisma.message.findFirst({
@@ -371,6 +374,7 @@ export async function POST(req: Request) {
 
           await prisma.message.create({
             data: {
+              userId: conv.userId,
               conversationId,
               role: 'assistant',
               content: event.text,

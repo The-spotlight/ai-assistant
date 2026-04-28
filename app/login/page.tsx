@@ -29,7 +29,7 @@ export default function LoginPage() {
     if (result.success) {
       router.push('/');
     } else {
-      setError(result.error || '登录失败');
+      setError(result.error?.message || '登录失败');
       setPassword('');
     }
     

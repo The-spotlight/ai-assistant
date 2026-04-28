@@ -25,7 +25,9 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     // 检查会话是否存在且属于当前设备
     const conversation = await prisma.conversation.findFirst({
       where: { id: conversationId, deviceId, isDeleted: false },
-      include: {
+      select: {
+        userId: true,
+        title: true,
         messages: {
           orderBy: { createdAt: 'asc' },
         },
@@ -55,6 +57,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ id: string }> 
     // 创建分享记录
     const share = await prisma.share.create({
       data: {
+        userId: conversation.userId,
         shareId,
         conversationId,
         deviceId,

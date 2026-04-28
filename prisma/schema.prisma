@@ -11,73 +11,55 @@ datasource db {
 
 /// 聊天会话（一条时间线）
 model Conversation {
-  id        String     @id @default(cuid())
-  /// 用户ID（可选，兼容旧数据）
-  userId    String?
-  user      User?      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  /// 单浏览器维度：localStorage 生成的 deviceId
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   deviceId  String
   title     String?
-  /// 该会话最近使用的 OpenRouter 模型 id
   modelId   String?
-  /// 是否置顶
-  isPinned  Boolean    @default(false)
-  /// 置顶时间（用于置顶排序）
+  isPinned  Boolean   @default(false)
   pinnedAt  DateTime?
-  /// 是否被删除（软删除标记）
-  isDeleted Boolean    @default(false)
-  /// 删除时间（用于回收站，7天后自动清理）
+  isDeleted Boolean   @default(false)
   deletedAt DateTime?
-  /// 自定义排序索引（用于拖拽排序）
-  orderIndex Int       @default(0)
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  orderIndex Int      @default(0)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
   messages  Message[]
   favorites Favorite[]
   shares    Share[]
   feedbacks MessageFeedback[]
 
-  @@index([deviceId, updatedAt(sort: Desc)])
+  @@index([userId, updatedAt(sort: Desc)])
   @@index([updatedAt(sort: Desc)])
-  @@index([deviceId, isPinned(sort: Desc), pinnedAt(sort: Desc), orderIndex(sort: Asc), updatedAt(sort: Desc)])
-  @@index([deviceId, isDeleted(sort: Asc), updatedAt(sort: Desc)])
-  @@index([deviceId, isDeleted(sort: Asc), isPinned(sort: Desc), pinnedAt(sort: Desc), orderIndex(sort: Asc), updatedAt(sort: Desc)])
-  @@index([deviceId, isDeleted(sort: Desc), deletedAt(sort: Desc)])
+  @@index([userId, deviceId, isPinned(sort: Desc), pinnedAt(sort: Desc), orderIndex(sort: Asc), updatedAt(sort: Desc)])
+  @@index([userId, deviceId, isDeleted(sort: Asc), updatedAt(sort: Desc)])
+  @@index([userId, deviceId, isDeleted(sort: Asc), isPinned(sort: Desc), pinnedAt(sort: Desc), orderIndex(sort: Asc), updatedAt(sort: Desc)])
+  @@index([userId, deviceId, isDeleted(sort: Desc), deletedAt(sort: Desc)])
 }
 
 /// 单条消息（与前端 useChat / AI SDK 结构对齐）
 model Message {
   id              String       @id @default(cuid())
-  /// 用户ID（可选，兼容旧数据）
-  userId          String?
-  user            User?        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId          String
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   conversationId  String
   conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   role            String
   content         String       @db.Text
-  /// 工具调用等扩展：存 AI SDK 的 toolInvocations 等 JSON
   toolInvocations Json?
-  /// 前端 message.id，用于去重
   clientMessageId String?
-  /// 输入 token 数（仅 assistant 消息）
   promptTokens    Int?
-  /// 输出 token 数（仅 assistant 消息）
   completionTokens Int?
-  /// 总 token 数（仅 assistant 消息）
   totalTokens     Int?
-  /// 引用回复：引用的消息ID
   replyToId       String?
-  /// 引用回复：引用消息的快照（前50字 + 时间），用于原消息删除后显示
   replyToSnapshot String?      @db.Text
-  /// 引用关系：被引用的消息
   repliedMessage  Message?     @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
-  /// 引用关系：引用此消息的回复
   replies         Message[]    @relation("MessageReplies")
   createdAt       DateTime     @default(now())
 
   @@unique([conversationId, clientMessageId])
-  @@index([conversationId, createdAt])
-  @@index([replyToId])
+  @@index([userId, conversationId, createdAt])
+  @@index([userId, replyToId])
   
   favorites Favorite[]
   feedbacks MessageFeedback[]
@@ -86,9 +68,8 @@ model Message {
 /// 收藏的消息
 model Favorite {
   id              String       @id @default(cuid())
-  /// 用户ID（可选，兼容旧数据）
-  userId          String?
-  user            User?        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId          String
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   messageId       String
   message         Message      @relation(fields: [messageId], references: [id], onDelete: Cascade)
   conversationId  String
@@ -96,16 +77,15 @@ model Favorite {
   deviceId        String
   createdAt       DateTime     @default(now())
   
-  @@unique([messageId, deviceId])
-  @@index([deviceId, createdAt(sort: Desc)])
+  @@unique([userId, messageId, deviceId])
+  @@index([userId, deviceId, createdAt(sort: Desc)])
 }
 
 /// 聊天模板
 model Template {
   id          String   @id @default(cuid())
-  /// 用户ID（可选，兼容旧数据）
-  userId      String?
-  user        User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   deviceId    String
   title       String
   content     String   @db.Text
@@ -114,43 +94,34 @@ model Template {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  @@index([deviceId, category, orderIndex(sort: Asc), createdAt(sort: Desc)])
-  @@index([deviceId, orderIndex(sort: Asc), createdAt(sort: Desc)])
+  @@index([userId, deviceId, category, orderIndex(sort: Asc), createdAt(sort: Desc)])
+  @@index([userId, deviceId, orderIndex(sort: Asc), createdAt(sort: Desc)])
 }
 
 /// 分享的会话
 model Share {
   id             String       @id @default(cuid())
-  /// 用户ID（可选，兼容旧数据）
-  userId         String?
-  user           User?        @relation(fields: [userId], references: [id], onDelete: Cascade)
-  /// 分享链接的唯一标识符（短ID）
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   shareId        String       @unique
   conversationId String
   conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   deviceId       String
-  /// 分享的标题（从会话复制）
   title          String?
-  /// 过期时间（可选，null 表示永不过期）
   expiresAt      DateTime?
-  /// 是否启用访问密码
   hasPassword    Boolean      @default(false)
-  /// 访问密码（哈希）
   passwordHash   String?
-  /// 是否被删除（软删除标记）
   isDeleted      Boolean      @default(false)
-  /// 删除时间（用于回收站，7天后自动清理）
   deletedAt      DateTime?
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
-  /// 访问记录
   views          ShareView[]
 
   @@index([shareId])
-  @@index([deviceId, createdAt(sort: Desc)])
-  @@index([conversationId])
-  @@index([deviceId, isDeleted(sort: Asc), createdAt(sort: Desc)])
-  @@index([deviceId, isDeleted(sort: Desc), deletedAt(sort: Desc)])
+  @@index([userId, deviceId, createdAt(sort: Desc)])
+  @@index([userId, conversationId])
+  @@index([userId, deviceId, isDeleted(sort: Asc), createdAt(sort: Desc)])
+  @@index([userId, deviceId, isDeleted(sort: Desc), deletedAt(sort: Desc)])
 }
 
 /// 分享访问记录
@@ -158,13 +129,9 @@ model ShareView {
   id        String   @id @default(cuid())
   shareId   String
   share     Share    @relation(fields: [shareId], references: [shareId], onDelete: Cascade)
-  /// 访问时间
   viewedAt  DateTime @default(now())
-  /// 来源页面（Referer）
   referrer  String?
-  /// 访问者 IP（可选，用于统计）
   ip        String?
-  /// 访问者用户代理
   userAgent String?
 
   @@index([shareId])
@@ -174,31 +141,25 @@ model ShareView {
 /// 用户设置
 model UserSetting {
   id                String   @id @default(cuid())
-  /// 用户ID（可选，兼容旧数据）
-  userId            String?
-  user              User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   deviceId          String
-  /// 外观设置（JSON）
   appearance        Json?
-  /// 行为设置（JSON）
   behavior          Json?
-  /// 模型设置（JSON）
   model             Json?
-  /// 快捷键设置（JSON）
   keyboardShortcuts Json?
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
-  @@unique([deviceId])
-  @@index([deviceId])
+  @@unique([userId, deviceId])
+  @@index([userId, deviceId])
 }
 
 /// 消息反馈
 model MessageFeedback {
   id            String   @id @default(cuid())
-  /// 用户ID（可选，兼容旧数据）
-  userId        String?
-  user          User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   messageId     String
   message       Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
   conversationId String
@@ -211,20 +172,20 @@ model MessageFeedback {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  @@unique([messageId, deviceId])
-  @@index([deviceId, createdAt(sort: Desc)])
-  @@index([messageId])
-  @@index([conversationId])
+  @@unique([userId, messageId, deviceId])
+  @@index([userId, deviceId, createdAt(sort: Desc)])
+  @@index([userId, messageId])
+  @@index([userId, conversationId])
 }
 
 /// 用户
 model User {
-  id            String           @id @default(cuid())
-  username      String           @unique
-  email         String?          @unique
+  id            String          @id @default(cuid())
+  username      String          @unique
+  email         String?         @unique
   passwordHash  String
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
   sessions      Session[]
   conversations Conversation[]
   messages      Message[]

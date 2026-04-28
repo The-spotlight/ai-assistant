@@ -1,7 +1,23 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { verifyJwt } from '@/lib/jwt';
 
 export const runtime = 'nodejs';
+
+function getUserIdFromRequest(req: Request): string | null {
+  const cookieHeader = req.headers.get('cookie');
+  if (!cookieHeader) return null;
+  
+  const match = cookieHeader.match(/auth_token=([^;]+)/);
+  if (!match) return null;
+  
+  try {
+    const payload = verifyJwt(match[1]);
+    return payload.userId;
+  } catch {
+    return null;
+  }
+}
 
 /** 列出当前设备下的会话 */
 export async function GET(req: Request) {
@@ -10,8 +26,13 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: '缺少 X-Device-Id' }, { status: 400 });
   }
 
+  const userId = getUserIdFromRequest(req);
+  if (!userId) {
+    return NextResponse.json({ error: '未登录' }, { status: 401 });
+  }
+
   const conversations = await prisma.conversation.findMany({
-    where: { deviceId, isDeleted: false },
+    where: { userId, deviceId, isDeleted: false },
     orderBy: [
       { isPinned: 'desc' },
       { pinnedAt: 'desc' },
@@ -48,9 +69,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: '缺少 deviceId 或 X-Device-Id' }, { status: 400 });
   }
 
+  const userId = getUserIdFromRequest(req);
+  if (!userId) {
+    return NextResponse.json({ error: '未登录' }, { status: 401 });
+  }
+
   try {
     const c = await prisma.conversation.create({
       data: {
+        userId,
         deviceId,
         title: '新对话',
       },
