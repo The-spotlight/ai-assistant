@@ -155,26 +155,23 @@ export default function UserStatsPanel({ visible, onClose }: UserStatsPanelProps
               </button>
             </div>
           ) : stats ? (
-            <div className="flex flex-col gap-6">
-              <div className="flex items-center justify-around gap-4 py-4 border-b border-black/[0.06]">
-                <div className="flex flex-col items-center gap-2">
-                  <div className="flex items-center justify-center w-14 h-14 rounded-full bg-[#f0fdf4] text-[#22c55e]">
-                    <Calendar className="h-7 w-7" />
+            <div className="flex flex-col gap-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex flex-col items-center justify-center p-4 bg-[#fafafa] rounded-xl">
+                  <div className="flex items-center justify-center w-10 h-10 rounded-full bg-[#f0fdf4] text-[#22c55e] mb-2">
+                    <Calendar className="h-5 w-5" />
                   </div>
                   <div className="text-2xl font-bold text-[#171717]">{stats.totalDays}</div>
                   <div className="text-xs text-[#737373]">使用天数</div>
                 </div>
-              </div>
-
-              <div className="flex items-center gap-3 p-3 bg-[#fafafa] rounded-xl">
-                <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-[#eff6ff] text-[#3b82f6]">
-                  <Clock className="h-5 w-5" />
-                </div>
-                <div>
-                  <div className="text-xs text-[#737373] mb-1">最近活跃</div>
-                  <div className="text-sm font-medium text-[#171717]">
+                <div className="flex flex-col items-center justify-center p-4 bg-[#fafafa] rounded-xl">
+                  <div className="flex items-center justify-center w-10 h-10 rounded-full bg-[#eff6ff] text-[#3b82f6] mb-2">
+                    <Clock className="h-5 w-5" />
+                  </div>
+                  <div className="text-sm font-medium text-[#171717] text-center">
                     {stats.lastActiveTime ? formatRelativeTime(stats.lastActiveTime) : '暂无记录'}
                   </div>
+                  <div className="text-xs text-[#737373]">最近活跃</div>
                 </div>
               </div>
 
@@ -186,26 +183,32 @@ export default function UserStatsPanel({ visible, onClose }: UserStatsPanelProps
 
                 <div className="bg-[#fafafa] rounded-xl p-4 border border-[#e5e5e5]">
                   <div className="flex items-end justify-between gap-2 h-32">
-                    {stats.last7DaysUsage.map((item, index) => (
-                      <div key={index} className="flex-1 flex flex-col items-center gap-1">
-                        <div className="w-full flex flex-col items-center">
-                          <span className="text-xs font-medium text-[#171717] mb-1">
-                            {item.conversationCount}
+                    {stats.last7DaysUsage.map((item, index) => {
+                      const heightPercent = maxCount > 0 
+                        ? (item.conversationCount / maxCount) * 100 
+                        : 0;
+                      return (
+                        <div key={index} className="flex-1 flex flex-col items-center gap-1">
+                          <div className="w-full flex flex-col items-center">
+                            <span className="text-xs font-medium text-[#171717] mb-1">
+                              {item.conversationCount}
+                            </span>
+                            <div
+                              className="w-full rounded-t-md transition-all duration-700 ease-out"
+                              style={{
+                                height: `${Math.max(heightPercent, item.conversationCount > 0 ? 5 : 2)}%`,
+                                minHeight: item.conversationCount > 0 ? '12px' : '4px',
+                                backgroundColor: item.conversationCount > 0 ? '#171717' : '#e5e5e5',
+                                opacity: item.conversationCount > 0 ? 1 : 0.3,
+                              }}
+                            />
+                          </div>
+                          <span className="text-[10px] text-[#a3a3a3] text-center">
+                            {formatDate(item.date).split(' ')[0]}
                           </span>
-                          <div
-                            className="w-full bg-[#171717] rounded-t-md transition-all duration-500"
-                            style={{
-                              height: `${(item.conversationCount / maxCount) * 100}%`,
-                              minHeight: item.conversationCount > 0 ? '8px' : '4px',
-                              backgroundColor: item.conversationCount > 0 ? '#171717' : '#e5e5e5',
-                            }}
-                          />
                         </div>
-                        <span className="text-[10px] text-[#a3a3a3] text-center">
-                          {formatDate(item.date).split(' ')[0]}
-                        </span>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                   <div className="mt-3 pt-3 border-t border-[#e5e5e5]">
                     <div className="flex items-center justify-between text-xs text-[#737373]">
