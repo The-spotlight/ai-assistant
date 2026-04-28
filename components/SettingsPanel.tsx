@@ -51,7 +51,7 @@ import {
   Keyboard,
 } from 'lucide-react';
 
-type SettingsTab = 'appearance' | 'behavior' | 'model' | 'keyboard' | 'presets' | 'data';
+type SettingsTab = 'behavior' | 'keyboard' | 'presets' | 'data';
 
 interface SettingsPanelProps {
   visible: boolean;
@@ -60,9 +60,7 @@ interface SettingsPanelProps {
 }
 
 const TAB_CONFIG: { key: SettingsTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
-  { key: 'appearance', label: '外观', icon: Palette },
   { key: 'behavior', label: '行为', icon: MousePointerClick },
-  { key: 'model', label: '模型', icon: Bot },
   { key: 'keyboard', label: '快捷键', icon: Keyboard },
   { key: 'presets', label: '配置方案', icon: Layers },
   { key: 'data', label: '数据管理', icon: Database },
@@ -79,12 +77,9 @@ export default function SettingsPanel({ visible, onClose, onTrashEmptied }: Sett
     updateBehavior,
     updateModel,
     updateKeyboardShortcuts,
-    resetAppearance,
     resetBehavior,
-    resetModel,
     resetKeyboardShortcuts,
     resetAll,
-    themeColors,
     presets,
     activePresetId,
     createPreset,
@@ -95,7 +90,7 @@ export default function SettingsPanel({ visible, onClose, onTrashEmptied }: Sett
 
   const showSuccessMessage = toast.success;
 
-  const [activeTab, setActiveTab] = useState<SettingsTab>('appearance');
+  const [activeTab, setActiveTab] = useState<SettingsTab>('behavior');
   const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   useEffect(() => {
@@ -131,17 +126,9 @@ export default function SettingsPanel({ visible, onClose, onTrashEmptied }: Sett
 
   const handleResetCurrentTab = () => {
     switch (activeTab) {
-      case 'appearance':
-        resetAppearance();
-        showSuccessMessage('已恢复默认外观设置');
-        break;
       case 'behavior':
         resetBehavior();
         showSuccessMessage('已恢复默认行为设置');
-        break;
-      case 'model':
-        resetModel();
-        showSuccessMessage('已恢复默认模型设置');
         break;
       case 'keyboard':
         resetKeyboardShortcuts();
@@ -210,23 +197,10 @@ export default function SettingsPanel({ visible, onClose, onTrashEmptied }: Sett
         </div>
 
         <div className="flex-1 overflow-y-auto p-4">
-          {activeTab === 'appearance' && (
-            <AppearanceTab
-              appearance={appearance}
-              updateAppearance={updateAppearance}
-              themeColors={themeColors}
-            />
-          )}
           {activeTab === 'behavior' && (
             <BehaviorTab
               behavior={behavior}
               updateBehavior={updateBehavior}
-            />
-          )}
-          {activeTab === 'model' && (
-            <ModelTab
-              model={model}
-              updateModel={updateModel}
             />
           )}
           {activeTab === 'keyboard' && (
