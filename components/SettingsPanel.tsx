@@ -28,318 +28,29 @@ import {
 import { OPENROUTER_MODEL_OPTIONS } from '@/lib/openrouter-models';
 import { getOrCreateDeviceId } from '@/lib/device';
 import { downloadBlob } from '@/lib/export';
+import { Button } from '@/components/ui/Button';
+import { Switch } from '@/components/ui/Switch';
+import {
+  X,
+  Settings,
+  RefreshCw,
+  AlertTriangle,
+  Check,
+  Palette,
+  MousePointerClick,
+  Bot,
+  Database,
+  Download,
+  Upload,
+  Trash2,
+  FileJson,
+  Layers,
+  Save,
+  Edit3,
+  Keyboard,
+} from 'lucide-react';
 
 type SettingsTab = 'appearance' | 'behavior' | 'model' | 'keyboard' | 'presets' | 'data';
-
-function IconX(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-      {...props}
-    >
-      <path d="M18 6 6 18M6 6l12 12" />
-    </svg>
-  );
-}
-
-function IconSettings(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-      {...props}
-    >
-      <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43-.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
-      <circle cx="12" cy="12" r="3" />
-    </svg>
-  );
-}
-
-function IconRefreshCw(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-      {...props}
-    >
-      <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8" />
-      <path d="M21 3v5h-5" />
-      <path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16" />
-      <path d="M8 16H3v5" />
-    </svg>
-  );
-}
-
-function IconAlertTriangle(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-      {...props}
-    >
-      <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />
-      <path d="M12 9v4" />
-      <path d="M12 17h.01" />
-    </svg>
-  );
-}
-
-function IconCheck(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-      {...props}
-    >
-      <path d="M20 6 9 17l-5-5" />
-    </svg>
-  );
-}
-
-function IconPalette(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-      {...props}
-    >
-      <circle cx="13.5" cy="6.5" r=".5" fill="currentColor" />
-      <circle cx="17.5" cy="10.5" r=".5" fill="currentColor" />
-      <circle cx="8.5" cy="7.5" r=".5" fill="currentColor" />
-      <circle cx="6.5" cy="12.5" r=".5" fill="currentColor" />
-      <path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.926 0 1.648-.746 1.648-1.688 0-.437-.18-.835-.437-1.125-.29-.289-.438-.652-.438-1.125a1.64 1.64 0 0 1 1.668-1.668h1.996c3.051 0 5.555-2.503 5.555-5.555C21.965 6.012 17.461 2 12 2z" />
-    </svg>
-  );
-}
-
-function IconMousePointerClick(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-      {...props}
-    >
-      <path d="M14 4.1 12 6" />
-      <path d="m5.1 8 2.9 2" />
-      <path d="M7 19l-5-5" />
-      <path d="M15.2 7.4 21 12l-5.8 4.6-5.8-4.6L5.4 12l5.8-4.6z" />
-    </svg>
-  );
-}
-
-function IconBot(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-      {...props}
-    >
-      <path d="M12 8V4H8" />
-      <rect width="16" height="12" x="4" y="8" rx="2" />
-      <path d="M2 14h2" />
-      <path d="M20 14h2" />
-      <path d="M15 13v2" />
-      <path d="M9 13v2" />
-    </svg>
-  );
-}
-
-function IconDatabase(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-      {...props}
-    >
-      <ellipse cx="12" cy="5" rx="9" ry="3" />
-      <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
-      <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
-    </svg>
-  );
-}
-
-function IconDownload(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-      {...props}
-    >
-      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-      <polyline points="7 10 12 15 17 10" />
-      <line x1="12" x2="12" y1="15" y2="3" />
-    </svg>
-  );
-}
-
-function IconUpload(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-      {...props}
-    >
-      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-      <polyline points="17 8 12 3 7 8" />
-      <line x1="12" x2="12" y1="3" y2="15" />
-    </svg>
-  );
-}
-
-function IconTrash2(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-      {...props}
-    >
-      <path d="M3 6h18" />
-      <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-      <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-      <line x1="10" x2="10" y1="11" y2="17" />
-      <line x1="14" x2="14" y1="11" y2="17" />
-    </svg>
-  );
-}
-
-function IconFileJson(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-      {...props}
-    >
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-      <polyline points="14 2 14 8 20 8" />
-      <path d="M10 17h.01" />
-      <path d="M14 17h.01" />
-      <path d="M10 12h.01" />
-      <path d="M14 12h.01" />
-    </svg>
-  );
-}
-
-function IconLayers(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-      {...props}
-    >
-      <path d="M12 2L2 7l10 5 10-5-10-5z" />
-      <path d="M2 17l10 5 10-5" />
-      <path d="M2 12l10 5 10-5" />
-    </svg>
-  );
-}
-
-function IconSave(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-      {...props}
-    >
-      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-      <polyline points="17 21 17 13 7 13 7 21" />
-      <polyline points="7 3 7 8 15 8" />
-    </svg>
-  );
-}
-
-function IconEdit3(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-      {...props}
-    >
-      <path d="M12 20h9" />
-      <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
-    </svg>
-  );
-}
 
 interface SettingsPanelProps {
   visible: boolean;
@@ -347,35 +58,13 @@ interface SettingsPanelProps {
   onTrashEmptied?: () => void;
 }
 
-function IconKeyboard(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-      {...props}
-    >
-      <rect width="20" height="16" x="2" y="4" rx="2" />
-      <path d="M6 8h4" />
-      <path d="M14 8h4" />
-      <path d="M6 12h8" />
-      <path d="M14 16h4" />
-      <path d="M6 16h2" />
-    </svg>
-  );
-}
-
-const TAB_CONFIG: { key: SettingsTab; label: string; icon: typeof IconPalette }[] = [
-  { key: 'appearance', label: '外观', icon: IconPalette },
-  { key: 'behavior', label: '行为', icon: IconMousePointerClick },
-  { key: 'model', label: '模型', icon: IconBot },
-  { key: 'keyboard', label: '快捷键', icon: IconKeyboard },
-  { key: 'presets', label: '配置方案', icon: IconLayers },
-  { key: 'data', label: '数据管理', icon: IconDatabase },
+const TAB_CONFIG: { key: SettingsTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+  { key: 'appearance', label: '外观', icon: Palette },
+  { key: 'behavior', label: '行为', icon: MousePointerClick },
+  { key: 'model', label: '模型', icon: Bot },
+  { key: 'keyboard', label: '快捷键', icon: Keyboard },
+  { key: 'presets', label: '配置方案', icon: Layers },
+  { key: 'data', label: '数据管理', icon: Database },
 ];
 
 export default function SettingsPanel({ visible, onClose, onTrashEmptied }: SettingsPanelProps) {
@@ -493,17 +182,12 @@ export default function SettingsPanel({ visible, onClose, onTrashEmptied }: Sett
 
         <div className="px-4 py-3 flex items-center justify-between border-b border-black/[0.06] bg-[#fafafa] shrink-0">
           <div className="flex items-center gap-2">
-            <IconSettings className="h-4 w-4 text-[#171717]" />
+            <Settings className="h-4 w-4 text-[#171717]" />
             <span className="text-sm font-medium text-[#171717]">设置</span>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-[#737373] hover:text-[#404040] transition-colors"
-            aria-label="关闭"
-          >
-            <IconX className="h-4 w-4" />
-          </button>
+          <Button variant="ghost" size="icon" onClick={onClose} aria-label="关闭">
+            <X className="h-4 w-4" />
+          </Button>
         </div>
 
         <div className="flex items-center border-b border-black/[0.06] bg-white shrink-0">
@@ -533,13 +217,13 @@ export default function SettingsPanel({ visible, onClose, onTrashEmptied }: Sett
 
         {resetSuccess && (
           <div className="px-4 py-2 border-b border-black/[0.06] bg-[#f0fdf4] flex items-center gap-2 shrink-0">
-            <IconCheck className="h-4 w-4 text-[#22c55e]" />
+            <Check className="h-4 w-4 text-[#22c55e]" />
             <span className="text-xs text-[#16a34a]">已恢复默认{resetSuccess}设置</span>
           </div>
         )}
         {presetSuccess && (
           <div className="px-4 py-2 border-b border-black/[0.06] bg-[#f0fdf4] flex items-center gap-2 shrink-0">
-            <IconCheck className="h-4 w-4 text-[#22c55e]" />
+            <Check className="h-4 w-4 text-[#22c55e]" />
             <span className="text-xs text-[#16a34a]">{presetSuccess}</span>
           </div>
         )}
@@ -613,51 +297,35 @@ export default function SettingsPanel({ visible, onClose, onTrashEmptied }: Sett
           {showResetConfirm ? (
             <div className="flex flex-col gap-3">
               <div className="flex items-start gap-2 bg-[#fef3c7] border border-[#fde68a] rounded-lg px-3 py-2.5">
-                <IconAlertTriangle className="h-4 w-4 text-[#d97706] shrink-0 mt-0.5" />
+                <AlertTriangle className="h-4 w-4 text-[#d97706] shrink-0 mt-0.5" />
                 <div className="flex-1">
                   <p className="text-xs text-[#92400e] font-medium">确认恢复当前标签页的默认设置？</p>
                   <p className="text-[10px] text-[#b45309] mt-0.5">该标签页的所有自定义设置将被重置</p>
                 </div>
               </div>
               <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => setShowResetConfirm(false)}
-                  className="flex-1 py-2.5 text-sm font-medium text-[#525252] bg-white border border-black/[0.08] rounded-lg hover:bg-[#fafafa] transition-colors"
-                >
+                <Button variant="outline" className="flex-1" onClick={() => setShowResetConfirm(false)}>
                   取消
-                </button>
-                <button
-                  type="button"
-                  onClick={handleResetCurrentTab}
-                  className="flex-1 py-2.5 text-sm font-medium text-white bg-[#dc2626] rounded-lg hover:bg-[#b91c1c] transition-colors"
-                >
+                </Button>
+                <Button variant="destructive" className="flex-1" onClick={handleResetCurrentTab}>
                   确认恢复
-                </button>
+                </Button>
               </div>
             </div>
           ) : (
             <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setShowResetConfirm(true)}
-                className="flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium text-[#525252] bg-white border border-black/[0.08] rounded-lg hover:bg-[#fafafa] transition-colors"
-              >
-                <IconRefreshCw className="h-4 w-4" />
+              <Button variant="outline" className="flex-1" onClick={() => setShowResetConfirm(true)}>
+                <RefreshCw className="h-4 w-4" />
                 恢复当前标签页
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  resetAll();
-                  setResetSuccess('全部');
-                  setTimeout(() => setResetSuccess(null), 2000);
-                }}
-                className="flex-1 flex items-center justify-center gap-2 py-2.5 text-sm font-medium text-[#525252] bg-white border border-black/[0.08] rounded-lg hover:bg-[#fafafa] transition-colors"
-              >
-                <IconRefreshCw className="h-4 w-4" />
+              </Button>
+              <Button variant="outline" className="flex-1" onClick={() => {
+                resetAll();
+                setResetSuccess('全部');
+                setTimeout(() => setResetSuccess(null), 2000);
+              }}>
+                <RefreshCw className="h-4 w-4" />
                 恢复全部
-              </button>
+              </Button>
             </div>
           )}
         </div>
@@ -748,20 +416,15 @@ function AppearanceTab({
             ([key, theme]) => {
               const isSelected = appearance.codeHighlight === key;
               return (
-                <button
+                <Button
                   key={key}
-                  type="button"
+                  variant={isSelected ? 'default' : 'outline'}
+                  className="w-full justify-start"
                   onClick={() => updateAppearance('codeHighlight', key)}
-                  className={`flex items-center gap-2 py-2.5 px-3 rounded-lg text-sm transition-all ${
-                    isSelected
-                      ? 'bg-[#171717] text-white'
-                      : 'bg-[#fafafa] text-[#525252] hover:bg-[#f5f5f5]'
-                  }`}
                 >
-                  {isSelected && <IconCheck className="h-3.5 w-3.5" />}
-                  {!isSelected && <div className="w-3.5 h-3.5" />}
+                  {isSelected && <Check className="h-3.5 w-3.5 mr-1" />}
                   <span>{theme.name}</span>
-                </button>
+                </Button>
               );
             }
           )}
@@ -842,19 +505,15 @@ function BehaviorTab({
             ([key, option]) => {
               const isSelected = behavior.sendShortcut === key;
               return (
-                <button
+                <Button
                   key={key}
-                  type="button"
+                  variant={isSelected ? 'default' : 'outline'}
+                  className="flex-1"
                   onClick={() => updateBehavior('sendShortcut', key)}
-                  className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg text-sm transition-all ${
-                    isSelected
-                      ? 'bg-[#171717] text-white'
-                      : 'bg-[#fafafa] text-[#525252] hover:bg-[#f5f5f5]'
-                  }`}
                 >
-                  {isSelected && <IconCheck className="h-4 w-4" />}
+                  {isSelected && <Check className="h-4 w-4" />}
                   <span>{option.name}</span>
-                </button>
+                </Button>
               );
             }
           )}
@@ -869,21 +528,10 @@ function BehaviorTab({
       <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium text-[#171717]">显示 Token 统计</span>
-          <button
-            type="button"
-            onClick={() => updateBehavior('showTokenStats', !behavior.showTokenStats)}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-              behavior.showTokenStats ? 'bg-[#171717]' : 'bg-[#d4d4d4]'
-            }`}
-            aria-checked={behavior.showTokenStats}
-            role="switch"
-          >
-            <span
-              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm ${
-                behavior.showTokenStats ? 'translate-x-6' : 'translate-x-1'
-              }`}
-            />
-          </button>
+          <Switch
+            checked={behavior.showTokenStats}
+            onCheckedChange={(checked) => updateBehavior('showTokenStats', checked)}
+          />
         </div>
         <p className="text-[11px] text-[#a3a3a3]">
           控制对话顶部是否显示 Token 消耗和费用统计
@@ -899,19 +547,15 @@ function BehaviorTab({
             ([key, option]) => {
               const isSelected = behavior.timestampFormat === key;
               return (
-                <button
+                <Button
                   key={key}
-                  type="button"
+                  variant={isSelected ? 'default' : 'outline'}
+                  className="flex-1"
                   onClick={() => updateBehavior('timestampFormat', key)}
-                  className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg text-sm transition-all ${
-                    isSelected
-                      ? 'bg-[#171717] text-white'
-                      : 'bg-[#fafafa] text-[#525252] hover:bg-[#f5f5f5]'
-                  }`}
                 >
-                  {isSelected && <IconCheck className="h-4 w-4" />}
+                  {isSelected && <Check className="h-4 w-4" />}
                   <span>{option.name}</span>
-                </button>
+                </Button>
               );
             }
           )}
@@ -928,21 +572,10 @@ function BehaviorTab({
       <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between">
           <span className="text-sm font-medium text-[#171717]">自动归档</span>
-          <button
-            type="button"
-            onClick={() => updateBehavior('autoArchive', !behavior.autoArchive)}
-            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-              behavior.autoArchive ? 'bg-[#171717]' : 'bg-[#d4d4d4]'
-            }`}
-            aria-checked={behavior.autoArchive}
-            role="switch"
-          >
-            <span
-              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform shadow-sm ${
-                behavior.autoArchive ? 'translate-x-6' : 'translate-x-1'
-              }`}
-            />
-          </button>
+          <Switch
+            checked={behavior.autoArchive}
+            onCheckedChange={(checked) => updateBehavior('autoArchive', checked)}
+          />
         </div>
         <p className="text-[11px] text-[#a3a3a3]">
           超过指定天数没有新消息的对话自动移入回收站
@@ -960,19 +593,15 @@ function BehaviorTab({
                 const numKey = Number(key) as AutoArchiveDaysKey;
                 const isSelected = behavior.autoArchiveDays === numKey;
                 return (
-                  <button
+                  <Button
                     key={key}
-                    type="button"
+                    variant={isSelected ? 'default' : 'outline'}
+                    className="flex-1"
                     onClick={() => updateBehavior('autoArchiveDays', numKey)}
-                    className={`flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg text-sm transition-all ${
-                      isSelected
-                        ? 'bg-[#171717] text-white'
-                        : 'bg-[#fafafa] text-[#525252] hover:bg-[#f5f5f5]'
-                    }`}
                   >
-                    {isSelected && <IconCheck className="h-4 w-4" />}
+                    {isSelected && <Check className="h-4 w-4" />}
                     <span>{option.name}</span>
-                  </button>
+                  </Button>
                 );
               }
             )}
@@ -1017,20 +646,15 @@ function ModelTab({
           {OPENROUTER_MODEL_OPTIONS.map((option) => {
             const isSelected = model.defaultModel === option.id;
             return (
-              <button
+              <Button
                 key={option.id}
-                type="button"
+                variant={isSelected ? 'default' : 'outline'}
+                className="w-full justify-start"
                 onClick={() => updateModel('defaultModel', option.id)}
-                className={`flex items-center gap-2 py-2.5 px-3 rounded-lg text-sm transition-all text-left ${
-                  isSelected
-                    ? 'bg-[#171717] text-white'
-                    : 'bg-[#fafafa] text-[#525252] hover:bg-[#f5f5f5]'
-                }`}
               >
-                {isSelected && <IconCheck className="h-3.5 w-3.5 shrink-0" />}
-                {!isSelected && <div className="w-3.5 h-3.5 shrink-0" />}
+                {isSelected && <Check className="h-3.5 w-3.5 shrink-0" />}
                 <span className="truncate">{option.label}</span>
-              </button>
+              </Button>
             );
           })}
         </div>
@@ -1612,10 +1236,10 @@ function DataTab({
             : 'bg-[#fafafa] border-black/[0.08]'
         }`}>
           {toast.type === 'success' && (
-            <IconCheck className="h-4 w-4 text-[#22c55e] shrink-0" />
+            <Check className="h-4 w-4 text-[#22c55e] shrink-0" />
           )}
           {toast.type === 'error' && (
-            <IconAlertTriangle className="h-4 w-4 text-[#dc2626] shrink-0" />
+            <AlertTriangle className="h-4 w-4 text-[#dc2626] shrink-0" />
           )}
           <span className={`text-xs font-medium ${
             toast.type === 'success' 
@@ -1634,20 +1258,20 @@ function DataTab({
           <span className="text-sm font-medium text-[#171717]">会话数据</span>
         </div>
         <div className="flex flex-col gap-2">
-          <button
-            type="button"
+          <Button
+            variant="outline"
+            className="w-full justify-between"
             onClick={handleExportConversations}
             disabled={exportingConversations}
-            className="flex items-center justify-between gap-2 py-3 px-4 rounded-lg text-sm font-medium text-[#171717] bg-[#fafafa] border border-black/[0.08] hover:bg-[#f5f5f5] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <div className="flex items-center gap-2">
-              <IconDownload className="h-4 w-4 text-[#525252]" />
+              <Download className="h-4 w-4 text-[#525252]" />
               <span>导出全部会话数据</span>
             </div>
             {exportingConversations && (
               <div className="w-4 h-4 border-2 border-[#171717] border-t-transparent rounded-full animate-spin" />
             )}
-          </button>
+          </Button>
           <p className="text-[11px] text-[#a3a3a3]">
             导出所有会话为 ZIP 压缩包，包含每个会话的 Markdown 文件
           </p>
@@ -1664,20 +1288,20 @@ function DataTab({
           )}
         </div>
         <div className="flex flex-col gap-2">
-          <button
-            type="button"
+          <Button
+            variant="outline"
+            className="w-full justify-between"
             onClick={() => setShowEmptyTrashConfirm(true)}
             disabled={trashCount === 0 || emptyingTrash}
-            className="flex items-center justify-between gap-2 py-3 px-4 rounded-lg text-sm font-medium text-[#171717] bg-[#fafafa] border border-black/[0.08] hover:bg-[#f5f5f5] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <div className="flex items-center gap-2">
-              <IconTrash2 className="h-4 w-4 text-[#525252]" />
+              <Trash2 className="h-4 w-4 text-[#525252]" />
               <span>一键清空回收站</span>
             </div>
             {emptyingTrash && (
               <div className="w-4 h-4 border-2 border-[#171717] border-t-transparent rounded-full animate-spin" />
             )}
-          </button>
+          </Button>
           <p className="text-[11px] text-[#a3a3a3]">
             永久删除回收站中的所有会话，此操作不可恢复
           </p>
@@ -1692,7 +1316,7 @@ function DataTab({
         {importErrors.length > 0 && (
           <div className="flex flex-col gap-1 bg-[#fef2f2] border border-[#fecaca] rounded-lg px-3 py-2.5">
             <div className="flex items-center gap-2">
-              <IconAlertTriangle className="h-4 w-4 text-[#dc2626] shrink-0" />
+              <AlertTriangle className="h-4 w-4 text-[#dc2626] shrink-0" />
               <span className="text-xs text-[#dc2626] font-medium">配置文件校验失败</span>
             </div>
             <ul className="ml-6 text-[10px] text-[#b91c1c] list-disc">
@@ -1707,30 +1331,30 @@ function DataTab({
 
         <div className="flex flex-col gap-2">
           <div className="flex gap-2">
-            <button
-              type="button"
+            <Button
+              variant="outline"
+              className="flex-1"
               onClick={handleExportConfig}
               disabled={exportingConfig}
-              className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg text-sm font-medium text-[#171717] bg-[#fafafa] border border-black/[0.08] hover:bg-[#f5f5f5] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <IconFileJson className="h-4 w-4 text-[#525252]" />
+              <FileJson className="h-4 w-4 text-[#525252]" />
               <span>导出配置</span>
               {exportingConfig && (
                 <div className="w-4 h-4 border-2 border-[#171717] border-t-transparent rounded-full animate-spin" />
               )}
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              variant="outline"
+              className="flex-1"
               onClick={handleImportConfig}
               disabled={importingConfig}
-              className="flex-1 flex items-center justify-center gap-2 py-3 px-4 rounded-lg text-sm font-medium text-[#171717] bg-[#fafafa] border border-black/[0.08] hover:bg-[#f5f5f5] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <IconUpload className="h-4 w-4 text-[#525252]" />
+              <Upload className="h-4 w-4 text-[#525252]" />
               <span>导入配置</span>
               {importingConfig && (
                 <div className="w-4 h-4 border-2 border-[#171717] border-t-transparent rounded-full animate-spin" />
               )}
-            </button>
+            </Button>
           </div>
           <input
             ref={fileInputRef}
@@ -1749,28 +1373,19 @@ function DataTab({
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50">
           <div className="mx-4 w-full max-w-xs rounded-2xl border border-black/[0.08] bg-white p-5 shadow-lg">
             <div className="flex items-start gap-2 bg-[#fef3c7] border border-[#fde68a] rounded-lg px-3 py-2.5 mb-4">
-              <IconAlertTriangle className="h-4 w-4 text-[#d97706] shrink-0 mt-0.5" />
+              <AlertTriangle className="h-4 w-4 text-[#d97706] shrink-0 mt-0.5" />
               <div>
                 <p className="text-xs text-[#92400e] font-medium">确认清空回收站？</p>
                 <p className="text-[10px] text-[#b45309] mt-0.5">回收站中的所有会话将被永久删除</p>
               </div>
             </div>
             <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setShowEmptyTrashConfirm(false)}
-                className="flex-1 py-2.5 text-sm font-medium text-[#525252] bg-white border border-black/[0.08] rounded-lg hover:bg-[#fafafa] transition-colors"
-              >
+              <Button variant="outline" className="flex-1" onClick={() => setShowEmptyTrashConfirm(false)}>
                 取消
-              </button>
-              <button
-                type="button"
-                onClick={handleEmptyTrash}
-                disabled={emptyingTrash}
-                className="flex-1 py-2.5 text-sm font-medium text-white bg-[#171717] rounded-lg hover:bg-black transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
+              </Button>
+              <Button className="flex-1" onClick={handleEmptyTrash} disabled={emptyingTrash}>
                 {emptyingTrash ? '清空中...' : '确认清空'}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -1936,7 +1551,7 @@ function PresetsTab({
           onClick={openCreateDialog}
           className="flex items-center justify-center gap-2 py-3 px-4 rounded-lg text-sm font-medium text-white bg-[#171717] hover:bg-black transition-colors"
         >
-          <IconSave className="h-4 w-4" />
+          <Save className="h-4 w-4" />
           <span>保存为新方案</span>
         </button>
       </div>
@@ -1953,7 +1568,7 @@ function PresetsTab({
 
         {presets.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-8 px-4 border border-dashed border-black/[0.08] rounded-lg">
-            <IconLayers className="h-8 w-8 text-[#d4d4d4] mb-2" />
+            <Layers className="h-8 w-8 text-[#d4d4d4] mb-2" />
             <p className="text-sm text-[#737373]">暂无配置方案</p>
             <p className="text-[11px] text-[#a3a3a3] mt-1">
               点击上方按钮保存当前设置为方案
@@ -2001,7 +1616,7 @@ function PresetsTab({
                         aria-label="应用方案"
                         title="应用此方案"
                       >
-                        <IconCheck className="h-4 w-4" />
+                        <Check className="h-4 w-4" />
                       </button>
                     )}
                     <button
@@ -2011,7 +1626,7 @@ function PresetsTab({
                       aria-label="重命名"
                       title="重命名"
                     >
-                      <IconEdit3 className="h-4 w-4" />
+                      <Edit3 className="h-4 w-4" />
                     </button>
                     <button
                       type="button"
@@ -2020,7 +1635,7 @@ function PresetsTab({
                       aria-label="删除"
                       title="删除方案"
                     >
-                      <IconTrash2 className="h-4 w-4" />
+                      <Trash2 className="h-4 w-4" />
                     </button>
                   </div>
                 </div>
@@ -2046,7 +1661,7 @@ function PresetsTab({
 
             {dialog.mode === 'delete' ? (
               <div className="flex items-start gap-2 bg-[#fef2f2] border border-[#fecaca] rounded-lg px-3 py-2.5 mb-4">
-                <IconAlertTriangle className="h-4 w-4 text-[#dc2626] shrink-0 mt-0.5" />
+                <AlertTriangle className="h-4 w-4 text-[#dc2626] shrink-0 mt-0.5" />
                 <div className="flex-1">
                   <p className="text-xs text-[#991b1b] font-medium">
                     确认删除方案 "{dialog.presetName}"？
@@ -2114,7 +1729,7 @@ export function SettingsButton({ onClick }: { onClick: () => void }) {
       title="设置"
       aria-label="打开设置"
     >
-      <IconSettings className="h-4 w-4" />
+      <Settings className="h-4 w-4" />
     </button>
   );
 }

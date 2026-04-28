@@ -10,6 +10,7 @@ import QuickCommandPanel from '@/components/QuickCommandPanel';
 import TokenStatsPanel from '@/components/TokenStatsPanel';
 import ShareModal from '@/components/ShareModal';
 import ShareHistory from '@/components/ShareHistory';
+import { Button } from '@/components/ui/Button';
 import {
   calculateMessageCost,
   formatCost,
@@ -22,6 +23,24 @@ import {
 } from '@/lib/tools/quick-commands';
 import type { QuickCommand } from '@/lib/tools/quick-commands';
 import { useSettings, FONT_SIZES, BUBBLE_STYLES, type TimestampFormatKey, type SendShortcutKey } from '@/lib/settings';
+import {
+  RefreshCw,
+  Bookmark,
+  Edit3,
+  Check,
+  X,
+  Trash2,
+  MoreVertical,
+  Download,
+  Share2,
+  ThumbsUp,
+  ThumbsDown,
+  Copy,
+  Loader2,
+  Send,
+  ChevronDown,
+  Reply,
+} from 'lucide-react';
 
 const SUGGESTIONS = [
   '搜索今日新闻',
@@ -59,282 +78,6 @@ type ChatSessionProps = {
   templateContent?: string | null;
   onTemplateUsed?: () => void;
 };
-
-function IconRefresh(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-      {...props}
-    >
-      <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
-      <path d="M3 3v5h5" />
-      <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
-      <path d="M16 16h5v5" />
-    </svg>
-  );
-}
-
-function IconBookmark(props: React.SVGProps<SVGSVGElement> & { filled?: boolean }) {
-  const { filled, ...rest } = props;
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill={filled ? 'currentColor' : 'none'}
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-      {...rest}
-    >
-      <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" />
-    </svg>
-  );
-}
-
-function IconEdit(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-      {...props}
-    >
-      <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-      <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-    </svg>
-  );
-}
-
-function IconCheck(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-      {...props}
-    >
-      <path d="M20 6 9 17l-5-5" />
-    </svg>
-  );
-}
-
-function IconX(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-      {...props}
-    >
-      <path d="M18 6 6 18" />
-      <path d="m6 6 12 12" />
-    </svg>
-  );
-}
-
-function IconTrash(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-      {...props}
-    >
-      <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
-      <path d="M10 11v6M14 11v6" />
-    </svg>
-  );
-}
-
-function IconMoreVertical(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-      {...props}
-    >
-      <circle cx="12" cy="12" r="1" />
-      <circle cx="12" cy="5" r="1" />
-      <circle cx="12" cy="19" r="1" />
-    </svg>
-  );
-}
-
-function IconDownload(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-      {...props}
-    >
-      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-      <polyline points="7 10 12 15 17 10" />
-      <line x1="12" y1="15" x2="12" y2="3" />
-    </svg>
-  );
-}
-
-function IconShare(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-      {...props}
-    >
-      <circle cx="18" cy="5" r="3" />
-      <circle cx="6" cy="12" r="3" />
-      <circle cx="18" cy="19" r="3" />
-      <line x1="8.59" y1="13.51" x2="15.42" y2="17.49" />
-      <line x1="15.41" y1="6.51" x2="8.59" y2="10.49" />
-    </svg>
-  );
-}
-
-function IconThumbsUp(props: React.SVGProps<SVGSVGElement> & { filled?: boolean }) {
-  const { filled, ...rest } = props;
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill={filled ? 'currentColor' : 'none'}
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-      {...rest}
-    >
-      <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" />
-    </svg>
-  );
-}
-
-function IconThumbsDown(props: React.SVGProps<SVGSVGElement> & { filled?: boolean }) {
-  const { filled, ...rest } = props;
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill={filled ? 'currentColor' : 'none'}
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-      {...rest}
-    >
-      <path d="M10 15v4a3 3 0 0 1-3 3l-4-9V2h11.28a2 2 0 0 1 2 1.7l1.38 9a2 2 0 0 1-2 2.3zM17 2H20a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3" />
-    </svg>
-  );
-}
-
-function IconCopy(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-      {...props}
-    >
-      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-    </svg>
-  );
-}
-
-function IconLoader(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-      {...props}
-    >
-      <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-    </svg>
-  );
-}
-
-function IconAlertCircle(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-      {...props}
-    >
-      <circle cx="12" cy="12" r="10" />
-      <line x1="12" y1="8" x2="12" y2="12" />
-      <line x1="12" y1="16" x2="12.01" y2="16" />
-    </svg>
-  );
-}
-
-function IconReply(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-      {...props}
-    >
-      <polyline points="9 17 4 12 9 7" />
-      <path d="M20 18v-2a4 4 0 0 0-4-4H4" />
-    </svg>
-  );
-}
 
 export default function ChatSession({
   deviceId,
@@ -1174,15 +917,15 @@ export default function ChatSession({
                 </span>
               </div>
               <div className="relative" ref={menuContainerRef}>
-                <button
-                  ref={menuTriggerRef}
-                  type="button"
+                <Button
+                  variant="ghost"
+                  size="icon"
                   onClick={() => setShowMenu(!showMenu)}
-                  className="inline-flex items-center justify-center rounded-lg p-1.5 text-[#a3a3a3] transition-colors hover:bg-[#f5f5f5] hover:text-[#171717]"
                   title="更多选项"
+                  className="text-[#a3a3a3] hover:text-[#171717]"
                 >
-                  <IconMoreVertical className="h-4 w-4" />
-                </button>
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
 
                 {/* 下拉菜单 */}
                 {showMenu && (
@@ -1196,7 +939,7 @@ export default function ChatSession({
                       disabled={messages.length === 0}
                       className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-[#171717] transition-colors hover:bg-[#fafafa] disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <IconShare className="h-4 w-4 text-[#737373]" />
+                      <Share2 className="h-4 w-4 text-[#737373]" />
                       <span>分享</span>
                     </button>
                     <button
@@ -1218,7 +961,7 @@ export default function ChatSession({
                       onClick={handleExport}
                       className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-[#171717] transition-colors hover:bg-[#fafafa]"
                     >
-                      <IconDownload className="h-4 w-4 text-[#737373]" />
+                      <Download className="h-4 w-4 text-[#737373]" />
                       <span>导出为 Markdown</span>
                     </button>
                   </div>
@@ -1379,7 +1122,7 @@ export default function ChatSession({
                 >
                   {m.role === 'assistant' && favoriteMessageIds.has(m.id) && (
                     <div className="absolute -top-1 -right-1">
-                      <IconBookmark className="h-4 w-4 text-[#f59e0b]" filled />
+                      <Bookmark className="h-4 w-4 text-[#f59e0b] fill-[#f59e0b]" />
                     </div>
                   )}
                   
@@ -1398,7 +1141,7 @@ export default function ChatSession({
                       }}
                     >
                       <div className="flex items-center gap-1">
-                        <IconReply className="h-3 w-3" />
+                        <Reply className="h-3 w-3" />
                         <span className="font-medium">
                           {isReplyDeleted 
                             ? '原消息已删除' 
@@ -1469,23 +1212,24 @@ export default function ChatSession({
                   {/* 编辑模式下的按钮 */}
                   {m.role === 'user' && editingMessageId === m.id && (
                     <div className="mt-2 flex items-center justify-end gap-2">
-                      <button
-                        type="button"
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={handleCancelEdit}
-                        className="inline-flex items-center gap-1 rounded px-3 py-1.5 text-[12px] text-white/80 transition-colors hover:bg-white/10"
+                        className="text-[12px] text-white/80 hover:bg-white/10"
                       >
-                        <IconX className="h-3 w-3" />
+                        <X className="h-3 w-3" />
                         取消
-                      </button>
-                      <button
-                        type="button"
+                      </Button>
+                      <Button
+                        size="sm"
                         onClick={() => handleConfirmEdit(m.id)}
                         disabled={!editingContent.trim()}
-                        className="inline-flex items-center gap-1 rounded bg-white px-3 py-1.5 text-[12px] font-medium text-[#171717] transition-colors hover:bg-white/90 disabled:opacity-40 disabled:cursor-not-allowed"
+                        className="text-[12px]"
                       >
-                        <IconCheck className="h-3 w-3" />
+                        <Check className="h-3 w-3" />
                         确认
-                      </button>
+                      </Button>
                     </div>
                   )}
                 </div>
@@ -1523,7 +1267,7 @@ export default function ChatSession({
                         title="引用回复此消息"
                         disabled={isGlobalRegenerating}
                       >
-                        <IconReply className="h-3 w-3" />
+                        <Reply className="h-3 w-3" />
                         引用
                       </button>
                       {/* 点赞按钮 */}
@@ -1537,7 +1281,7 @@ export default function ChatSession({
                         }`}
                         title={messageFeedback[m.id]?.liked ? '取消点赞' : '点赞此回复'}
                       >
-                        <IconThumbsUp className="h-3 w-3" filled={messageFeedback[m.id]?.liked} />
+                        <ThumbsUp className={`h-3 w-3 ${messageFeedback[m.id]?.liked ? 'fill-[#10b981]' : ''}`} />
                         {messageFeedback[m.id]?.liked ? '已点赞' : '点赞'}
                       </button>
                       {/* 点踩按钮 */}
@@ -1551,7 +1295,7 @@ export default function ChatSession({
                         }`}
                         title={messageFeedback[m.id]?.disliked ? '取消点踩' : '点踩此回复'}
                       >
-                        <IconThumbsDown className="h-3 w-3" filled={messageFeedback[m.id]?.disliked} />
+                        <ThumbsDown className={`h-3 w-3 ${messageFeedback[m.id]?.disliked ? 'fill-[#ef4444]' : ''}`} />
                         {messageFeedback[m.id]?.disliked ? '已点踩' : '点踩'}
                       </button>
                       {onToggleFavorite && (
@@ -1565,7 +1309,7 @@ export default function ChatSession({
                           }`}
                           title={favoriteMessageIds.has(m.id) ? '取消收藏' : '收藏此回复'}
                         >
-                          <IconBookmark className="h-3 w-3" filled={favoriteMessageIds.has(m.id)} />
+                          <Bookmark className={`h-3 w-3 ${favoriteMessageIds.has(m.id) ? 'fill-[#f59e0b]' : ''}`} />
                           {favoriteMessageIds.has(m.id) ? '已收藏' : '收藏'}
                         </button>
                       )}
@@ -1581,7 +1325,7 @@ export default function ChatSession({
                           }`}
                           title={isThisMessageRegenerating ? '正在生成，请稍候...' : '重新生成此回复'}
                         >
-                          <IconRefresh className={`h-3 w-3 ${isThisMessageRegenerating ? 'animate-spin' : ''}`} />
+                          <RefreshCw className={`h-3 w-3 ${isThisMessageRegenerating ? 'animate-spin' : ''}`} />
                           {isThisMessageRegenerating ? '正在生成…' : '重新生成'}
                         </button>
                       )}
@@ -1608,7 +1352,7 @@ export default function ChatSession({
                           className="inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] text-[#737373] transition-colors hover:bg-[#f5f5f5] hover:text-[#171717] opacity-0 group-hover:opacity-100"
                           title="引用回复此消息"
                         >
-                          <IconReply className="h-3 w-3" />
+                          <Reply className="h-3 w-3" />
                           引用
                         </button>
                       )}
@@ -1619,7 +1363,7 @@ export default function ChatSession({
                           className="inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] text-[#737373] transition-colors hover:bg-[#f5f5f5] hover:text-[#171717]"
                           title="编辑此消息"
                         >
-                          <IconEdit className="h-3 w-3" />
+                          <Edit3 className="h-3 w-3" />
                           编辑
                         </button>
                       )}
@@ -1672,7 +1416,7 @@ export default function ChatSession({
           {/* 引用预览 */}
           {replyingTo && (
             <div className="mb-2 flex items-center gap-2 rounded-lg bg-[#f5f5f5] px-3 py-2">
-              <IconReply className="h-4 w-4 text-[#737373]" />
+              <Reply className="h-4 w-4 text-[#737373]" />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-medium text-[#737373]">
@@ -1694,14 +1438,15 @@ export default function ChatSession({
                   {replyingTo.content}
                 </p>
               </div>
-              <button
-                type="button"
+              <Button
+                variant="ghost"
+                size="icon"
                 onClick={handleCancelReply}
-                className="shrink-0 rounded p-1 text-[#a3a3a3] transition-colors hover:bg-[#e5e5e5] hover:text-[#737373]"
                 title="取消引用"
+                className="text-[#a3a3a3] hover:text-[#737373]"
               >
-                <IconX className="h-4 w-4" />
-              </button>
+                <X className="h-4 w-4" />
+              </Button>
             </div>
           )}
 
