@@ -783,6 +783,60 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   );
 }
 
+export interface UserProfile {
+  nickname: string;
+  avatar: string;
+}
+
+export const DEFAULT_USER_PROFILE: UserProfile = {
+  nickname: '我的',
+  avatar: '',
+};
+
+export const PRESET_AVATARS = {
+  avatar1: { name: '头像1', emoji: '👤' },
+  avatar2: { name: '头像2', emoji: '👩' },
+  avatar3: { name: '头像3', emoji: '👨' },
+  avatar4: { name: '头像4', emoji: '🧑' },
+  avatar5: { name: '头像5', emoji: '👩‍💼' },
+  avatar6: { name: '头像6', emoji: '👨‍💼' },
+} as const;
+
+export type PresetAvatarKey = keyof typeof PRESET_AVATARS;
+
+const USER_PROFILE_STORAGE_KEY = 'ai-assistant-user-profile';
+
+export function loadUserProfile(): UserProfile {
+  if (typeof window === 'undefined') {
+    return DEFAULT_USER_PROFILE;
+  }
+
+  try {
+    const stored = localStorage.getItem(USER_PROFILE_STORAGE_KEY);
+    if (!stored) {
+      return DEFAULT_USER_PROFILE;
+    }
+
+    const parsed = JSON.parse(stored) as Partial<UserProfile>;
+    
+    return {
+      nickname: typeof parsed.nickname === 'string' && parsed.nickname.trim() ? parsed.nickname : DEFAULT_USER_PROFILE.nickname,
+      avatar: typeof parsed.avatar === 'string' ? parsed.avatar : DEFAULT_USER_PROFILE.avatar,
+    };
+  } catch {
+    return DEFAULT_USER_PROFILE;
+  }
+}
+
+export function saveUserProfile(profile: UserProfile): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(USER_PROFILE_STORAGE_KEY, JSON.stringify(profile));
+  } catch {
+    console.warn('Failed to save user profile');
+  }
+}
+
 export function useSettings() {
   const context = useContext(SettingsContext);
   if (!context) {
