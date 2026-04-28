@@ -12,6 +12,9 @@ datasource db {
 /// 聊天会话（一条时间线）
 model Conversation {
   id        String    @id @default(cuid())
+  /// 用户ID
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   /// 单浏览器维度：localStorage 生成的 deviceId
   deviceId  String
   title     String?
@@ -34,17 +37,19 @@ model Conversation {
   shares    Share[]
   feedbacks MessageFeedback[]
 
-  @@index([deviceId, updatedAt(sort: Desc)])
+  @@index([userId, updatedAt(sort: Desc)])
   @@index([updatedAt(sort: Desc)])
-  @@index([deviceId, isPinned(sort: Desc), pinnedAt(sort: Desc), orderIndex(sort: Asc), updatedAt(sort: Desc)])
-  @@index([deviceId, isDeleted(sort: Asc), updatedAt(sort: Desc)])
-  @@index([deviceId, isDeleted(sort: Asc), isPinned(sort: Desc), pinnedAt(sort: Desc), orderIndex(sort: Asc), updatedAt(sort: Desc)])
-  @@index([deviceId, isDeleted(sort: Desc), deletedAt(sort: Desc)])
+  @@index([userId, deviceId, isPinned(sort: Desc), pinnedAt(sort: Desc), orderIndex(sort: Asc), updatedAt(sort: Desc)])
+  @@index([userId, deviceId, isDeleted(sort: Asc), updatedAt(sort: Desc)])
+  @@index([userId, deviceId, isDeleted(sort: Asc), isPinned(sort: Desc), pinnedAt(sort: Desc), orderIndex(sort: Asc), updatedAt(sort: Desc)])
+  @@index([userId, deviceId, isDeleted(sort: Desc), deletedAt(sort: Desc)])
 }
 
 /// 单条消息（与前端 useChat / AI SDK 结构对齐）
 model Message {
   id              String       @id @default(cuid())
+  userId          String
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   conversationId  String
   conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
   role            String
@@ -70,8 +75,8 @@ model Message {
   createdAt       DateTime     @default(now())
 
   @@unique([conversationId, clientMessageId])
-  @@index([conversationId, createdAt])
-  @@index([replyToId])
+  @@index([userId, conversationId, createdAt])
+  @@index([userId, replyToId])
   
   favorites Favorite[]
   feedbacks MessageFeedback[]
@@ -80,6 +85,8 @@ model Message {
 /// 收藏的消息
 model Favorite {
   id              String       @id @default(cuid())
+  userId          String
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   messageId       String
   message         Message      @relation(fields: [messageId], references: [id], onDelete: Cascade)
   conversationId  String
@@ -87,13 +94,15 @@ model Favorite {
   deviceId        String
   createdAt       DateTime     @default(now())
   
-  @@unique([messageId, deviceId])
-  @@index([deviceId, createdAt(sort: Desc)])
+  @@unique([messageId, userId, deviceId])
+  @@index([userId, deviceId, createdAt(sort: Desc)])
 }
 
 /// 聊天模板
 model Template {
   id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   deviceId    String
   title       String
   content     String   @db.Text
@@ -102,13 +111,15 @@ model Template {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  @@index([deviceId, category, orderIndex(sort: Asc), createdAt(sort: Desc)])
-  @@index([deviceId, orderIndex(sort: Asc), createdAt(sort: Desc)])
+  @@index([userId, deviceId, category, orderIndex(sort: Asc), createdAt(sort: Desc)])
+  @@index([userId, deviceId, orderIndex(sort: Asc), createdAt(sort: Desc)])
 }
 
 /// 分享的会话
 model Share {
   id             String       @id @default(cuid())
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   /// 分享链接的唯一标识符（短ID）
   shareId        String       @unique
   conversationId String
@@ -132,10 +143,10 @@ model Share {
   views          ShareView[]
 
   @@index([shareId])
-  @@index([deviceId, createdAt(sort: Desc)])
-  @@index([conversationId])
-  @@index([deviceId, isDeleted(sort: Asc), createdAt(sort: Desc)])
-  @@index([deviceId, isDeleted(sort: Desc), deletedAt(sort: Desc)])
+  @@index([userId, deviceId, createdAt(sort: Desc)])
+  @@index([userId, conversationId])
+  @@index([userId, deviceId, isDeleted(sort: Asc), createdAt(sort: Desc)])
+  @@index([userId, deviceId, isDeleted(sort: Desc), deletedAt(sort: Desc)])
 }
 
 /// 分享访问记录
@@ -159,6 +170,8 @@ model ShareView {
 /// 用户设置
 model UserSetting {
   id                String   @id @default(cuid())
+  userId            String
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   deviceId          String
   /// 外观设置（JSON）
   appearance        Json?
@@ -171,13 +184,15 @@ model UserSetting {
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
 
-  @@unique([deviceId])
-  @@index([deviceId])
+  @@unique([userId, deviceId])
+  @@index([userId, deviceId])
 }
 
 /// 消息反馈
 model MessageFeedback {
   id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   messageId     String
   message       Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
   conversationId String
@@ -190,8 +205,42 @@ model MessageFeedback {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  @@unique([messageId, deviceId])
-  @@index([deviceId, createdAt(sort: Desc)])
-  @@index([messageId])
-  @@index([conversationId])
+  @@unique([userId, messageId, deviceId])
+  @@index([userId, deviceId, createdAt(sort: Desc)])
+  @@index([userId, messageId])
+  @@index([userId, conversationId])
+}
+
+/// 用户
+model User {
+  id            String          @id @default(cuid())
+  username      String          @unique
+  email         String?         @unique
+  passwordHash  String
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+  sessions      Session[]
+  conversations Conversation[]
+  messages      Message[]
+  favorites     Favorite[]
+  templates     Template[]
+  shares        Share[]
+  userSettings  UserSetting[]
+  feedbacks     MessageFeedback[]
+
+  @@index([username])
+}
+
+/// 用户会话（登录状态）
+model Session {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token      String   @unique
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([token])
+  @@index([expiresAt])
 }
