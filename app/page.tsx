@@ -30,6 +30,7 @@ import TemplatePanel, { FormModal } from '@/components/TemplatePanel';
 import FeedbackPanel from '@/components/FeedbackPanel';
 import ExportPanel from '@/components/ExportPanel';
 import SettingsPanel, { SettingsButton } from '@/components/SettingsPanel';
+import UserStatsPanel, { UserButton } from '@/components/UserStatsPanel';
 import ResizablePanel, { useLayoutContext, AdaptiveText } from '@/components/ResizablePanel';
 import { DEFAULT_OPENROUTER_MODEL_ID, DEFAULT_OPENROUTER_MODEL_LABEL } from '@/lib/openrouter-models';
 import { CONVERSATION_STORAGE_KEY, getOrCreateDeviceId } from '@/lib/device';
@@ -1304,6 +1305,7 @@ export default function Home() {
   const [showFeedbackPanel, setShowFeedbackPanel] = useState<boolean>(false);
   const [showExportPanel, setShowExportPanel] = useState<boolean>(false);
   const [showSettingsPanel, setShowSettingsPanel] = useState<boolean>(false);
+  const [showUserStatsPanel, setShowUserStatsPanel] = useState<boolean>(false);
 
   // 模板相关状态
   const [templates, setTemplates] = useState<TemplateItem[]>([]);
@@ -2277,6 +2279,7 @@ export default function Home() {
             <p className="shrink-0 max-w-[min(52vw,14rem)] truncate text-right text-[11px] text-[#666666] sm:max-w-none sm:text-xs" title="当前对话模型">
               {DEFAULT_OPENROUTER_MODEL_LABEL}
             </p>
+            <UserButton onClick={() => setShowUserStatsPanel(true)} />
             <SettingsButton onClick={() => setShowSettingsPanel(true)} />
           </div>
         </div>
@@ -2488,6 +2491,12 @@ export default function Home() {
         initialValues={saveAsTemplateData}
         mode="save-as"
         onSubmit={handleCreateTemplateFromConversation}
+      />
+
+      {/* 使用记录面板 */}
+      <UserStatsPanel
+        visible={showUserStatsPanel}
+        onClose={() => setShowUserStatsPanel(false)}
       />
 
       {/* 外观设置面板 */}
