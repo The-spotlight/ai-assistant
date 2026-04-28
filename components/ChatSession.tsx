@@ -33,8 +33,6 @@ import {
   MoreVertical,
   Download,
   Share2,
-  ThumbsUp,
-  ThumbsDown,
   Copy,
   Loader2,
   Send,
@@ -42,6 +40,7 @@ import {
   Reply,
   FolderOpen,
 } from 'lucide-react';
+import { useMessageFeedback, MessageFeedbackButton } from '@/components/MessageFeedback';
 
 const SUGGESTIONS = [
   '搜索今日新闻',
@@ -171,12 +170,8 @@ export default function ChatSession({
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // 消息反馈相关状态
-  const [messageFeedback, setMessageFeedback] = useState<Record<string, { liked: boolean; disliked: boolean; reason?: string; comment?: string }>>({});
-  const [showDislikeModal, setShowDislikeModal] = useState<string | null>(null);
-  const [dislikeReason, setDislikeReason] = useState<string>('');
-  const [dislikeComment, setDislikeComment] = useState<string>('');
-  const [isLoadingFeedback, setIsLoadingFeedback] = useState(false);
+  // 消息反馈相关状态（使用组件化的hook）
+  const { feedbackMap, handleLike, handleDislike, handleUndoDislike } = useMessageFeedback(deviceId);
 
   // 格式化相对时间
   const formatRelativeTime = useCallback((dateStr: string) => {
@@ -256,169 +251,6 @@ export default function ChatSession({
     }
   }, []);
 
-  // 处理点赞
-  const handleLike = useCallback(async (messageId: string) => {
-    const current = messageFeedback[messageId] || { liked: false, disliked: false };
-    const newLiked = !current.liked;
-    const newDisliked = false;
-
-    // 先更新本地状态
-    setMessageFeedback(prev => ({
-      ...prev, 
-      [messageId]: { ...current, liked: newLiked, disliked: newDisliked }
-    }));
-
-    // 然后发送到服务器
-    try {
-      const response = await fetch('/api/message-feedback', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-device-id': deviceId,
-        },
-        body: JSON.stringify({
-          messageId,
-          conversationId,
-          deviceId,
-          liked: newLiked,
-          disliked: newDisliked,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error('Error sending like feedback:', errorData.error);
-        // 如果发送失败，回滚本地状态
-        setMessageFeedback(prev => ({
-          ...prev, 
-          [messageId]: current
-        }));
-      }
-    } catch (error) {
-      console.error('Error sending like feedback:', error);
-      // 如果发送失败，回滚本地状态
-      setMessageFeedback(prev => ({
-        ...prev, 
-        [messageId]: current
-      }));
-    }
-  }, [messageFeedback, deviceId, conversationId]);
-
-  // 处理点踩
-  const handleDislike = useCallback((messageId: string) => {
-    setShowDislikeModal(messageId);
-    setDislikeReason('');
-    setDislikeComment('');
-  }, []);
-
-  // 提交点踩原因
-  const handleDislikeSubmit = useCallback(async (messageId: string) => {
-    const current = messageFeedback[messageId] || { liked: false, disliked: false };
-    const newFeedback = {
-      liked: false,
-      disliked: true,
-      reason: dislikeReason,
-      comment: dislikeComment
-    };
-
-    // 先更新本地状态
-    setMessageFeedback(prev => ({
-      ...prev,
-      [messageId]: newFeedback
-    }));
-    setShowDislikeModal(null);
-
-    // 然后发送到服务器
-    try {
-      const response = await fetch('/api/message-feedback', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-device-id': deviceId,
-        },
-        body: JSON.stringify({
-          messageId,
-          conversationId,
-          deviceId,
-          ...newFeedback,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error('Error sending dislike feedback:', errorData.error);
-        // 如果发送失败，回滚本地状态
-        setMessageFeedback(prev => ({
-          ...prev,
-          [messageId]: current
-        }));
-      }
-    } catch (error) {
-      console.error('Error sending dislike feedback:', error);
-      // 如果发送失败，回滚本地状态
-      setMessageFeedback(prev => ({
-        ...prev,
-        [messageId]: current
-      }));
-    }
-  }, [messageFeedback, dislikeReason, dislikeComment, deviceId, conversationId]);
-
-  // 取消点踩
-  const handleCancelDislike = useCallback(() => {
-    setShowDislikeModal(null);
-  }, []);
-
-  // 取消点踩状态
-  const handleUndoDislike = useCallback(async (messageId: string) => {
-    const current = messageFeedback[messageId] || { liked: false, disliked: false };
-    const newFeedback = {
-      ...current,
-      disliked: false,
-      reason: undefined,
-      comment: undefined
-    };
-
-    // 先更新本地状态
-    setMessageFeedback(prev => ({
-      ...prev,
-      [messageId]: newFeedback
-    }));
-
-    // 然后发送到服务器
-    try {
-      const response = await fetch('/api/message-feedback', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-device-id': deviceId,
-        },
-        body: JSON.stringify({
-          messageId,
-          conversationId,
-          deviceId,
-          ...newFeedback,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error('Error sending undo dislike feedback:', errorData.error);
-        // 如果发送失败，回滚本地状态
-        setMessageFeedback(prev => ({
-          ...prev,
-          [messageId]: current
-        }));
-      }
-    } catch (error) {
-      console.error('Error sending undo dislike feedback:', error);
-      // 如果发送失败，回滚本地状态
-      setMessageFeedback(prev => ({
-        ...prev,
-        [messageId]: current
-      }));
-    }
-  }, [messageFeedback, deviceId, conversationId]);
-
   // 清理高亮定时器
   useEffect(() => {
     return () => {
@@ -427,44 +259,6 @@ export default function ChatSession({
       }
     };
   }, []);
-
-  // 加载消息反馈数据
-  useEffect(() => {
-    const loadFeedback = async () => {
-      if (!deviceId) return;
-
-      setIsLoadingFeedback(true);
-      try {
-        const response = await fetch('/api/message-feedback', {
-          headers: {
-            'x-device-id': deviceId,
-          },
-        });
-
-        if (response.ok) {
-          const feedbacks = await response.json();
-          const feedbackMap: Record<string, { liked: boolean; disliked: boolean; reason?: string; comment?: string }> = {};
-
-          feedbacks.forEach((feedback: any) => {
-            feedbackMap[feedback.messageId] = {
-              liked: feedback.liked,
-              disliked: feedback.disliked,
-              reason: feedback.reason,
-              comment: feedback.comment,
-            };
-          });
-
-          setMessageFeedback(feedbackMap);
-        }
-      } catch (error) {
-        console.error('Error loading message feedback:', error);
-      } finally {
-        setIsLoadingFeedback(false);
-      }
-    };
-
-    loadFeedback();
-  }, [deviceId]);
 
   // 计算总 token 数和费用
   const { totalTokens, totalCost } = useMemo(() => {
@@ -1257,34 +1051,15 @@ export default function ChatSession({
                         <Reply className="h-3 w-3" />
                         引用
                       </button>
-                      {/* 点赞按钮 */}
-                      <button
-                        type="button"
-                        onClick={() => handleLike(m.id)}
-                        className={`inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] transition-colors hover:bg-[#f5f5f5] ${
-                          messageFeedback[m.id]?.liked
-                            ? 'text-[#10b981]'
-                            : 'text-[#737373] hover:text-[#171717]'
-                        }`}
-                        title={messageFeedback[m.id]?.liked ? '取消点赞' : '点赞此回复'}
-                      >
-                        <ThumbsUp className={`h-3 w-3 ${messageFeedback[m.id]?.liked ? 'fill-[#10b981]' : ''}`} />
-                        {messageFeedback[m.id]?.liked ? '已点赞' : '点赞'}
-                      </button>
-                      {/* 点踩按钮 */}
-                      <button
-                        type="button"
-                        onClick={() => messageFeedback[m.id]?.disliked ? handleUndoDislike(m.id) : handleDislike(m.id)}
-                        className={`inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] transition-colors hover:bg-[#f5f5f5] ${
-                          messageFeedback[m.id]?.disliked
-                            ? 'text-[#ef4444]'
-                            : 'text-[#737373] hover:text-[#171717]'
-                        }`}
-                        title={messageFeedback[m.id]?.disliked ? '取消点踩' : '点踩此回复'}
-                      >
-                        <ThumbsDown className={`h-3 w-3 ${messageFeedback[m.id]?.disliked ? 'fill-[#ef4444]' : ''}`} />
-                        {messageFeedback[m.id]?.disliked ? '已点踩' : '点踩'}
-                      </button>
+                      <MessageFeedbackButton
+                        messageId={m.id}
+                        conversationId={conversationId}
+                        deviceId={deviceId}
+                        feedback={feedbackMap[m.id] || { liked: false, disliked: false }}
+                        onLike={handleLike}
+                        onDislike={handleDislike}
+                        onUndoDislike={handleUndoDislike}
+                      />
                       {onToggleFavorite && (
                         <button
                           type="button"
@@ -1492,63 +1267,6 @@ export default function ChatSession({
         formatTime={formatTime}
       />
 
-      {/* 点踩原因弹窗 */}
-      {showDislikeModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-lg">
-            <h3 className="mb-4 text-lg font-medium text-[#171717]">请选择点踩原因</h3>
-            <div className="mb-4 space-y-2">
-              {[
-                { value: 'inaccurate', label: '回答不准确' },
-                { value: 'off_topic', label: '答非所问' },
-                { value: 'too_long', label: '太啰嗦' },
-                { value: 'too_short', label: '太简短' },
-                { value: 'wrong_content', label: '内容有错' },
-                { value: 'other', label: '其他' }
-              ].map((option) => (
-                <label key={option.value} className="flex items-center gap-2 cursor-pointer">
-                  <input
-                    type="radio"
-                    name="dislikeReason"
-                    value={option.value}
-                    checked={dislikeReason === option.value}
-                    onChange={(e) => setDislikeReason(e.target.value)}
-                    className="h-4 w-4 text-[#ef4444] border-gray-300 focus:ring-[#ef4444]"
-                  />
-                  <span className="text-sm text-[#374151]">{option.label}</span>
-                </label>
-              ))}
-            </div>
-            <div className="mb-4">
-              <label className="block mb-1 text-sm font-medium text-[#374151]">补充说明（可选）</label>
-              <textarea
-                value={dislikeComment}
-                onChange={(e) => setDislikeComment(e.target.value)}
-                rows={3}
-                className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#ef4444] focus:border-transparent"
-                placeholder="请输入您的补充说明..."
-              />
-            </div>
-            <div className="flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={handleCancelDislike}
-                className="rounded px-4 py-2 text-sm text-[#6b7280] transition-colors hover:bg-[#f3f4f6]"
-              >
-                取消
-              </button>
-              <button
-                type="button"
-                onClick={() => handleDislikeSubmit(showDislikeModal)}
-                disabled={!dislikeReason}
-                className="rounded bg-[#ef4444] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#dc2626] disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                提交
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
