@@ -1,8 +1,7 @@
 'use client';
 
 import { SettingsProvider } from '@/lib/settings';
-import { ToastContainer } from 'react-toastify';
-import 'react-toastify/dist/ReactToastify.css';
+import { ToastContainer, Slide } from 'react-toastify';
 
 export default function ClientProviders({
   children,
@@ -20,9 +19,10 @@ export default function ClientProviders({
         closeOnClick
         rtl={false}
         pauseOnFocusLoss
-        draggable
+        draggable={false}
         pauseOnHover
-        theme="light"
+        transition={Slide}
+        icon={false}
       />
     </SettingsProvider>
   );
