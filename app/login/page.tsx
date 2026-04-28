@@ -7,15 +7,6 @@ import { Button } from '@/components/ui/Button';
 import { login, type AuthError } from '@/lib/auth';
 import { Toast, ToastContainer } from '@/components/ui/Toast';
 
-async function sha256(message: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(message);
-  const hash = await crypto.subtle.digest('SHA-256', data);
-  return Array.from(new Uint8Array(hash))
-    .map(byte => byte.toString(16).padStart(2, '0'))
-    .join('');
-}
-
 export default function LoginPage() {
   const router = useRouter();
   const [username, setUsername] = useState('');
@@ -38,8 +29,7 @@ export default function LoginPage() {
     setError('');
     setIsLoading(true);
     
-    const passwordHash = await sha256(password);
-    const result = await login(username, passwordHash);
+    const result = await login(username, password);
     
     if (result.success) {
       addToast('登录成功', 'success');

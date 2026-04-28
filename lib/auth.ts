@@ -33,10 +33,10 @@ export async function logout(): Promise<void> {
   window.location.href = '/login';
 }
 
-export async function login(username: string, passwordHash: string): Promise<{ success: boolean; error?: AuthError; user?: UserInfo }> {
+export async function login(username: string, password: string): Promise<{ success: boolean; error?: AuthError; user?: UserInfo }> {
   const response = await postJsonWithRetry<{ success: boolean; user: UserInfo }>(
     '/api/auth/login',
-    { username, passwordHash },
+    { username, password },
     {
       credentials: 'include' as RequestCredentials,
       maxRetries: 2,
