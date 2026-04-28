@@ -4,10 +4,6 @@ import { hash } from 'bcryptjs';
 
 export const runtime = 'nodejs';
 
-function sha256(input: string): string {
-  return require('crypto').createHash('sha256').update(input).digest('hex');
-}
-
 export async function POST(request: Request) {
   try {
     const { username, password } = await request.json();
@@ -44,8 +40,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const sha256Password = sha256(password);
-    const passwordHash = await hash(sha256Password, 10);
+    const passwordHash = await hash(password, 10);
 
     const user = await prisma.user.create({
       data: {

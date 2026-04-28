@@ -299,11 +299,11 @@ function useChatSession({
     api: '/api/chat',
     id: conversationId ?? undefined,
     initialMessages: conversationId ? initialMessages : [],
-    body: {
+    body: conversationId ? {
       model: DEFAULT_OPENROUTER_MODEL_ID,
-      conversationId: conversationId ?? '',
+      conversationId,
       deviceId,
-    },
+    } : undefined,
     headers: { 'X-Device-Id': deviceId },
   });
 
