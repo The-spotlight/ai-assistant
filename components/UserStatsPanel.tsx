@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { getOrCreateDeviceId } from '@/lib/device';
 import { CloseButton } from '@/components/ui/Dialog';
-import { BarChart, Bar, XAxis, ResponsiveContainer, Label } from 'recharts';
+import { BarChart, Bar, XAxis, ResponsiveContainer } from 'recharts';
 import { Calendar, Clock, BarChart3, Loader2, User } from 'lucide-react';
 
 type UserStats = {
@@ -39,19 +39,6 @@ function formatDate(dateStr: string): string {
   const date = new Date(dateStr);
   return `${date.getMonth() + 1}/${date.getDate()}`;
 }
-
-const CustomLabel = ({ x, y, value }: { x: number; y: number; value: number }) => {
-  return (
-    <text
-      x={x}
-      y={y - 8}
-      textAnchor="middle"
-      className="text-xs font-medium fill-[#171717]"
-    >
-      {value}
-    </text>
-  );
-};
 
 export default function UserStatsPanel({ visible, onClose }: UserStatsPanelProps) {
   const panelRef = useRef<HTMLDivElement>(null);
@@ -192,7 +179,7 @@ export default function UserStatsPanel({ visible, onClose }: UserStatsPanelProps
 
                 <div className="bg-[#fafafa] rounded-xl p-4 border border-[#e5e5e5]">
                   <ResponsiveContainer width="100%" height={180}>
-                    <BarChart data={stats.last7DaysUsage} margin={{ top: 20, right: 10, left: 10, bottom: 5 }}>
+                    <BarChart data={stats.last7DaysUsage} margin={{ top: 25, right: 10, left: 10, bottom: 5 }}>
                       <XAxis
                         dataKey="date"
                         tickFormatter={formatDate}
@@ -204,7 +191,7 @@ export default function UserStatsPanel({ visible, onClose }: UserStatsPanelProps
                         dataKey="conversationCount"
                         fill="#171717"
                         radius={[4, 4, 0, 0]}
-                        label={{ position: 'top', content: CustomLabel }}
+                        label={{ position: 'top', formatter: (label: any) => String(label) }}
                       />
                     </BarChart>
                   </ResponsiveContainer>
