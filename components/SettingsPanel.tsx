@@ -31,7 +31,7 @@ import { downloadBlob } from '@/lib/export';
 import { Button } from '@/components/ui/Button';
 import { CloseButton } from '@/components/ui/Dialog';
 import { Switch } from '@/components/ui/Switch';
-import { Toast } from '@/components/ui/Toast';
+import { useMessage } from '@/components/ui/Message';
 import {
   Settings,
   RefreshCw,
@@ -52,11 +52,6 @@ import {
 } from 'lucide-react';
 
 type SettingsTab = 'appearance' | 'behavior' | 'model' | 'keyboard' | 'presets' | 'data';
-
-interface ToastMessage {
-  type: 'success' | 'error' | 'info';
-  message: string;
-}
 
 interface SettingsPanelProps {
   visible: boolean;
@@ -98,16 +93,14 @@ export default function SettingsPanel({ visible, onClose, onTrashEmptied }: Sett
     deletePreset,
   } = useSettings();
 
+  const { success: showSuccessMessage } = useMessage();
+
   const [activeTab, setActiveTab] = useState<SettingsTab>('appearance');
   const [showResetConfirm, setShowResetConfirm] = useState(false);
-  const [resetSuccess, setResetSuccess] = useState<string | null>(null);
-  const [presetSuccess, setPresetSuccess] = useState<string | null>(null);
 
   useEffect(() => {
     if (!visible) {
       setShowResetConfirm(false);
-      setResetSuccess(null);
-      setPresetSuccess(null);
       return;
     }
 
@@ -140,28 +133,25 @@ export default function SettingsPanel({ visible, onClose, onTrashEmptied }: Sett
     switch (activeTab) {
       case 'appearance':
         resetAppearance();
-        setResetSuccess('外观');
+        showSuccessMessage('已恢复默认外观设置');
         break;
       case 'behavior':
         resetBehavior();
-        setResetSuccess('行为');
+        showSuccessMessage('已恢复默认行为设置');
         break;
       case 'model':
         resetModel();
-        setResetSuccess('模型');
+        showSuccessMessage('已恢复默认模型设置');
         break;
       case 'keyboard':
         resetKeyboardShortcuts();
-        setResetSuccess('快捷键');
+        showSuccessMessage('已恢复默认快捷键设置');
         break;
       case 'data':
-        setResetSuccess('数据管理');
+        showSuccessMessage('已恢复默认数据管理设置');
         break;
     }
     setShowResetConfirm(false);
-    setTimeout(() => {
-      setResetSuccess(null);
-    }, 2000);
   };
 
   if (!visible) return null;
@@ -219,19 +209,6 @@ export default function SettingsPanel({ visible, onClose, onTrashEmptied }: Sett
           })}
         </div>
 
-        {resetSuccess && (
-          <div className="px-4 py-2 border-b border-black/[0.06] bg-[#f0fdf4] flex items-center gap-2 shrink-0">
-            <Check className="h-4 w-4 text-[#22c55e]" />
-            <span className="text-xs text-[#16a34a]">已恢复默认{resetSuccess}设置</span>
-          </div>
-        )}
-        {presetSuccess && (
-          <div className="px-4 py-2 border-b border-black/[0.06] bg-[#f0fdf4] flex items-center gap-2 shrink-0">
-            <Check className="h-4 w-4 text-[#22c55e]" />
-            <span className="text-xs text-[#16a34a]">{presetSuccess}</span>
-          </div>
-        )}
-
         <div className="flex-1 overflow-y-auto p-4">
           {activeTab === 'appearance' && (
             <AppearanceTab
@@ -264,23 +241,19 @@ export default function SettingsPanel({ visible, onClose, onTrashEmptied }: Sett
               activePresetId={activePresetId}
               onCreatePreset={(name) => {
                 createPreset(name);
-                setPresetSuccess('配置方案已保存');
-                setTimeout(() => setPresetSuccess(null), 2000);
+                showSuccessMessage('配置方案已保存');
               }}
               onApplyPreset={(id) => {
                 applyPreset(id);
-                setPresetSuccess('已切换到该配置方案');
-                setTimeout(() => setPresetSuccess(null), 2000);
+                showSuccessMessage('已切换到该配置方案');
               }}
               onRenamePreset={(id, newName) => {
                 renamePreset(id, newName);
-                setPresetSuccess('配置方案已重命名');
-                setTimeout(() => setPresetSuccess(null), 2000);
+                showSuccessMessage('配置方案已重命名');
               }}
               onDeletePreset={(id) => {
                 deletePreset(id);
-                setPresetSuccess('配置方案已删除');
-                setTimeout(() => setPresetSuccess(null), 2000);
+                showSuccessMessage('配置方案已删除');
               }}
             />
           )}
@@ -324,8 +297,7 @@ export default function SettingsPanel({ visible, onClose, onTrashEmptied }: Sett
               </Button>
               <Button variant="outline" className="flex-1" onClick={() => {
                 resetAll();
-                setResetSuccess('全部');
-                setTimeout(() => setResetSuccess(null), 2000);
+                showSuccessMessage('已恢复全部默认设置');
               }}>
                 <RefreshCw className="h-4 w-4" />
                 恢复全部
@@ -780,13 +752,6 @@ interface DataTabProps {
   onTrashEmptied?: () => void;
 }
 
-type ToastType = 'success' | 'error' | 'info';
-
-interface ToastMessage {
-  type: ToastType;
-  message: string;
-}
-
 function KeyboardTab({
   keyboardShortcuts,
   updateKeyboardShortcuts,
@@ -893,7 +858,8 @@ function DataTab({
   const [importingConfig, setImportingConfig] = useState(false);
   const [importErrors, setImportErrors] = useState<DataValidationError[]>([]);
   const [trashCount, setTrashCount] = useState<number | null>(null);
-  const [toast, setToast] = useState<ToastMessage | null>(null);
+
+  const { success, error } = useMessage();
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -917,11 +883,6 @@ function DataTab({
     fetchTrashCount();
   }, []);
 
-  const showToast = useCallback((type: ToastType, message: string) => {
-    setToast({ type, message });
-    setTimeout(() => setToast(null), 3000);
-  }, []);
-
   const handleExportConversations = async () => {
     setExportingConversations(true);
     try {
@@ -940,9 +901,9 @@ function DataTab({
       const timestamp = new Date().toISOString().slice(0, 10);
       const filename = `全部对话导出_${timestamp}.zip`;
       downloadBlob(blob, filename);
-    } catch (error) {
-      console.error('导出会话失败:', error);
-      showToast('error', '导出失败，请稍后重试');
+    } catch (err) {
+      console.error('导出会话失败:', err);
+      error('导出失败，请稍后重试');
     } finally {
       setExportingConversations(false);
     }
@@ -967,14 +928,14 @@ function DataTab({
       const data = await response.json();
       setTrashCount(0);
       setShowEmptyTrashConfirm(false);
-      showToast('success', `已清空回收站，共删除 ${data.deletedCount} 个会话`);
+      success(`已清空回收站，共删除 ${data.deletedCount} 个会话`);
       
       if (onTrashEmptied) {
         onTrashEmptied();
       }
-    } catch (error) {
-      console.error('清空回收站失败:', error);
-      showToast('error', '清空失败，请稍后重试');
+    } catch (err) {
+      console.error('清空回收站失败:', err);
+      error('清空失败，请稍后重试');
     } finally {
       setEmptyingTrash(false);
     }
@@ -996,10 +957,10 @@ function DataTab({
       const timestamp = new Date().toISOString().slice(0, 10);
       const filename = `配置备份_${timestamp}.json`;
       downloadBlob(blob, filename);
-      showToast('success', '配置导出成功');
-    } catch (error) {
-      console.error('导出配置失败:', error);
-      showToast('error', '导出失败，请稍后重试');
+      success('配置导出成功');
+    } catch (err) {
+      console.error('导出配置失败:', err);
+      error('导出失败，请稍后重试');
     } finally {
       setExportingConfig(false);
     }
@@ -1207,8 +1168,8 @@ function DataTab({
         }
 
         applyConfig(parsedConfig);
-        showToast('success', '配置导入成功');
-      } catch (error) {
+        success('配置导入成功');
+      } catch (err) {
         setImportErrors([{ field: 'root', message: 'JSON 解析失败，请检查文件格式' }]);
       } finally {
         setImportingConfig(false);
@@ -1231,14 +1192,6 @@ function DataTab({
 
   return (
     <div className="flex flex-col gap-6">
-      {toast && (
-        <Toast
-          message={toast.message}
-          type={toast.type}
-          onClose={() => setToast(null)}
-        />
-      )}
-
       <div className="flex flex-col gap-3">
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-[#171717]">会话数据</span>
