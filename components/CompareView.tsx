@@ -286,6 +286,21 @@ function useChatSession({
   conversationId: string | null;
   initialMessages: Message[];
 }) {
+  if (!conversationId) {
+    return {
+      messages: initialMessages as MessageWithTokens[],
+      input: '',
+      handleInputChange: () => {},
+      handleSubmit: () => {},
+      isLoading: false,
+      append: () => {},
+      setMessages: () => {},
+      setInput: () => {},
+      totalTokens: 0,
+      totalCost: 0,
+    };
+  }
+
   const {
     messages: chatMessages,
     input,
@@ -297,13 +312,13 @@ function useChatSession({
     setInput,
   } = useChat({
     api: '/api/chat',
-    id: conversationId ?? undefined,
-    initialMessages: conversationId ? initialMessages : [],
-    body: conversationId ? {
+    id: conversationId,
+    initialMessages,
+    body: {
       model: DEFAULT_OPENROUTER_MODEL_ID,
       conversationId,
       deviceId,
-    } : undefined,
+    },
     headers: { 'X-Device-Id': deviceId },
   });
 

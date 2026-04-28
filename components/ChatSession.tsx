@@ -96,8 +96,16 @@ export default function ChatSession({
   const bubbleStyle = BUBBLE_STYLES[settings.bubbleStyle];
   const fontSizeConfig = FONT_SIZES[settings.fontSize];
 
-  // 引用回复相关 ref（放在 useChat 之前，用于动态 body）
   const replyingToRef = useRef<ReplyInfo | null>(null);
+
+  const chatBody = useMemo(() => ({ 
+    model: model.defaultModel || modelId, 
+    conversationId, 
+    deviceId,
+    temperature: model.temperature,
+    maxTokens: model.maxTokens,
+    streaming: model.streaming,
+  }), [model.defaultModel, modelId, conversationId, deviceId, model.temperature, model.maxTokens, model.streaming]);
 
   const {
     messages,
@@ -112,29 +120,11 @@ export default function ChatSession({
     api: '/api/chat',
     id: conversationId,
     initialMessages,
-    body: () => {
-      const body: Record<string, unknown> = { 
-        model: model.defaultModel || modelId, 
-        conversationId, 
-        deviceId,
-        temperature: model.temperature,
-        maxTokens: model.maxTokens,
-        streaming: model.streaming,
-      };
-      
-      // 如果有引用信息，添加到 body
-      if (replyingToRef.current) {
-        body.replyTo = {
-          messageId: replyingToRef.current.messageId,
-          content: replyingToRef.current.content,
-          createdAt: replyingToRef.current.createdAt,
-          role: replyingToRef.current.role,
-        };
-      }
-      
-      return body;
-    },
+    body: chatBody,
     headers: { 'X-Device-Id': deviceId },
+    onError: (error) => {
+      console.error('[ChatSession] API 调用错误:', error);
+    },
   });
 
   const bottomRef = useRef<HTMLDivElement>(null);

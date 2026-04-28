@@ -253,9 +253,25 @@ async function ensureConversationTitle(conversationId: string): Promise<void> {
   });
 }
 
+export async function GET() {
+  return new Response(
+    JSON.stringify({ 
+      error: '此 API 只支持 POST 请求', 
+      message: '请通过前端应用正常使用聊天功能，或使用 curl 命令测试：curl -X POST http://localhost:3000/api/chat -H "Content-Type: application/json" -d \'{"messages": [{"role": "user", "content": "你好"}], "conversationId": "your-conversation-id", "deviceId": "your-device-id"}\''
+    }),
+    {
+      status: 405,
+      headers: { 
+        'Content-Type': 'application/json',
+        'Allow': 'POST',
+      },
+    }
+  );
+}
+
 export async function POST(req: Request) {
   const body = await req.json();
-  const { messages, model: bodyModel, conversationId, deviceId, replyTo, temperature, maxTokens, streaming } = body as {
+  const { messages, model: bodyModel, conversationId: bodyConversationId, deviceId: bodyDeviceId, replyTo, temperature, maxTokens, streaming, id } = body as {
     messages?: CoreMessage[];
     model?: string;
     conversationId?: string;
@@ -264,16 +280,20 @@ export async function POST(req: Request) {
     temperature?: number;
     maxTokens?: number;
     streaming?: boolean;
+    id?: string;
   };
 
+  const conversationId = bodyConversationId || id;
+  const deviceId = bodyDeviceId || req.headers.get('x-device-id') || req.headers.get('X-Device-Id');
+
   if (!conversationId || typeof conversationId !== 'string') {
-    return new Response(JSON.stringify({ error: '缺少 conversationId' }), {
+    return new Response(JSON.stringify({ error: '缺少 conversationId', detail: '请先创建会话或选择一个现有会话' }), {
       status: 400,
       headers: { 'Content-Type': 'application/json' },
     });
   }
   if (!deviceId || typeof deviceId !== 'string') {
-    return new Response(JSON.stringify({ error: '缺少 deviceId' }), {
+    return new Response(JSON.stringify({ error: '缺少 deviceId', detail: '请确保已正确初始化设备标识' }), {
       status: 400,
       headers: { 'Content-Type': 'application/json' },
     });
