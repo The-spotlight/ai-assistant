@@ -109,12 +109,14 @@ export async function DELETE(request: NextRequest) {
 
     // 先尝试通过messageId查找消息，如果找不到，再尝试通过clientMessageId查找
     let message = await prisma.message.findUnique({
-      where: { id: messageId }
+      where: { id: messageId },
+      select: { id: true, userId: true },
     });
 
     if (!message) {
       message = await prisma.message.findFirst({
-        where: { clientMessageId: messageId }
+        where: { clientMessageId: messageId },
+        select: { id: true, userId: true },
       });
     }
 
