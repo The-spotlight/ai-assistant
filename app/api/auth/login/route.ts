@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { compare } from 'bcryptjs';
 import { signJwt } from '@/lib/jwt';
+import { generateRefreshToken } from '@/lib/crypto';
 
 export const runtime = 'nodejs';
 
@@ -11,7 +12,7 @@ function sha256(input: string): string {
 
 export async function POST(request: Request) {
   try {
-    const { username, password } = await request.json();
+    const { username, password, rememberMe } = await request.json();
 
     if (!username || !password) {
       return NextResponse.json(
@@ -50,17 +51,35 @@ export async function POST(request: Request) {
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 7);
 
+    const sessionData: {
+      userId: string;
+      token: string;
+      expiresAt: Date;
+      refreshToken?: string;
+      refreshExpiresAt?: Date;
+    } = {
+      userId: user.id,
+      token,
+      expiresAt,
+    };
+
+    let refreshToken: string | undefined;
+    if (rememberMe) {
+      refreshToken = generateRefreshToken();
+      const refreshExpiresAt = new Date();
+      refreshExpiresAt.setDate(refreshExpiresAt.getDate() + 30);
+      sessionData.refreshToken = refreshToken;
+      sessionData.refreshExpiresAt = refreshExpiresAt;
+    }
+
     await prisma.session.create({
-      data: {
-        userId: user.id,
-        token,
-        expiresAt,
-      },
+      data: sessionData,
     });
 
     const response = NextResponse.json({
       success: true,
       user: { id: user.id, username: user.username },
+      refreshToken,
     });
 
     response.cookies.set('auth_token', token, {
