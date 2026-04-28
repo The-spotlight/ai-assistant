@@ -1,4 +1,4 @@
-import jwt from 'jsonwebtoken';
+import * as jose from 'jose';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 const JWT_EXPIRES_IN = '7d';
@@ -6,12 +6,21 @@ const JWT_EXPIRES_IN = '7d';
 export interface JwtPayload {
   userId: string;
   username: string;
+  [key: string]: unknown;
 }
 
-export function signJwt(payload: JwtPayload): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
+export async function signJwt(payload: JwtPayload): Promise<string> {
+  const secret = new TextEncoder().encode(JWT_SECRET);
+  return await new jose.SignJWT({ ...payload })
+    .setProtectedHeader({ alg: 'HS256' })
+    .setExpirationTime(JWT_EXPIRES_IN)
+    .sign(secret);
 }
 
-export function verifyJwt(token: string): JwtPayload {
-  return jwt.verify(token, JWT_SECRET) as JwtPayload;
+export async function verifyJwt(token: string): Promise<JwtPayload> {
+  const secret = new TextEncoder().encode(JWT_SECRET);
+  const { payload } = await jose.jwtVerify(token, secret, {
+    algorithms: ['HS256'],
+  });
+  return payload as JwtPayload;
 }
