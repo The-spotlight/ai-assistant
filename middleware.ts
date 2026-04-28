@@ -1,25 +1,50 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { verifyJwt } from '@/lib/jwt';
+import { prisma } from '@/lib/db';
 
-const LOGIN_STATUS_KEY = 'ai_assistant_logged_in';
-
-export function middleware(request: NextRequest) {
-  const loginStatus = request.cookies.get(LOGIN_STATUS_KEY)?.value;
-  const isLoggedIn = loginStatus === 'true';
+export async function middleware(request: NextRequest) {
+  const token = request.cookies.get('auth_token')?.value;
   
   const { pathname } = request.nextUrl;
-  
+
   if (pathname === '/login') {
-    if (isLoggedIn) {
-      return NextResponse.redirect(new URL('/', request.url));
+    if (token) {
+      try {
+        await verifyJwt(token);
+        const session = await prisma.session.findUnique({
+          where: { token },
+        });
+        if (session && session.expiresAt > new Date()) {
+          return NextResponse.redirect(new URL('/', request.url));
+        }
+      } catch {
+      }
     }
     return NextResponse.next();
   }
-  
-  if (!isLoggedIn && pathname !== '/login') {
+
+  if (!token) {
     return NextResponse.redirect(new URL('/login', request.url));
   }
-  
-  return NextResponse.next();
+
+  try {
+    await verifyJwt(token);
+    const session = await prisma.session.findUnique({
+      where: { token },
+    });
+    
+    if (!session || session.expiresAt <= new Date()) {
+      const response = NextResponse.redirect(new URL('/login', request.url));
+      response.cookies.set('auth_token', '', { maxAge: 0 });
+      return response;
+    }
+    
+    return NextResponse.next();
+  } catch {
+    const response = NextResponse.redirect(new URL('/login', request.url));
+    response.cookies.set('auth_token', '', { maxAge: 0 });
+    return response;
+  }
 }
 
 export const config = {

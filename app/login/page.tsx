@@ -24,14 +24,12 @@ export default function LoginPage() {
 
     setIsLoading(true);
     
-    await new Promise(resolve => setTimeout(resolve, 300));
+    const result = await login(username, password);
     
-    const success = login(username, password);
-    
-    if (success) {
+    if (result.success) {
       router.push('/');
     } else {
-      setError('账号或密码错误');
+      setError(result.error || '登录失败');
       setPassword('');
     }
     
@@ -103,6 +101,9 @@ export default function LoginPage() {
           <div className="mt-6 text-center">
             <p className="text-xs text-[#a3a3a3]">
               默认账号：admin | 默认密码：123456
+            </p>
+            <p className="text-xs text-[#a3a3a3] mt-1">
+              首次登录前请先通过注册接口创建用户
             </p>
           </div>
         </div>
