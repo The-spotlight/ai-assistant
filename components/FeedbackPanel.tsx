@@ -368,20 +368,27 @@ export default function FeedbackPanel({ visible, onClose }: FeedbackPanelProps) 
               >
                 自定义
               </button>
-              <div className="flex items-center gap-2 ml-auto">
-                <label className="text-xs font-medium text-[#525252]">模型:</label>
-                <select
-                  value={selectedModel}
-                  onChange={(e) => setSelectedModel(e.target.value)}
-                  className="px-3 py-1.5 text-xs border border-[#e5e5e5] rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#171717]/20 transition-all cursor-pointer"
-                >
-                  <option value="all">全部模型</option>
-                  {stats?.availableModels.map((model) => (
-                    <option key={model} value={model}>
-                      {model}
-                    </option>
-                  ))}
-                </select>
+              <div className="flex items-center gap-2 mr-2">
+                <label className="text-xs font-medium text-[#525252] shrink-0">模型:</label>
+                <div className="relative shrink-0">
+                  <select
+                    value={selectedModel}
+                    onChange={(e) => setSelectedModel(e.target.value)}
+                    className="px-3 py-1.5 pr-8 text-xs border border-[#e5e5e5] rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#171717]/20 transition-all cursor-pointer min-w-[120px] max-w-[200px]"
+                  >
+                    <option value="all">全部模型</option>
+                    {stats?.availableModels.map((model) => (
+                      <option key={model} value={model} title={model}>
+                        {model.length > 20 ? model.substring(0, 20) + '...' : model}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
+                    <svg className="h-3 w-3 text-[#737373]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <polyline points="6 9 12 15 18 9" />
+                    </svg>
+                  </div>
+                </div>
               </div>
               <button
                 type="button"

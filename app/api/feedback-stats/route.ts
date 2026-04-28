@@ -121,8 +121,10 @@ export async function GET(request: NextRequest) {
     const models = includeModels ? await prisma.conversation.findMany({
       where: {
         deviceId,
-        id: {
-          in: modelStats?.map(m => m.conversationId) || [],
+        feedbacks: {
+          some: {
+            ...whereCondition,
+          },
         },
       },
       select: {
