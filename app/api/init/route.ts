@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { initServerTasks } from '@/app/init-tasks';
 
+export const runtime = 'nodejs';
+
 // 确保定时任务只启动一次
 let tasksInitialized = false;
 

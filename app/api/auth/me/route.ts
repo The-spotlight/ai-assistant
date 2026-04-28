@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { verifyJwt } from '@/lib/jwt';
 
+export const runtime = 'nodejs';
+
 export async function GET(request: Request) {
   try {
     const authHeader = request.headers.get('cookie');

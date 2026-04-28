@@ -4,7 +4,8 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
-import { login } from '@/lib/auth';
+import { login, type AuthError } from '@/lib/auth';
+import { Toast, ToastContainer } from '@/components/ui/Toast';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -12,6 +13,16 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [toasts, setToasts] = useState<Array<{ id: string; message: string; type: 'success' | 'error' | 'info' | 'warning' }>>([]);
+
+  const addToast = (message: string, type: 'success' | 'error' | 'info' | 'warning' = 'info') => {
+    const id = Date.now().toString();
+    setToasts(prev => [...prev, { id, message, type }]);
+  };
+
+  const removeToast = (id: string) => {
+    setToasts(prev => prev.filter(t => t.id !== id));
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -27,9 +38,22 @@ export default function LoginPage() {
     const result = await login(username, password);
     
     if (result.success) {
-      router.push('/');
+      addToast('登录成功，正在跳转...', 'success');
+      setTimeout(() => router.push('/'), 1000);
     } else {
-      setError(result.error?.message || '登录失败');
+      const authError = result.error as AuthError;
+      
+      if (authError?.code === 'NETWORK_ERROR') {
+        addToast('网络连接异常，请检查网络设置后重试', 'error');
+      } else if (authError?.code === 'UNAUTHORIZED') {
+        addToast('账号或密码错误，请重新输入', 'error');
+      } else if (authError?.code === 'VALIDATION_ERROR') {
+        addToast(authError.message || '输入格式有误，请检查', 'warning');
+      } else {
+        addToast(authError?.message || '登录失败，请稍后重试', 'error');
+      }
+      
+      setError(authError?.message || '登录失败');
       setPassword('');
     }
     
@@ -38,6 +62,8 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#f6f6f7] p-4">
+      <ToastContainer toasts={toasts} onRemove={removeToast} />
+      
       <div className="w-full max-w-md">
         <div className="bg-white rounded-2xl shadow-sm border border-black/[0.06] p-8">
           <div className="text-center mb-8">

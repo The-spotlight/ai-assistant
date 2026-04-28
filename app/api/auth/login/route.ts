@@ -3,6 +3,8 @@ import { prisma } from '@/lib/db';
 import { compare } from 'bcryptjs';
 import { signJwt } from '@/lib/jwt';
 
+export const runtime = 'nodejs';
+
 export async function POST(request: Request) {
   try {
     const { username, password } = await request.json();
