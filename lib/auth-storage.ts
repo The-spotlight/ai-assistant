@@ -1,10 +1,19 @@
 const STORAGE_KEY = 'ai_assistant_remember_me';
 
+const getEncryptionKey = (): string => {
+  const key = process.env.NEXT_PUBLIC_ENCRYPTION_KEY;
+  if (!key || key.length < 32) {
+    console.warn('NEXT_PUBLIC_ENCRYPTION_KEY environment variable is not set properly, using fallback');
+    return 'fallback-secret-key-must-be-32-chars';
+  }
+  return key.slice(0, 32);
+};
+
 async function generateKey(): Promise<CryptoKey> {
   const encoder = new TextEncoder();
   const keyMaterial = await crypto.subtle.importKey(
     'raw',
-    encoder.encode(process.env.NEXT_PUBLIC_ENCRYPTION_KEY || 'fallback-secret-key-must-be-32-chars'),
+    encoder.encode(getEncryptionKey()),
     { name: 'AES-GCM' },
     false,
     ['encrypt', 'decrypt']
