@@ -296,7 +296,6 @@ export default function UserDropdown({ onOpenSettings, onOpenUserStats }: UserDr
       ),
       onClick: () => {
         logout();
-        window.location.href = '/login';
       },
     },
   ];

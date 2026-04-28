@@ -7,6 +7,15 @@ import { Button } from '@/components/ui/Button';
 import { login, type AuthError } from '@/lib/auth';
 import { Toast, ToastContainer } from '@/components/ui/Toast';
 
+async function sha256(message: string): Promise<string> {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(message);
+  const hash = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(hash))
+    .map(byte => byte.toString(16).padStart(2, '0'))
+    .join('');
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const [username, setUsername] = useState('');
@@ -27,19 +36,14 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
-    
-    if (!username.trim() || !password.trim()) {
-      setError('请输入账号和密码');
-      return;
-    }
-
     setIsLoading(true);
     
-    const result = await login(username, password);
+    const passwordHash = await sha256(password);
+    const result = await login(username, passwordHash);
     
     if (result.success) {
-      addToast('登录成功，正在跳转...', 'success');
-      setTimeout(() => router.push('/'), 1000);
+      addToast('登录成功', 'success');
+      router.push('/');
     } else {
       const authError = result.error as AuthError;
       

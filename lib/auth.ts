@@ -24,22 +24,19 @@ export function isLoggedIn(): boolean {
   return false;
 }
 
-export function logout(): void {
+export async function logout(): Promise<void> {
+  await postJsonWithRetry('/api/auth/logout', {}, {
+    credentials: 'include' as RequestCredentials,
+    maxRetries: 1,
+  });
   document.cookie = 'auth_token=; path=/; max-age=0';
   window.location.href = '/login';
 }
 
-export async function login(username: string, password: string): Promise<{ success: boolean; error?: AuthError; user?: UserInfo }> {
-  if (!username.trim() || !password.trim()) {
-    return {
-      success: false,
-      error: { code: 'VALIDATION_ERROR', message: '请输入账号和密码' }
-    };
-  }
-
+export async function login(username: string, passwordHash: string): Promise<{ success: boolean; error?: AuthError; user?: UserInfo }> {
   const response = await postJsonWithRetry<{ success: boolean; user: UserInfo }>(
     '/api/auth/login',
-    { username, password },
+    { username, passwordHash },
     {
       credentials: 'include' as RequestCredentials,
       maxRetries: 2,
