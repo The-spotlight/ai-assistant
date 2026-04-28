@@ -111,8 +111,6 @@ function generateWelcomeMessage(status: ActivityStatus): string {
 
 export default function UserDropdown({ onOpenSettings, onOpenUserStats }: UserDropdownProps) {
   const [drawerContent, setDrawerContent] = useState<DrawerContent>(null);
-  const [showWelcome, setShowWelcome] = useState(false);
-  const [showAvatarMenu, setShowAvatarMenu] = useState(false);
   const activityStatus = useUserActivity();
   const { appearance, updateAppearance } = useSettings();
 
@@ -126,10 +124,6 @@ export default function UserDropdown({ onOpenSettings, onOpenUserStats }: UserDr
 
   const handleDrawerClose = () => {
     setDrawerContent(null);
-  };
-
-  const handleAvatarClick = () => {
-    setShowWelcome(!showWelcome);
   };
 
   const toggleAvatarShape = () => {
@@ -146,7 +140,64 @@ export default function UserDropdown({ onOpenSettings, onOpenUserStats }: UserDr
     updateAppearance('avatarBorder', borders[nextIndex]);
   };
 
+  const avatarShapeClass = AVATAR_SHAPES[appearance.avatarShape].borderRadius;
+  const avatarBorderClass = AVATAR_BORDERS[appearance.avatarBorder].border;
+
+  const statusColors: Record<ActivityStatus, string> = {
+    active: 'bg-green-500',
+    occasional: 'bg-yellow-500',
+    rare: 'bg-gray-400',
+  };
+
+  const statusGlow: Record<ActivityStatus, string> = {
+    active: 'shadow-green-500/50',
+    occasional: 'shadow-yellow-500/50',
+    rare: 'shadow-gray-400/30',
+  };
+
   const menuItems = [
+    {
+      key: 'welcome',
+      label: (
+        <div className="px-2 pb-2 mb-2 border-b border-gray-100">
+          <div className="flex items-center gap-2 mb-1">
+            <Sparkles className="h-4 w-4 text-purple-500" />
+            <span className="text-sm font-medium text-gray-800">欢迎回来</span>
+          </div>
+          <p className="text-xs text-gray-500 leading-relaxed px-1">
+            {generateWelcomeMessage(activityStatus)}
+          </p>
+        </div>
+      ),
+      onClick: () => {},
+    },
+    {
+      key: 'avatar-shape',
+      label: (
+        <div className="flex items-center gap-2">
+          {appearance.avatarShape === 'circle' ? (
+            <Circle className="h-4 w-4 text-[#525252]" />
+          ) : (
+            <Square className="h-4 w-4 text-[#525252]" />
+          )}
+          <span className="text-sm">头像形状: {AVATAR_SHAPES[appearance.avatarShape].name}</span>
+        </div>
+      ),
+      onClick: toggleAvatarShape,
+    },
+    {
+      key: 'avatar-border',
+      label: (
+        <div className="flex items-center gap-2">
+          <Frame className="h-4 w-4 text-[#525252]" />
+          <span className="text-sm">头像边框: {AVATAR_BORDERS[appearance.avatarBorder].name}</span>
+        </div>
+      ),
+      onClick: toggleAvatarBorder,
+    },
+    {
+      type: 'divider' as const,
+    },
     {
       key: 'appearance',
       label: (
@@ -192,121 +243,36 @@ export default function UserDropdown({ onOpenSettings, onOpenUserStats }: UserDr
     },
   ];
 
-  const avatarShapeClass = AVATAR_SHAPES[appearance.avatarShape].borderRadius;
-  const avatarBorderClass = AVATAR_BORDERS[appearance.avatarBorder].border;
-
-  const statusColors: Record<ActivityStatus, string> = {
-    active: 'bg-green-500',
-    occasional: 'bg-yellow-500',
-    rare: 'bg-gray-400',
-  };
-
-  const statusGlow: Record<ActivityStatus, string> = {
-    active: 'shadow-green-500/50',
-    occasional: 'shadow-yellow-500/50',
-    rare: 'shadow-gray-400/30',
-  };
-
   return (
     <>
-      <div className="relative">
-        {showWelcome && (
-          <div
-            className="absolute right-0 top-full mt-2 w-64 p-3 bg-white border border-gray-200 rounded-xl shadow-lg z-50 animate-in fade-in slide-in-from-top-2 duration-200"
-            style={{ animation: 'fadeIn 0.2s ease-out' }}
-          >
-            <style>{`
-              @keyframes fadeIn {
-                from { opacity: 0; transform: translateY(-8px); }
-                to { opacity: 1; transform: translateY(0); }
-              }
-            `}</style>
-            <div className="flex items-center gap-2 mb-2">
-              <Sparkles className="h-4 w-4 text-purple-500" />
-              <span className="text-sm font-medium text-gray-800">欢迎回来</span>
-            </div>
-            <p className="text-xs text-gray-600 leading-relaxed">
-              {generateWelcomeMessage(activityStatus)}
-            </p>
-          </div>
-        )}
-
-        <div className="flex items-center gap-1">
-          <Dropdown
-            menu={{ items: menuItems }}
-            placement="bottomRight"
-            arrow
-          >
-            <button
-              type="button"
-              className="flex items-center gap-2 h-8 rounded-lg text-[#a3a3a3] hover:text-[#171717] hover:bg-[#f5f5f5] transition-colors px-2"
-              title="个人中心"
-              aria-label="打开个人中心"
-            >
-              <div className="relative">
-                <div
-                  className={`flex h-6 w-6 items-center justify-center bg-[#f5f5f5] text-[#525252] ${avatarShapeClass} ${avatarBorderClass}`}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleAvatarClick();
-                  }}
-                >
-                  <User className="h-3.5 w-3.5" />
-                </div>
-                <span
-                  className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white ${statusColors[activityStatus]} ${statusGlow[activityStatus]} shadow-md animate-pulse`}
-                  title={
-                    activityStatus === 'active' ? '活跃使用中' :
-                    activityStatus === 'occasional' ? '偶尔使用' : '很少使用'
-                  }
-                />
-              </div>
-              <span className="text-xs font-medium">我的</span>
-            </button>
-          </Dropdown>
-
+      <Dropdown
+        menu={{ items: menuItems }}
+        placement="bottomRight"
+        arrow
+      >
+        <button
+          type="button"
+          className="flex items-center gap-2 h-8 rounded-lg text-[#a3a3a3] hover:text-[#171717] hover:bg-[#f5f5f5] transition-colors px-2"
+          title="个人中心"
+          aria-label="打开个人中心"
+        >
           <div className="relative">
-            <button
-              type="button"
-              className="flex items-center justify-center h-6 w-6 rounded-md text-[#a3a3a3] hover:text-[#171717] hover:bg-[#f5f5f5] transition-colors"
-              title="头像样式"
-              aria-label="切换头像样式"
-              onClick={() => setShowAvatarMenu(!showAvatarMenu)}
+            <div
+              className={`flex h-6 w-6 items-center justify-center bg-[#f5f5f5] text-[#525252] ${avatarShapeClass} ${avatarBorderClass}`}
             >
-              <Frame className="h-3.5 w-3.5" />
-            </button>
-
-            {showAvatarMenu && (
-              <div className="absolute right-0 top-full mt-1 p-2 bg-white border border-gray-200 rounded-lg shadow-lg z-50 min-w-[120px]">
-                <button
-                  type="button"
-                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md"
-                  onClick={() => {
-                    toggleAvatarShape();
-                  }}
-                >
-                  {appearance.avatarShape === 'circle' ? (
-                    <Circle className="h-4 w-4" />
-                  ) : (
-                    <Square className="h-4 w-4" />
-                  )}
-                  <span>{AVATAR_SHAPES[appearance.avatarShape].name}</span>
-                </button>
-                <button
-                  type="button"
-                  className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 rounded-md"
-                  onClick={() => {
-                    toggleAvatarBorder();
-                  }}
-                >
-                  <Frame className="h-4 w-4" />
-                  <span>{AVATAR_BORDERS[appearance.avatarBorder].name}</span>
-                </button>
-              </div>
-            )}
+              <User className="h-3.5 w-3.5" />
+            </div>
+            <span
+              className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white ${statusColors[activityStatus]} ${statusGlow[activityStatus]} shadow-md animate-pulse`}
+              title={
+                activityStatus === 'active' ? '活跃使用中' :
+                activityStatus === 'occasional' ? '偶尔使用' : '很少使用'
+              }
+            />
           </div>
-        </div>
-      </div>
+          <span className="text-xs font-medium">我的</span>
+        </button>
+      </Dropdown>
 
       <Drawer
         title={
@@ -325,19 +291,6 @@ export default function UserDropdown({ onOpenSettings, onOpenUserStats }: UserDr
           <ModelSettings onClose={handleDrawerClose} />
         )}
       </Drawer>
-
-      {showAvatarMenu && (
-        <div
-          className="fixed inset-0 z-40"
-          onClick={() => setShowAvatarMenu(false)}
-        />
-      )}
-      {showWelcome && (
-        <div
-          className="fixed inset-0 z-40"
-          onClick={() => setShowWelcome(false)}
-        />
-      )}
     </>
   );
 }
