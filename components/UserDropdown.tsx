@@ -2,11 +2,12 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Dropdown, Menu, Drawer } from 'antd';
-import { User, Settings, BarChart3, Palette, Bot, Sparkles, Square, Circle, Frame, Edit3 } from 'lucide-react';
+import { User, Settings, BarChart3, Palette, Bot, Sparkles, Square, Circle, Frame, Edit3, LogOut } from 'lucide-react';
 import AppearanceSettings from './AppearanceSettings';
 import ModelSettings from './ModelSettings';
 import UserProfileEditor from './UserProfileEditor';
 import { useSettings, AVATAR_SHAPES, AVATAR_BORDERS, UserProfile, loadUserProfile, PRESET_AVATARS } from '@/lib/settings';
+import { logout } from '@/lib/auth';
 
 interface UserDropdownProps {
   onOpenSettings: () => void;
@@ -281,6 +282,22 @@ export default function UserDropdown({ onOpenSettings, onOpenUserStats }: UserDr
         </div>
       ),
       onClick: onOpenSettings,
+    },
+    {
+      type: 'divider' as const,
+    },
+    {
+      key: 'logout',
+      label: (
+        <div className="flex items-center gap-2 text-red-500">
+          <LogOut className="h-4 w-4" />
+          <span className="text-sm">退出登录</span>
+        </div>
+      ),
+      onClick: () => {
+        logout();
+        window.location.reload();
+      },
     },
   ];
 

@@ -36,6 +36,8 @@ import ResizablePanel, { useLayoutContext, AdaptiveText } from '@/components/Res
 import { DEFAULT_OPENROUTER_MODEL_ID, DEFAULT_OPENROUTER_MODEL_LABEL } from '@/lib/openrouter-models';
 import { CONVERSATION_STORAGE_KEY, getOrCreateDeviceId } from '@/lib/device';
 import { useSettings } from '@/lib/settings';
+import { isLoggedIn } from '@/lib/auth';
+import LoginPage from '@/components/LoginPage';
 
 type ConversationRow = {
   id: string;
@@ -1270,6 +1272,7 @@ function SidebarContent({
 }
 
 export default function Home() {
+  const [loggedIn, setLoggedIn] = useState<boolean | null>(null);
   const [deviceId, setDeviceId] = useState<string | null>(null);
   const [chatPayload, setChatPayload] = useState<ChatPayload | null>(null);
   const [convList, setConvList] = useState<ConversationRow[]>([]);
@@ -1771,6 +1774,12 @@ export default function Home() {
   }, [deviceId, loadTrash]);
 
   useEffect(() => {
+    const logged = isLoggedIn();
+    setLoggedIn(logged);
+    if (!logged) {
+      return;
+    }
+
     const did = getOrCreateDeviceId();
     if (!did) {
       setBootstrapError('无法读取本地设备标识');
@@ -2260,6 +2269,21 @@ export default function Home() {
   );
 
   const loadingMain = !!(deviceId && !chatPayload && !bootstrapError);
+
+  if (loggedIn === null) {
+    return (
+      <div className="flex h-dvh items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <span className="h-6 w-6 animate-spin rounded-full border-2 border-[#171717]/20 border-t-[#171717]" />
+          <span className="text-sm text-[#a3a3a3]">加载中...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (!loggedIn) {
+    return <LoginPage onLoginSuccess={() => setLoggedIn(true)} />;
+  }
 
   return (
     <div className="flex h-dvh max-h-dvh min-h-0 flex-col overflow-hidden">
