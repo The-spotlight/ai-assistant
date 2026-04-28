@@ -200,14 +200,17 @@ model User {
 
 /// 用户会话（登录状态）
 model Session {
-  id         String   @id @default(cuid())
-  userId     String
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  token      String   @unique
-  expiresAt  DateTime
-  createdAt  DateTime @default(now())
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token        String   @unique
+  refreshToken String?  @unique
+  expiresAt    DateTime
+  refreshExpiresAt DateTime?
+  createdAt    DateTime @default(now())
 
   @@index([userId])
   @@index([token])
   @@index([expiresAt])
+  @@index([refreshToken])
 }

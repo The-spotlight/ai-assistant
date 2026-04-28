@@ -30,13 +30,18 @@ export async function logout(): Promise<void> {
     maxRetries: 1,
   });
   document.cookie = 'auth_token=; path=/; max-age=0';
+  
+  if (typeof window !== 'undefined') {
+    localStorage.removeItem('ai_assistant_remember_me');
+  }
+  
   window.location.href = '/login';
 }
 
-export async function login(username: string, password: string): Promise<{ success: boolean; error?: AuthError; user?: UserInfo }> {
-  const response = await postJsonWithRetry<{ success: boolean; user: UserInfo }>(
+export async function login(username: string, password: string, rememberMe: boolean = false): Promise<{ success: boolean; error?: AuthError; user?: UserInfo; refreshToken?: string }> {
+  const response = await postJsonWithRetry<{ success: boolean; user: UserInfo; refreshToken?: string }>(
     '/api/auth/login',
-    { username, password },
+    { username, password, rememberMe },
     {
       credentials: 'include' as RequestCredentials,
       maxRetries: 2,
@@ -56,6 +61,35 @@ export async function login(username: string, password: string): Promise<{ succe
     return {
       success: false,
       error: { code: errorCode, message: response.error || '登录失败' }
+    };
+  }
+
+  return { success: true, user: response.data?.user, refreshToken: response.data?.refreshToken };
+}
+
+export async function refreshToken(refreshToken: string): Promise<{ success: boolean; error?: AuthError; user?: UserInfo }> {
+  const response = await postJsonWithRetry<{ success: boolean; user: UserInfo }>(
+    '/api/auth/refresh',
+    { refreshToken },
+    {
+      credentials: 'include' as RequestCredentials,
+      maxRetries: 2,
+    }
+  );
+
+  if (!response.success) {
+    let errorCode = 'SERVER_ERROR';
+    if (response.status === 401) {
+      errorCode = 'UNAUTHORIZED';
+    } else if (response.status === 400) {
+      errorCode = 'VALIDATION_ERROR';
+    } else if (!response.status) {
+      errorCode = 'NETWORK_ERROR';
+    }
+
+    return {
+      success: false,
+      error: { code: errorCode, message: response.error || '刷新 token 失败' }
     };
   }
 

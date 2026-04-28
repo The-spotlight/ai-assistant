@@ -1,18 +1,21 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
-import { login, type AuthError } from '@/lib/auth';
+import { login, refreshToken, type AuthError } from '@/lib/auth';
+import { saveRememberMeToken, getRememberMeToken, hasRememberMeToken } from '@/lib/auth-storage';
 import { Toast, ToastContainer } from '@/components/ui/Toast';
 
 export default function LoginPage() {
   const router = useRouter();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [rememberMe, setRememberMe] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [autoLoginLoading, setAutoLoginLoading] = useState(true);
   const [toasts, setToasts] = useState<Array<{ id: string; message: string; type: 'success' | 'error' | 'info' | 'warning' }>>([]);
 
   const addToast = (message: string, type: 'success' | 'error' | 'info' | 'warning' = 'info') => {
@@ -24,15 +27,50 @@ export default function LoginPage() {
     setToasts(prev => prev.filter(t => t.id !== id));
   };
 
+  useEffect(() => {
+    const tryAutoLogin = async () => {
+      if (!hasRememberMeToken()) {
+        setAutoLoginLoading(false);
+        return;
+      }
+
+      try {
+        const token = await getRememberMeToken();
+        if (!token) {
+          setAutoLoginLoading(false);
+          return;
+        }
+
+        const result = await refreshToken(token);
+        if (result.success) {
+          addToast('自动登录成功', 'success');
+          router.push('/');
+          return;
+        }
+      } catch (error) {
+        console.error('Auto login failed:', error);
+      }
+
+      setAutoLoginLoading(false);
+    };
+
+    tryAutoLogin();
+  }, [router]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setIsLoading(true);
     
-    const result = await login(username, password);
+    const result = await login(username, password, rememberMe);
     
     if (result.success) {
       addToast('登录成功', 'success');
+      
+      if (rememberMe && result.refreshToken) {
+        await saveRememberMeToken(result.refreshToken);
+      }
+      
       router.push('/');
     } else {
       const authError = result.error as AuthError;
@@ -53,6 +91,17 @@ export default function LoginPage() {
     
     setIsLoading(false);
   };
+
+  if (autoLoginLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-[#f6f6f7]">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 border-4 border-gray-300 border-t-gray-800 rounded-full animate-spin"></div>
+          <p className="text-gray-500 text-sm">正在检查登录状态...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-[#f6f6f7] p-4">
@@ -93,6 +142,19 @@ export default function LoginPage() {
                 placeholder="请输入密码"
                 disabled={isLoading}
               />
+            </div>
+
+            <div className="flex items-center justify-between">
+              <label className="flex items-center gap-2 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  disabled={isLoading}
+                  className="w-4 h-4 rounded border-gray-300 text-[#171717] focus:ring-[#171717]"
+                />
+                <span className="text-sm text-[#737373]">记住我</span>
+              </label>
             </div>
 
             {error && (
