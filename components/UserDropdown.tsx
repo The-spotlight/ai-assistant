@@ -76,13 +76,13 @@ function useUserActivity(): ActivityStatus {
   return status;
 }
 
-function generateWelcomeMessage(status: ActivityStatus): string {
+function generateWelcomeMessage(nickname: string, status: ActivityStatus): string {
   const hour = new Date().getHours();
   const greetings: Record<string, string[]> = {
-    morning: ['早上好！新的一天开始了', '早安！今天也要加油', '清晨好！元气满满'],
-    afternoon: ['下午好！继续加油', '午安！休息好了吗', '下午好！工作顺利'],
-    evening: ['晚上好！辛苦了', '晚安前的时光', '傍晚好！放松一下'],
-    night: ['夜深了，注意休息', '夜深了，早点休息', '晚安前的最后冲刺'],
+    morning: [`早上好${nickname}！新的一天开始了`, `早安${nickname}！今天也要加油`, `清晨好${nickname}！元气满满`],
+    afternoon: [`下午好${nickname}！继续加油`, `午安${nickname}！休息好了吗`, `下午好${nickname}！工作顺利`],
+    evening: [`晚上好${nickname}！辛苦了`, `晚安前的时光${nickname}`, `傍晚好${nickname}！放松一下`],
+    night: [`夜深了${nickname}，注意休息`, `夜深了${nickname}，早点休息`, `晚安前的最后冲刺${nickname}`],
   };
 
   let timeOfDay = 'afternoon';
@@ -204,7 +204,7 @@ export default function UserDropdown({ onOpenSettings, onOpenUserStats }: UserDr
                 </button>
               </div>
               <p className="text-xs text-gray-500 leading-relaxed">
-                {generateWelcomeMessage(activityStatus)}
+                {generateWelcomeMessage(profile.nickname, activityStatus)}
               </p>
             </div>
           </div>
