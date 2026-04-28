@@ -33,6 +33,7 @@ import {
   Download,
   FileText,
   RefreshCw,
+  Calendar,
 } from 'lucide-react';
 
 type FeedbackStats = {
@@ -401,12 +402,7 @@ export default function FeedbackPanel({ visible, onClose }: FeedbackPanelProps) 
                       placeholder="选择开始日期"
                     />
                     <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-[#737373]">
-                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <rect width="18" height="18" x="3" y="4" rx="2" ry="2" />
-                        <line x1="16" x2="16" y1="2" y2="6" />
-                        <line x1="8" x2="8" y1="2" y2="6" />
-                        <line x1="3" x2="21" y1="10" y2="10" />
-                      </svg>
+                      <Calendar className="h-4 w-4" />
                     </div>
                   </div>
                 </div>
@@ -430,12 +426,7 @@ export default function FeedbackPanel({ visible, onClose }: FeedbackPanelProps) 
                       placeholder="选择结束日期"
                     />
                     <div className="absolute right-3 top-1/2 transform -translate-y-1/2 text-[#737373]">
-                      <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <rect width="18" height="18" x="3" y="4" rx="2" ry="2" />
-                        <line x1="16" x2="16" y1="2" y2="6" />
-                        <line x1="8" x2="8" y1="2" y2="6" />
-                        <line x1="3" x2="21" y1="10" y2="10" />
-                      </svg>
+                      <Calendar className="h-4 w-4" />
                     </div>
                   </div>
                 </div>

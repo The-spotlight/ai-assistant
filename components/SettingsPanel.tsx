@@ -30,6 +30,7 @@ import { getOrCreateDeviceId } from '@/lib/device';
 import { downloadBlob } from '@/lib/export';
 import { Button } from '@/components/ui/Button';
 import { Switch } from '@/components/ui/Switch';
+import { Toast } from '@/components/ui/Toast';
 import {
   X,
   Settings,
@@ -51,6 +52,11 @@ import {
 } from 'lucide-react';
 
 type SettingsTab = 'appearance' | 'behavior' | 'model' | 'keyboard' | 'presets' | 'data';
+
+interface ToastMessage {
+  type: 'success' | 'error' | 'info';
+  message: string;
+}
 
 interface SettingsPanelProps {
   visible: boolean;
@@ -1228,29 +1234,11 @@ function DataTab({
   return (
     <div className="flex flex-col gap-6">
       {toast && (
-        <div className={`flex items-center gap-2 border rounded-lg px-3 py-2.5 transition-all ${
-          toast.type === 'success' 
-            ? 'bg-[#f0fdf4] border-[#bbf7d0]' 
-            : toast.type === 'error' 
-            ? 'bg-[#fef2f2] border-[#fecaca]' 
-            : 'bg-[#fafafa] border-black/[0.08]'
-        }`}>
-          {toast.type === 'success' && (
-            <Check className="h-4 w-4 text-[#22c55e] shrink-0" />
-          )}
-          {toast.type === 'error' && (
-            <AlertTriangle className="h-4 w-4 text-[#dc2626] shrink-0" />
-          )}
-          <span className={`text-xs font-medium ${
-            toast.type === 'success' 
-              ? 'text-[#16a34a]' 
-              : toast.type === 'error' 
-              ? 'text-[#dc2626]' 
-              : 'text-[#525252]'
-          }`}>
-            {toast.message}
-          </span>
-        </div>
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={() => setToast(null)}
+        />
       )}
 
       <div className="flex flex-col gap-3">
