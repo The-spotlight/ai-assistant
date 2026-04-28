@@ -210,6 +210,13 @@ interface FeedbackStats {
     dislikes: number;
     total: number;
   }[];
+  modelDistribution: {
+    modelId: string;
+    likes: number;
+    dislikes: number;
+    total: number;
+  }[];
+  availableModels: string[];
 }
 
 function escapeCsvField(field: string | number): string {
@@ -234,17 +241,24 @@ export function feedbackStatsToCsv(stats: FeedbackStats): string {
   csv += `总反馈数,${stats.totalLikes + stats.totalDislikes}\n`;
   csv += '\n';
   
+  csv += '# 模型分布\n';
+  csv += '模型名称,赞数,踩数,总数\n';
+  stats.modelDistribution?.forEach(item => {
+    csv += `${escapeCsvField(item.modelId)},${item.likes},${item.dislikes},${item.total}\n`;
+  });
+  csv += '\n';
+  
   csv += '# 每日趋势\n';
-  csv += '日期,赞数,踩数,总数\n';
+  csv += '日期,模型,赞数,踩数,总数\n';
   stats.dailyTrend.forEach(item => {
-    csv += `${escapeCsvField(item.date)},${item.likes},${item.dislikes},${item.total}\n`;
+    csv += `${escapeCsvField(item.date)},${escapeCsvField(stats.availableModels?.join(';') || '全部模型')},${item.likes},${item.dislikes},${item.total}\n`;
   });
   csv += '\n';
   
   csv += '# 反馈原因分布\n';
-  csv += '原因,数量\n';
+  csv += '原因,数量,模型\n';
   stats.reasonDistribution.forEach(item => {
-    csv += `${escapeCsvField(item.reason)},${item.count}\n`;
+    csv += `${escapeCsvField(item.reason)},${item.count},${escapeCsvField(stats.availableModels?.join(';') || '全部模型')}\n`;
   });
   
   return csv;

@@ -88,6 +88,13 @@ type FeedbackStats = {
     dislikes: number;
     total: number;
   }[];
+  modelDistribution: {
+    modelId: string;
+    likes: number;
+    dislikes: number;
+    total: number;
+  }[];
+  availableModels: string[];
 };
 
 type TimeRange = 'today' | 'last7days' | 'last30days' | 'custom';
@@ -137,6 +144,7 @@ export default function FeedbackPanel({ visible, onClose }: FeedbackPanelProps) 
   const [viewMode, setViewMode] = useState<ViewMode>('daily');
   const [customStartDate, setCustomStartDate] = useState<string>('');
   const [customEndDate, setCustomEndDate] = useState<string>('');
+  const [selectedModel, setSelectedModel] = useState<string>('all');
 
   const getDateRange = useCallback(() => {
     const now = new Date();
@@ -189,10 +197,17 @@ export default function FeedbackPanel({ visible, onClose }: FeedbackPanelProps) 
       const deviceId = getOrCreateDeviceId();
       const { startDate, endDate } = getDateRange();
       
-      let url = '/api/feedback-stats';
+      const params = new URLSearchParams();
       if (startDate && endDate) {
-        url += `?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`;
+        params.set('startDate', startDate.toISOString());
+        params.set('endDate', endDate.toISOString());
       }
+      if (selectedModel && selectedModel !== 'all') {
+        params.set('modelId', selectedModel);
+      }
+      params.set('includeModels', 'true');
+      
+      const url = `/api/feedback-stats?${params.toString()}`;
       
       const response = await fetch(url, {
         headers: {
@@ -213,7 +228,7 @@ export default function FeedbackPanel({ visible, onClose }: FeedbackPanelProps) 
       setLoading(false);
       setIsFirstLoad(false);
     }
-  }, [getDateRange, isFirstLoad, error]);
+  }, [getDateRange, isFirstLoad, error, selectedModel]);
 
   useEffect(() => {
     if (visible) {
@@ -353,7 +368,21 @@ export default function FeedbackPanel({ visible, onClose }: FeedbackPanelProps) 
               >
                 自定义
               </button>
-              <div className="flex-1"></div>
+              <div className="flex items-center gap-2 ml-auto">
+                <label className="text-xs font-medium text-[#525252]">模型:</label>
+                <select
+                  value={selectedModel}
+                  onChange={(e) => setSelectedModel(e.target.value)}
+                  className="px-3 py-1.5 text-xs border border-[#e5e5e5] rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#171717]/20 transition-all cursor-pointer"
+                >
+                  <option value="all">全部模型</option>
+                  {stats?.availableModels.map((model) => (
+                    <option key={model} value={model}>
+                      {model}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <button
                 type="button"
                 onClick={() => stats && downloadFeedbackStatsAsCsv(stats)}
@@ -548,6 +577,37 @@ export default function FeedbackPanel({ visible, onClose }: FeedbackPanelProps) 
                     </div>
                   )}
                 </div>
+              </div>
+
+              <div>
+                <h3 className="text-sm font-medium text-[#171717] mb-3">模型分布</h3>
+                {stats.modelDistribution.length > 0 ? (
+                  <div className="flex flex-col gap-2">
+                    {stats.modelDistribution.map((item, index) => (
+                      <div key={index} className="flex items-center justify-between p-2 bg-[#fafafa] rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <div className="w-2 h-2 rounded-full bg-[#171717]"></div>
+                          <span className="text-sm text-[#525252] max-w-[150px] truncate" title={item.modelId}>{item.modelId}</span>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-1">
+                            <IconThumbsUp className="h-3 w-3 text-[#22c55e]" />
+                            <span className="text-xs text-[#22c55e]">{item.likes}</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <IconThumbsDown className="h-3 w-3 text-[#ef4444]" />
+                            <span className="text-xs text-[#ef4444]">{item.dislikes}</span>
+                          </div>
+                          <span className="text-xs font-medium text-[#171717]">{item.total}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-4">
+                    <p className="text-sm text-[#737373]">暂无模型数据</p>
+                  </div>
+                )}
               </div>
 
               <div>
