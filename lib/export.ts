@@ -290,7 +290,7 @@ export async function downloadFeedbackStatsAsPdf(
       <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif; font-size: 12px; color: #171717; }
-        .report-container { width: 210mm; min-height: 297mm; padding: 15mm; background: white; }
+        .report-container { width: 595px; min-height: 842px; padding: 40px; background: white; }
         .header { text-align: center; margin-bottom: 20px; }
         .header h1 { font-size: 20px; font-weight: bold; color: #171717; margin-bottom: 8px; }
         .header .date { font-size: 10px; color: #737373; }
@@ -363,9 +363,9 @@ export async function downloadFeedbackStatsAsPdf(
   iframe.srcdoc = reportHtml;
   document.body.appendChild(iframe);
 
-  await new Promise(resolve => {
-    iframe.onload = resolve;
-    setTimeout(resolve, 2000);
+  await new Promise<void>((resolve) => {
+    iframe.onload = () => resolve();
+    setTimeout(() => resolve(), 2000);
   });
 
   const chartCanvas = await html2canvas(chartElement, {
@@ -386,7 +386,7 @@ export async function downloadFeedbackStatsAsPdf(
 
   if (chartPlaceholder) {
     const chartImg = iframeDoc!.createElement('img');
-    chartImg.src = chartCanvas.toDataURL('image/png');
+    chartImg.src = chartCanvas.toDataURL('image/jpeg', 0.95);
     chartImg.style.width = '100%';
     chartImg.style.borderRadius = '4px';
     chartPlaceholder.appendChild(chartImg);
@@ -394,13 +394,13 @@ export async function downloadFeedbackStatsAsPdf(
 
   if (piePlaceholder) {
     const pieImg = iframeDoc!.createElement('img');
-    pieImg.src = pieCanvas.toDataURL('image/png');
+    pieImg.src = pieCanvas.toDataURL('image/jpeg', 0.95);
     pieImg.style.width = '100%';
     pieImg.style.borderRadius = '4px';
     piePlaceholder.appendChild(pieImg);
   }
 
-  await new Promise(resolve => setTimeout(resolve, 500));
+  await new Promise<void>((resolve) => setTimeout(() => resolve(), 1000));
 
   const reportContainer = iframeDoc?.querySelector('.report-container') as HTMLElement | null;
   if (!reportContainer) {
@@ -409,30 +409,41 @@ export async function downloadFeedbackStatsAsPdf(
   }
 
   const reportCanvas = await html2canvas(reportContainer, {
-    scale: 2,
+    scale: 1.5,
     backgroundColor: '#ffffff',
     useCORS: true,
   });
 
   document.body.removeChild(iframe);
 
-  const imgData = reportCanvas.toDataURL('image/png');
-  const pdfWidth = 210;
-  const pdfHeight = 297;
+  const imgData = reportCanvas.toDataURL('image/jpeg', 0.95);
   const imgWidth = reportCanvas.width;
   const imgHeight = reportCanvas.height;
 
-  const scale = Math.min(pdfWidth / imgWidth, pdfHeight / imgHeight);
-  const finalWidth = imgWidth * scale;
-  const finalHeight = imgHeight * scale;
+  if (imgWidth === 0 || imgHeight === 0) {
+    throw new Error('Failed to generate report image: empty canvas');
+  }
+
+  const pdfWidth = 595;
+  const pdfHeight = 842;
+
+  const scaleX = pdfWidth / imgWidth;
+  const scaleY = pdfHeight / imgHeight;
+  const scale = Math.min(scaleX, scaleY);
+
+  const finalWidth = Math.max(1, Math.min(imgWidth * scale, pdfWidth));
+  const finalHeight = Math.max(1, Math.min(imgHeight * scale, pdfHeight));
+
+  const x = Math.max(0, (pdfWidth - finalWidth) / 2);
+  const y = Math.max(0, (pdfHeight - finalHeight) / 2);
 
   const doc = new jsPDF({
     orientation: 'portrait',
-    unit: 'mm',
-    format: 'a4',
+    unit: 'px',
+    format: [pdfWidth, pdfHeight],
   });
 
-  doc.addImage(imgData, 'PNG', (pdfWidth - finalWidth) / 2, (pdfHeight - finalHeight) / 2, finalWidth, finalHeight);
+  doc.addImage(imgData, 'JPEG', x, y, finalWidth, finalHeight);
 
   const filename = `反馈统计报告_${new Date().toISOString().split('T')[0]}.pdf`;
   doc.save(filename);
