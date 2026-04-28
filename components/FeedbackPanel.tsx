@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { getOrCreateDeviceId } from '@/lib/device';
-import { downloadFeedbackStatsAsCsv } from '@/lib/export';
+import { downloadFeedbackStatsAsCsv, downloadFeedbackStatsAsPdf } from '@/lib/export';
 import {
   LineChart,
   Line,
@@ -12,6 +12,9 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
 } from 'recharts';
 function IconX(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -71,6 +74,18 @@ function IconDownload(props: React.SVGProps<SVGSVGElement>) {
       <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
       <polyline points="7 10 12 15 17 10" />
       <line x1="12" y1="15" x2="12" y2="3" />
+    </svg>
+  );
+}
+
+function IconFileText(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden {...props}>
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <polyline points="14 2 14 8 20 8" />
+      <line x1="16" x2="8" y1="13" y2="13" />
+      <line x1="16" x2="8" y1="17" y2="17" />
+      <polyline points="10 9 9 9 8 9" />
     </svg>
   );
 }
@@ -135,10 +150,15 @@ const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?:
   return null;
 };
 
+const COLORS = ['#171717', '#3b82f6', '#22c55e', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4'];
+
 export default function FeedbackPanel({ visible, onClose }: FeedbackPanelProps) {
   const panelRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<HTMLDivElement>(null);
+  const pieChartRef = useRef<HTMLDivElement>(null);
   const [stats, setStats] = useState<FeedbackStats | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [exporting, setExporting] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [timeRange, setTimeRange] = useState<TimeRange>('last7days');
   const [viewMode, setViewMode] = useState<ViewMode>('daily');
@@ -400,6 +420,26 @@ export default function FeedbackPanel({ visible, onClose }: FeedbackPanelProps) 
                 <IconDownload className="h-3.5 w-3.5" />
                 导出CSV
               </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (!stats || !chartRef.current || !pieChartRef.current) return;
+                  setExporting(true);
+                  try {
+                    await downloadFeedbackStatsAsPdf(stats, chartRef.current, pieChartRef.current);
+                  } catch (err) {
+                    console.error('Failed to export PDF:', err);
+                  } finally {
+                    setExporting(false);
+                  }
+                }}
+                disabled={loading || !stats || exporting || (timeRange === 'custom' && (!customStartDate || !customEndDate))}
+                className="flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full transition-all border disabled:cursor-not-allowed disabled:opacity-40 disabled:bg-[#fafafa] disabled:border-[#e5e5e5] disabled:text-[#a3a3a3] disabled:hover:bg-[#fafafa] disabled:hover:border-[#e5e5e5] disabled:hover:text-[#a3a3a3] bg-[#171717] border border-[#171717] text-white hover:bg-black hover:border-black"
+                aria-label="导出PDF"
+              >
+                <IconFileText className="h-3.5 w-3.5" />
+                {exporting ? '生成中...' : '导出PDF'}
+              </button>
             </div>
             
             {timeRange === 'custom' && (
@@ -534,7 +574,7 @@ export default function FeedbackPanel({ visible, onClose }: FeedbackPanelProps) 
                   </div>
                 </div>
 
-                <div className="bg-[#fafafa] rounded-lg p-3 border border-[#e5e5e5]">
+                <div ref={chartRef} className="bg-[#fafafa] rounded-lg p-3 border border-[#e5e5e5]">
                   {displayData && displayData.length > 0 ? (
                     <ResponsiveContainer width="100%" height={200}>
                       <LineChart data={displayData}>
@@ -620,26 +660,40 @@ export default function FeedbackPanel({ visible, onClose }: FeedbackPanelProps) 
               <div>
                 <h3 className="text-sm font-medium text-[#171717] mb-3">反馈原因分布</h3>
                 {stats.reasonDistribution.length > 0 ? (
-                  <div className="flex flex-col gap-2">
-                    {stats.reasonDistribution.map((item, index) => (
-                      <div key={index} className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <div className="w-2 h-2 rounded-full bg-[#171717]"></div>
-                          <span className="text-sm text-[#525252]">{item.reason}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-[#171717]">{item.count}</span>
-                          <div className="flex-1 h-2 bg-[#f5f5f5] rounded-full ml-2 max-w-[120px]">
+                  <div ref={pieChartRef} className="bg-[#fafafa] rounded-lg p-3 border border-[#e5e5e5]">
+                    <div className="flex flex-col md:flex-row items-center gap-4">
+                      <ResponsiveContainer width={180} height={180}>
+                        <PieChart>
+                          <Pie
+                            data={stats.reasonDistribution}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={40}
+                            outerRadius={80}
+                            paddingAngle={2}
+                            dataKey="count"
+                            label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
+                            labelLine={{ strokeWidth: 1 }}
+                          >
+                            {stats.reasonDistribution.map((entry, index) => (
+                              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                            ))}
+                          </Pie>
+                        </PieChart>
+                      </ResponsiveContainer>
+                      <div className="flex-1 flex flex-wrap gap-2">
+                        {stats.reasonDistribution.map((item, index) => (
+                          <div key={index} className="flex items-center gap-2 px-2 py-1 bg-white rounded-md">
                             <div 
-                              className="h-full bg-[#171717] rounded-full transition-all"
-                              style={{ 
-                                width: `${Math.min((item.count / Math.max(...stats.reasonDistribution.map(r => r.count))) * 100, 100)}%` 
-                              }}
+                              className="w-3 h-3 rounded-full" 
+                              style={{ backgroundColor: COLORS[index % COLORS.length] }}
                             ></div>
+                            <span className="text-xs text-[#525252]">{item.reason}</span>
+                            <span className="text-xs font-medium text-[#171717]">{item.count}</span>
                           </div>
-                        </div>
+                        ))}
                       </div>
-                    ))}
+                    </div>
                   </div>
                 ) : (
                   <div className="flex flex-col items-center justify-center py-8">
