@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { getOrCreateDeviceId } from '@/lib/device';
 import { CloseButton } from '@/components/ui/Dialog';
+import { BarChart, Bar, XAxis, YAxis, ResponsiveContainer, Tooltip } from 'recharts';
 import { Calendar, Clock, BarChart3, Loader2, User } from 'lucide-react';
 
 type UserStats = {
@@ -36,9 +37,23 @@ function formatRelativeTime(iso: string): string {
 
 function formatDate(dateStr: string): string {
   const date = new Date(dateStr);
-  const weekdays = ['日', '一', '二', '三', '四', '五', '六'];
-  return `${date.getMonth() + 1}/${date.getDate()} (周${weekdays[date.getDay()]})`;
+  return `${date.getMonth() + 1}/${date.getDate()}`;
 }
+
+const CustomTooltip = ({ active, payload, label }: { active?: boolean; payload?: { dataKey: string; value: number; payload: { date: string } }[]; label?: string }) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-white border border-[#e5e5e5] rounded-lg shadow-lg p-3">
+        <div className="text-sm font-medium text-[#171717] mb-2">{payload[0].payload.date}</div>
+        <div className="flex items-center justify-between gap-4">
+          <span className="text-xs text-[#525252]">会话数</span>
+          <span className="text-sm font-medium text-[#171717]">{payload[0].value}</span>
+        </div>
+      </div>
+    );
+  }
+  return null;
+};
 
 export default function UserStatsPanel({ visible, onClose }: UserStatsPanelProps) {
   const panelRef = useRef<HTMLDivElement>(null);
@@ -103,10 +118,6 @@ export default function UserStatsPanel({ visible, onClose }: UserStatsPanelProps
   }, [visible, onClose]);
 
   if (!visible) return null;
-
-  const maxCount = stats?.last7DaysUsage
-    ? Math.max(...stats.last7DaysUsage.map((d) => d.conversationCount), 1)
-    : 1;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
@@ -182,34 +193,29 @@ export default function UserStatsPanel({ visible, onClose }: UserStatsPanelProps
                 </div>
 
                 <div className="bg-[#fafafa] rounded-xl p-4 border border-[#e5e5e5]">
-                  <div className="flex items-end justify-between gap-2 h-32">
-                    {stats.last7DaysUsage.map((item, index) => {
-                      const heightPercent = maxCount > 0 
-                        ? (item.conversationCount / maxCount) * 100 
-                        : 0;
-                      return (
-                        <div key={index} className="flex-1 flex flex-col items-center gap-1">
-                          <div className="w-full flex flex-col items-center">
-                            <span className="text-xs font-medium text-[#171717] mb-1">
-                              {item.conversationCount}
-                            </span>
-                            <div
-                              className="w-full rounded-t-md transition-all duration-700 ease-out"
-                              style={{
-                                height: `${Math.max(heightPercent, item.conversationCount > 0 ? 5 : 2)}%`,
-                                minHeight: item.conversationCount > 0 ? '12px' : '4px',
-                                backgroundColor: item.conversationCount > 0 ? '#171717' : '#e5e5e5',
-                                opacity: item.conversationCount > 0 ? 1 : 0.3,
-                              }}
-                            />
-                          </div>
-                          <span className="text-[10px] text-[#a3a3a3] text-center">
-                            {formatDate(item.date).split(' ')[0]}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
+                  <ResponsiveContainer width="100%" height={180}>
+                    <BarChart data={stats.last7DaysUsage}>
+                      <XAxis
+                        dataKey="date"
+                        tickFormatter={formatDate}
+                        tick={{ fill: '#737373', fontSize: 11 }}
+                        axisLine={{ stroke: '#e5e5e5' }}
+                        tickLine={{ stroke: '#e5e5e5' }}
+                      />
+                      <YAxis
+                        tick={{ fill: '#737373', fontSize: 11 }}
+                        axisLine={{ stroke: '#e5e5e5' }}
+                        tickLine={{ stroke: '#e5e5e5' }}
+                        allowDecimals={false}
+                      />
+                      <Tooltip content={<CustomTooltip />} />
+                      <Bar
+                        dataKey="conversationCount"
+                        fill="#171717"
+                        radius={[4, 4, 0, 0]}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
                   <div className="mt-3 pt-3 border-t border-[#e5e5e5]">
                     <div className="flex items-center justify-between text-xs text-[#737373]">
                       <span>总计会话数: {stats.last7DaysUsage.reduce((sum, d) => sum + d.conversationCount, 0)}</span>
