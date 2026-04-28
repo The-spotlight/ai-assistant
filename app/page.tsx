@@ -29,8 +29,9 @@ import TrashPanel from '@/components/TrashPanel';
 import TemplatePanel, { FormModal } from '@/components/TemplatePanel';
 import FeedbackPanel from '@/components/FeedbackPanel';
 import ExportPanel from '@/components/ExportPanel';
-import SettingsPanel, { SettingsButton } from '@/components/SettingsPanel';
-import UserStatsPanel, { UserButton } from '@/components/UserStatsPanel';
+import SettingsPanel from '@/components/SettingsPanel';
+import UserStatsPanel from '@/components/UserStatsPanel';
+import UserDropdown from '@/components/UserDropdown';
 import ResizablePanel, { useLayoutContext, AdaptiveText } from '@/components/ResizablePanel';
 import { DEFAULT_OPENROUTER_MODEL_ID, DEFAULT_OPENROUTER_MODEL_LABEL } from '@/lib/openrouter-models';
 import { CONVERSATION_STORAGE_KEY, getOrCreateDeviceId } from '@/lib/device';
@@ -2279,8 +2280,10 @@ export default function Home() {
             <p className="shrink-0 max-w-[min(52vw,14rem)] truncate text-right text-[11px] text-[#666666] sm:max-w-none sm:text-xs" title="当前对话模型">
               {DEFAULT_OPENROUTER_MODEL_LABEL}
             </p>
-            <UserButton onClick={() => setShowUserStatsPanel(true)} />
-            <SettingsButton onClick={() => setShowSettingsPanel(true)} />
+            <UserDropdown
+              onOpenSettings={() => setShowSettingsPanel(true)}
+              onOpenUserStats={() => setShowUserStatsPanel(true)}
+            />
           </div>
         </div>
       </header>
