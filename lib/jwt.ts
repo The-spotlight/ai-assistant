@@ -1,4 +1,4 @@
-import { SignJWT, jwtVerify } from 'jose';
+import jwt from 'jsonwebtoken';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 const JWT_EXPIRES_IN = '7d';
@@ -8,16 +8,10 @@ export interface JwtPayload {
   username: string;
 }
 
-export async function signJwt(payload: JwtPayload): Promise<string> {
-  const secret = new TextEncoder().encode(JWT_SECRET);
-  return new SignJWT(payload)
-    .setProtectedHeader({ alg: 'HS256' })
-    .setExpirationTime(JWT_EXPIRES_IN)
-    .sign(secret);
+export function signJwt(payload: JwtPayload): string {
+  return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN });
 }
 
-export async function verifyJwt(token: string): Promise<JwtPayload> {
-  const secret = new TextEncoder().encode(JWT_SECRET);
-  const { payload } = await jwtVerify<JwtPayload>(token, secret);
-  return payload;
+export function verifyJwt(token: string): JwtPayload {
+  return jwt.verify(token, JWT_SECRET) as JwtPayload;
 }

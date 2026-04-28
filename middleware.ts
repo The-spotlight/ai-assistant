@@ -10,7 +10,7 @@ export async function middleware(request: NextRequest) {
   if (pathname === '/login') {
     if (token) {
       try {
-        await verifyJwt(token);
+        verifyJwt(token);
         const session = await prisma.session.findUnique({
           where: { token },
         });
@@ -28,7 +28,7 @@ export async function middleware(request: NextRequest) {
   }
 
   try {
-    await verifyJwt(token);
+    verifyJwt(token);
     const session = await prisma.session.findUnique({
       where: { token },
     });
