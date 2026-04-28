@@ -5,10 +5,6 @@ import { signJwt } from '@/lib/jwt';
 
 export const runtime = 'nodejs';
 
-function sha256(input: string): string {
-  return require('crypto').createHash('sha256').update(input).digest('hex');
-}
-
 export async function POST(request: Request) {
   try {
     const { username, passwordHash } = await request.json();
@@ -38,9 +34,9 @@ export async function POST(request: Request) {
       );
     }
 
-    const serverPasswordHash = sha256(user.passwordHash);
+    const isPasswordValid = await compare(passwordHash, user.passwordHash);
     
-    if (serverPasswordHash !== passwordHash) {
+    if (!isPasswordValid) {
       return NextResponse.json(
         { error: '账号或密码错误' },
         { status: 401 }
