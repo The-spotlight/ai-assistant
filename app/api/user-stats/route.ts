@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 
+export const runtime = 'nodejs';
+
 export async function GET(request: Request) {
   const deviceId = request.headers.get('x-device-id');
   if (!deviceId) {

@@ -1,3 +1,5 @@
+import { postJsonWithRetry, getWithRetry } from '@/lib/fetch-wrapper';
+
 export interface UserInfo {
   id: string;
   username: string;
@@ -22,6 +24,11 @@ export function isLoggedIn(): boolean {
   return false;
 }
 
+export function logout(): void {
+  document.cookie = 'auth_token=; path=/; max-age=0';
+  window.location.href = '/login';
+}
+
 export async function login(username: string, password: string): Promise<{ success: boolean; error?: AuthError; user?: UserInfo }> {
   if (!username.trim() || !password.trim()) {
     return {
@@ -30,48 +37,32 @@ export async function login(username: string, password: string): Promise<{ succe
     };
   }
 
-  try {
-    const response = await fetch('/api/auth/login', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ username, password }),
-      credentials: 'include',
-    });
+  const response = await postJsonWithRetry<{ success: boolean; user: UserInfo }>(
+    '/api/auth/login',
+    { username, password },
+    {
+      credentials: 'include' as RequestCredentials,
+      maxRetries: 2,
+    }
+  );
 
-    if (!response.ok) {
-      const result = await response.json().catch(() => ({ error: '未知错误' }));
-      
-      if (response.status === 401) {
-        return {
-          success: false,
-          error: { code: 'UNAUTHORIZED', message: result.error || '账号或密码错误' }
-        };
-      }
-      
-      if (response.status === 400) {
-        return {
-          success: false,
-          error: { code: 'VALIDATION_ERROR', message: result.error || '请求参数错误' }
-        };
-      }
-
-      return {
-        success: false,
-        error: { code: 'SERVER_ERROR', message: result.error || '服务器内部错误' }
-      };
+  if (!response.success) {
+    let errorCode = 'SERVER_ERROR';
+    if (response.status === 401) {
+      errorCode = 'UNAUTHORIZED';
+    } else if (response.status === 400) {
+      errorCode = 'VALIDATION_ERROR';
+    } else if (!response.status) {
+      errorCode = 'NETWORK_ERROR';
     }
 
-    const result = await response.json();
-    return { success: true, user: result.user };
-  } catch (error) {
-    console.error('Login network error:', error);
     return {
       success: false,
-      error: { code: 'NETWORK_ERROR', message: '网络连接异常，请稍后重试' }
+      error: { code: errorCode, message: response.error || '登录失败' }
     };
   }
+
+  return { success: true, user: response.data?.user };
 }
 
 export async function register(username: string, password: string): Promise<{ success: boolean; error?: AuthError; user?: UserInfo }> {
@@ -82,52 +73,31 @@ export async function register(username: string, password: string): Promise<{ su
     };
   }
 
-  try {
-    const response = await fetch('/api/auth/register', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ username, password }),
-    });
+  const response = await postJsonWithRetry<{ success: boolean; user: UserInfo }>(
+    '/api/auth/register',
+    { username, password },
+    {
+      maxRetries: 2,
+    }
+  );
 
-    if (!response.ok) {
-      const result = await response.json().catch(() => ({ error: '未知错误' }));
-      
-      if (response.status === 409) {
-        return {
-          success: false,
-          error: { code: 'CONFLICT', message: result.error || '用户名已存在' }
-        };
-      }
-      
-      if (response.status === 400) {
-        return {
-          success: false,
-          error: { code: 'VALIDATION_ERROR', message: result.error || '请求参数错误' }
-        };
-      }
-
-      return {
-        success: false,
-        error: { code: 'SERVER_ERROR', message: result.error || '服务器内部错误' }
-      };
+  if (!response.success) {
+    let errorCode = 'SERVER_ERROR';
+    if (response.status === 409) {
+      errorCode = 'CONFLICT';
+    } else if (response.status === 400) {
+      errorCode = 'VALIDATION_ERROR';
+    } else if (!response.status) {
+      errorCode = 'NETWORK_ERROR';
     }
 
-    const result = await response.json();
-    return { success: true, user: result.user };
-  } catch (error) {
-    console.error('Register network error:', error);
     return {
       success: false,
-      error: { code: 'NETWORK_ERROR', message: '网络连接异常，请稍后重试' }
+      error: { code: errorCode, message: response.error || '注册失败' }
     };
   }
-}
 
-export function logout(): void {
-  document.cookie = 'auth_token=; path=/; max-age=0';
-  window.location.href = '/login';
+  return { success: true, user: response.data?.user };
 }
 
 export async function getCurrentUser(): Promise<UserInfo | null> {
@@ -135,23 +105,18 @@ export async function getCurrentUser(): Promise<UserInfo | null> {
     return null;
   }
   
-  try {
-    const response = await fetch('/api/auth/me', {
-      credentials: 'include',
-    });
+  const response = await getWithRetry<{ user: UserInfo }>('/api/auth/me', {
+    credentials: 'include' as RequestCredentials,
+    maxRetries: 2,
+    onUnauthorized: logout,
+  });
 
-    if (!response.ok) {
-      if (response.status === 401) {
-        logout();
-        return null;
-      }
-      return null;
+  if (!response.success) {
+    if (response.status === 401) {
+      logout();
     }
-
-    const data = await response.json();
-    return data.user || null;
-  } catch (error) {
-    console.error('Get current user error:', error);
     return null;
   }
+
+  return response.data?.user || null;
 }
