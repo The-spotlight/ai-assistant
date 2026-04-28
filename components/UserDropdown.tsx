@@ -2,10 +2,11 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Dropdown, Menu, Drawer } from 'antd';
-import { User, Settings, BarChart3, Palette, Bot, Sparkles, Square, Circle, Frame } from 'lucide-react';
+import { User, Settings, BarChart3, Palette, Bot, Sparkles, Square, Circle, Frame, Edit3 } from 'lucide-react';
 import AppearanceSettings from './AppearanceSettings';
 import ModelSettings from './ModelSettings';
-import { useSettings, AVATAR_SHAPES, AVATAR_BORDERS } from '@/lib/settings';
+import UserProfileEditor from './UserProfileEditor';
+import { useSettings, AVATAR_SHAPES, AVATAR_BORDERS, UserProfile, loadUserProfile, PRESET_AVATARS } from '@/lib/settings';
 
 interface UserDropdownProps {
   onOpenSettings: () => void;
@@ -109,10 +110,37 @@ function generateWelcomeMessage(status: ActivityStatus): string {
   return `${randomGreeting} ${statusMessage}`;
 }
 
+function renderAvatar(avatar: string) {
+  if (!avatar) {
+    return <User className="h-3.5 w-3.5" />;
+  }
+  if (avatar.startsWith('emoji:')) {
+    const avatarKey = avatar.split(':')[1];
+    const presetAvatar = PRESET_AVATARS[avatarKey as keyof typeof PRESET_AVATARS];
+    return presetAvatar ? <span className="text-lg">{presetAvatar.emoji}</span> : <User className="h-3.5 w-3.5" />;
+  }
+  return <img src={avatar} alt="头像" className="w-full h-full object-cover" />;
+}
+
 export default function UserDropdown({ onOpenSettings, onOpenUserStats }: UserDropdownProps) {
   const [drawerContent, setDrawerContent] = useState<DrawerContent>(null);
+  const [showEditor, setShowEditor] = useState(false);
+  const [profile, setProfile] = useState<UserProfile>(loadUserProfile());
   const activityStatus = useUserActivity();
   const { appearance, updateAppearance } = useSettings();
+
+  useEffect(() => {
+    const handleStorageChange = () => {
+      setProfile(loadUserProfile());
+    };
+    
+    window.addEventListener('storage', handleStorageChange);
+    return () => window.removeEventListener('storage', handleStorageChange);
+  }, []);
+
+  const handleProfileChange = () => {
+    setProfile(loadUserProfile());
+  };
 
   const handleAppearanceClick = () => {
     setDrawerContent('appearance');
@@ -157,16 +185,29 @@ export default function UserDropdown({ onOpenSettings, onOpenUserStats }: UserDr
 
   const menuItems = [
     {
-      key: 'welcome',
+      key: 'profile',
       label: (
         <div className="px-2 pb-2 mb-2 border-b border-gray-100">
-          <div className="flex items-center gap-2 mb-1">
-            <Sparkles className="h-4 w-4 text-purple-500" />
-            <span className="text-sm font-medium text-gray-800">欢迎回来</span>
+          <div className="flex items-center gap-3">
+            <div className={`flex h-10 w-10 items-center justify-center bg-[#f5f5f5] text-[#525252] ${avatarShapeClass} ${avatarBorderClass}`}>
+              {renderAvatar(profile.avatar)}
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium text-gray-800 truncate">{profile.nickname}</span>
+                <button
+                  onClick={() => setShowEditor(true)}
+                  className="p-1 hover:bg-[#f5f5f5] rounded transition-colors"
+                  title="编辑资料"
+                >
+                  <Edit3 className="h-3.5 w-3.5 text-gray-400 hover:text-gray-600" />
+                </button>
+              </div>
+              <p className="text-xs text-gray-500 leading-relaxed">
+                {generateWelcomeMessage(activityStatus)}
+              </p>
+            </div>
           </div>
-          <p className="text-xs text-gray-500 leading-relaxed px-1">
-            {generateWelcomeMessage(activityStatus)}
-          </p>
         </div>
       ),
       onClick: () => {},
@@ -260,7 +301,7 @@ export default function UserDropdown({ onOpenSettings, onOpenUserStats }: UserDr
             <div
               className={`flex h-6 w-6 items-center justify-center bg-[#f5f5f5] text-[#525252] ${avatarShapeClass} ${avatarBorderClass}`}
             >
-              <User className="h-3.5 w-3.5" />
+              {renderAvatar(profile.avatar)}
             </div>
             <span
               className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white ${statusColors[activityStatus]} ${statusGlow[activityStatus]} shadow-md animate-pulse`}
@@ -270,7 +311,7 @@ export default function UserDropdown({ onOpenSettings, onOpenUserStats }: UserDr
               }
             />
           </div>
-          <span className="text-xs font-medium">我的</span>
+          <span className="text-xs font-medium">{profile.nickname}</span>
         </button>
       </Dropdown>
 
@@ -291,6 +332,12 @@ export default function UserDropdown({ onOpenSettings, onOpenUserStats }: UserDr
           <ModelSettings onClose={handleDrawerClose} />
         )}
       </Drawer>
+
+      <UserProfileEditor
+        open={showEditor}
+        onClose={() => setShowEditor(false)}
+        onProfileChange={handleProfileChange}
+      />
     </>
   );
 }
