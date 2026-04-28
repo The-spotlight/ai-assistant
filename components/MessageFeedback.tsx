@@ -2,6 +2,15 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { ThumbsUp, ThumbsDown } from 'lucide-react';
+import { Modal, Select, Button } from 'antd';
+import type { SelectProps } from 'antd';
+
+const DISLIKE_REASONS: SelectProps['options'] = [
+  { value: 'inaccurate', label: '回答不准确' },
+  { value: 'unhelpful', label: '回答没有帮助' },
+  { value: 'offensive', label: '内容不当' },
+  { value: 'other', label: '其他' },
+];
 
 export interface FeedbackState {
   liked: boolean;
@@ -58,6 +67,11 @@ export function useMessageFeedback(deviceId: string) {
     conversationId: string,
     feedback: FeedbackState
   ) => {
+    if (!messageId || !conversationId) {
+      console.error('Message ID and conversation ID are required');
+      return false;
+    }
+
     try {
       const response = await fetch('/api/message-feedback', {
         method: 'POST',
@@ -86,6 +100,11 @@ export function useMessageFeedback(deviceId: string) {
   }, [deviceId]);
 
   const handleLike = useCallback(async (messageId: string, conversationId: string) => {
+    if (!messageId || !conversationId) {
+      console.error('Cannot like: missing messageId or conversationId');
+      return;
+    }
+
     const current = feedbackMap[messageId] || { liked: false, disliked: false };
     const newFeedback: FeedbackState = {
       ...current,
@@ -115,6 +134,11 @@ export function useMessageFeedback(deviceId: string) {
     reason: string,
     comment: string
   ) => {
+    if (!messageId || !conversationId || !reason) {
+      console.error('Cannot dislike: missing required parameters');
+      return;
+    }
+
     const current = feedbackMap[messageId] || { liked: false, disliked: false };
     const newFeedback: FeedbackState = {
       liked: false,
@@ -138,6 +162,11 @@ export function useMessageFeedback(deviceId: string) {
   }, [feedbackMap, sendFeedback]);
 
   const handleUndoDislike = useCallback(async (messageId: string, conversationId: string) => {
+    if (!messageId || !conversationId) {
+      console.error('Cannot undo dislike: missing messageId or conversationId');
+      return;
+    }
+
     const current = feedbackMap[messageId] || { liked: false, disliked: false };
     const newFeedback: FeedbackState = {
       ...current,
@@ -222,11 +251,12 @@ export function MessageFeedbackButton({
       <button
         type="button"
         onClick={() => onLike(messageId, conversationId)}
+        disabled={!messageId || !conversationId}
         className={`inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] transition-colors hover:bg-[#f5f5f5] ${
           feedback.liked
             ? 'text-[#10b981]'
             : 'text-[#737373] hover:text-[#171717]'
-        }`}
+        } ${(!messageId || !conversationId) ? 'opacity-50 cursor-not-allowed' : ''}`}
         title={feedback.liked ? '取消点赞' : '点赞此回复'}
       >
         <ThumbsUp className={`h-3 w-3 ${feedback.liked ? 'fill-[#10b981]' : ''}`} />
@@ -236,73 +266,72 @@ export function MessageFeedbackButton({
       <button
         type="button"
         onClick={handleDislikeClick}
+        disabled={!messageId || !conversationId}
         className={`inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] transition-colors hover:bg-[#f5f5f5] ${
           feedback.disliked
             ? 'text-[#ef4444]'
             : 'text-[#737373] hover:text-[#171717]'
-        }`}
+        } ${(!messageId || !conversationId) ? 'opacity-50 cursor-not-allowed' : ''}`}
         title={feedback.disliked ? '取消点踩' : '点踩此回复'}
       >
         <ThumbsDown className={`h-3 w-3 ${feedback.disliked ? 'fill-[#ef4444]' : ''}`} />
         {feedback.disliked ? '已点踩' : '点踩'}
       </button>
 
-      {showDislikeModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-          <div className="mx-4 w-full max-w-sm bg-white rounded-2xl shadow-lg overflow-hidden">
-            <div className="px-4 py-3 border-b border-black/[0.06] bg-[#fafafa]">
-              <span className="text-sm font-medium text-[#171717]">点踩原因</span>
-            </div>
-            <div className="p-4 space-y-4">
-              <div>
-                <label className="block text-xs font-medium text-[#525252] mb-1.5">
-                  选择原因
-                </label>
-                <select
-                  value={dislikeReason}
-                  onChange={(e) => setDislikeReason(e.target.value)}
-                  className="w-full px-3 py-2 text-sm border border-[#e5e5e5] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#171717]/20"
-                >
-                  <option value="">请选择原因</option>
-                  <option value="inaccurate">回答不准确</option>
-                  <option value="unhelpful">回答没有帮助</option>
-                  <option value="offensive">内容不当</option>
-                  <option value="other">其他</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs font-medium text-[#525252] mb-1.5">
-                  详细说明（选填）
-                </label>
-                <textarea
-                  value={dislikeComment}
-                  onChange={(e) => setDislikeComment(e.target.value)}
-                  placeholder="请描述您的问题..."
-                  className="w-full px-3 py-2 text-sm border border-[#e5e5e5] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#171717]/20 resize-none"
-                  rows={3}
-                />
-              </div>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={handleCancelDislike}
-                  className="flex-1 px-4 py-2 text-sm font-medium text-[#525252] bg-[#f5f5f5] rounded-lg hover:bg-[#e5e5e5] transition-colors"
-                >
-                  取消
-                </button>
-                <button
-                  type="button"
-                  onClick={handleDislikeSubmit}
-                  disabled={!dislikeReason}
-                  className="flex-1 px-4 py-2 text-sm font-medium text-white bg-[#ef4444] rounded-lg hover:bg-[#dc2626] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  确认点踩
-                </button>
-              </div>
-            </div>
+      <Modal
+        open={showDislikeModal}
+        onCancel={handleCancelDislike}
+        title="点踩原因"
+        footer={null}
+        centered
+        width={400}
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-xs font-medium text-[#525252] mb-1.5">
+              选择原因
+            </label>
+            <Select
+              value={dislikeReason}
+              onChange={(value) => setDislikeReason(value)}
+              options={DISLIKE_REASONS}
+              placeholder="请选择原因"
+              className="w-full"
+              size="small"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-[#525252] mb-1.5">
+              详细说明（选填）
+            </label>
+            <textarea
+              value={dislikeComment}
+              onChange={(e) => setDislikeComment(e.target.value)}
+              placeholder="请描述您的问题..."
+              className="w-full px-3 py-2 text-sm border border-[#e5e5e5] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#171717]/20 resize-none"
+              rows={3}
+            />
+          </div>
+          <div className="flex gap-2">
+            <Button
+              type="default"
+              onClick={handleCancelDislike}
+              className="flex-1"
+            >
+              取消
+            </Button>
+            <Button
+              type="primary"
+              onClick={handleDislikeSubmit}
+              disabled={!dislikeReason}
+              danger
+              className="flex-1"
+            >
+              确认点踩
+            </Button>
           </div>
         </div>
-      )}
+      </Modal>
     </>
   );
 }
