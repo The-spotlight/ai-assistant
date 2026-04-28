@@ -25,9 +25,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid message ID' }, { status: 400 });
     }
 
+    const conversation = await prisma.conversation.findUnique({
+      where: { id: conversationId },
+      select: { userId: true },
+    });
+
+    if (!conversation) {
+      return NextResponse.json({ error: 'Invalid conversation ID' }, { status: 400 });
+    }
+
     const feedback = await prisma.messageFeedback.upsert({
       where: {
-        messageId_deviceId: {
+        userId_messageId_deviceId: {
+          userId: conversation.userId,
           messageId: message.id,
           deviceId,
         },
@@ -39,6 +49,7 @@ export async function POST(request: NextRequest) {
         comment,
       },
       create: {
+        userId: conversation.userId,
         messageId: message.id,
         conversationId,
         deviceId,
@@ -111,7 +122,8 @@ export async function DELETE(request: NextRequest) {
 
     await prisma.messageFeedback.delete({
       where: {
-        messageId_deviceId: {
+        userId_messageId_deviceId: {
+          userId: message.userId,
           messageId: message.id,
           deviceId,
         },

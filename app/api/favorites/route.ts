@@ -94,7 +94,7 @@ export async function POST(req: Request) {
 
     const conv = await prisma.conversation.findFirst({
       where: { id: conversationId, deviceId },
-      select: { id: true },
+      select: { id: true, userId: true },
     });
     if (!conv) {
       return NextResponse.json({ error: '会话不存在或无权访问' }, { status: 404 });
@@ -118,7 +118,7 @@ export async function POST(req: Request) {
     displayMessageId = message.clientMessageId ?? message.id;
 
     const existingFavorite = await prisma.favorite.findFirst({
-      where: { messageId: rowMessageId, deviceId },
+      where: { userId: conv.userId, messageId: rowMessageId, deviceId },
     });
 
     if (existingFavorite) {
@@ -133,6 +133,7 @@ export async function POST(req: Request) {
 
     const favorite = await prisma.favorite.create({
       data: {
+        userId: conv.userId,
         messageId: rowMessageId,
         conversationId,
         deviceId,

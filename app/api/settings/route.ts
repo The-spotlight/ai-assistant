@@ -1,7 +1,23 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { verifyJwt } from '@/lib/jwt';
 
 export const runtime = 'nodejs';
+
+function getUserIdFromRequest(req: Request): string | null {
+  const cookieHeader = req.headers.get('cookie');
+  if (!cookieHeader) return null;
+  
+  const match = cookieHeader.match(/auth_token=([^;]+)/);
+  if (!match) return null;
+  
+  try {
+    const payload = verifyJwt(match[1]);
+    return payload.userId;
+  } catch {
+    return null;
+  }
+}
 
 /** 获取用户设置 */
 export async function GET(req: Request) {
@@ -10,9 +26,14 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: '缺少 X-Device-Id' }, { status: 400 });
   }
 
+  const userId = getUserIdFromRequest(req);
+  if (!userId) {
+    return NextResponse.json({ error: '未登录' }, { status: 401 });
+  }
+
   try {
     const setting = await prisma.userSetting.findUnique({
-      where: { deviceId },
+      where: { userId_deviceId: { userId, deviceId } },
     });
 
     return NextResponse.json({
@@ -34,13 +55,19 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: '缺少 X-Device-Id' }, { status: 400 });
   }
 
+  const userId = getUserIdFromRequest(req);
+  if (!userId) {
+    return NextResponse.json({ error: '未登录' }, { status: 401 });
+  }
+
   try {
     const body = await req.json();
     const { appearance, behavior, model, keyboardShortcuts } = body;
 
     const setting = await prisma.userSetting.upsert({
-      where: { deviceId },
+      where: { userId_deviceId: { userId, deviceId } },
       create: {
+        userId,
         deviceId,
         appearance,
         behavior,
