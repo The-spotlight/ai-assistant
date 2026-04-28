@@ -4,7 +4,7 @@ import { verifyJwt } from '@/lib/jwt';
 
 export const runtime = 'nodejs';
 
-function getUserIdFromRequest(req: Request): string | null {
+async function getUserIdFromRequest(req: Request): Promise<string | null> {
   const cookieHeader = req.headers.get('cookie');
   if (!cookieHeader) return null;
   
@@ -12,7 +12,7 @@ function getUserIdFromRequest(req: Request): string | null {
   if (!match) return null;
   
   try {
-    const payload = verifyJwt(match[1]);
+    const payload = await verifyJwt(match[1]);
     return payload.userId;
   } catch {
     return null;
@@ -26,7 +26,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: '缺少 X-Device-Id' }, { status: 400 });
   }
 
-  const userId = getUserIdFromRequest(req);
+  const userId = await getUserIdFromRequest(req);
   if (!userId) {
     return NextResponse.json({ error: '未登录' }, { status: 401 });
   }
@@ -55,7 +55,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: '缺少 X-Device-Id' }, { status: 400 });
   }
 
-  const userId = getUserIdFromRequest(req);
+  const userId = await getUserIdFromRequest(req);
   if (!userId) {
     return NextResponse.json({ error: '未登录' }, { status: 401 });
   }
