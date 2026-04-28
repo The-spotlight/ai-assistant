@@ -29,10 +29,10 @@ import { OPENROUTER_MODEL_OPTIONS } from '@/lib/openrouter-models';
 import { getOrCreateDeviceId } from '@/lib/device';
 import { downloadBlob } from '@/lib/export';
 import { Button } from '@/components/ui/Button';
+import { CloseButton } from '@/components/ui/Dialog';
 import { Switch } from '@/components/ui/Switch';
 import { Toast } from '@/components/ui/Toast';
 import {
-  X,
   Settings,
   RefreshCw,
   AlertTriangle,
@@ -191,9 +191,7 @@ export default function SettingsPanel({ visible, onClose, onTrashEmptied }: Sett
             <Settings className="h-4 w-4 text-[#171717]" />
             <span className="text-sm font-medium text-[#171717]">设置</span>
           </div>
-          <Button variant="ghost" size="icon" onClick={onClose} aria-label="关闭">
-            <X className="h-4 w-4" />
-          </Button>
+          <CloseButton onClick={onClose} aria-label="关闭" />
         </div>
 
         <div className="flex items-center border-b border-black/[0.06] bg-white shrink-0">

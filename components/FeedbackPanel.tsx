@@ -17,6 +17,7 @@ import {
   Tooltip,
 } from 'recharts';
 import { Button } from '@/components/ui/Button';
+import { CloseButton } from '@/components/ui/Dialog';
 import {
   Select,
   SelectContent,
@@ -293,9 +294,7 @@ export default function FeedbackPanel({ visible, onClose }: FeedbackPanelProps) 
             <MessageSquare className="h-4 w-4 text-[#171717]" />
             <span className="text-sm font-medium text-[#171717]">反馈统计</span>
           </div>
-          <Button variant="ghost" size="icon" onClick={onClose} aria-label="关闭">
-            <X className="h-4 w-4" />
-          </Button>
+          <CloseButton onClick={onClose} aria-label="关闭" />
         </div>
 
         <div className="flex-1 overflow-y-auto p-4">

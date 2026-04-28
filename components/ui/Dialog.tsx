@@ -97,15 +97,32 @@ const DialogCloseButton = ({
 }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
   <DialogPrimitive.Close
     className={cn(
-      "absolute right-3 top-3 flex h-8 w-8 items-center justify-center rounded-full text-[#737373] opacity-70 transition-opacity hover:opacity-100 hover:bg-[#f5f5f5]",
+      "absolute right-3 top-3 flex h-9 w-9 items-center justify-center rounded-full text-[#737373] opacity-70 transition-opacity hover:opacity-100 hover:bg-[#f5f5f5]",
+      className
+    )}
+    {...props}
+  >
+    <X className="h-5 w-5" />
+  </DialogPrimitive.Close>
+);
+DialogCloseButton.displayName = "DialogCloseButton";
+
+const CloseButton = ({
+  className,
+  ...props
+}: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
+  <button
+    type="button"
+    className={cn(
+      "text-[#737373] hover:text-[#404040] transition-colors",
       className
     )}
     {...props}
   >
     <X className="h-4 w-4" />
-  </DialogPrimitive.Close>
+  </button>
 );
-DialogCloseButton.displayName = "DialogCloseButton";
+CloseButton.displayName = "CloseButton";
 
 export {
   Dialog,
@@ -119,4 +136,5 @@ export {
   DialogTitle,
   DialogDescription,
   DialogCloseButton,
+  CloseButton,
 };
