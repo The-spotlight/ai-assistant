@@ -1,15 +1,13 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Input } from '@/components/ui/Input';
 import { Button } from '@/components/ui/Button';
 import { login } from '@/lib/auth';
 
-interface LoginPageProps {
-  onLoginSuccess: () => void;
-}
-
-export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
+export default function LoginPage() {
+  const router = useRouter();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -31,7 +29,7 @@ export default function LoginPage({ onLoginSuccess }: LoginPageProps) {
     const success = login(username, password);
     
     if (success) {
-      onLoginSuccess();
+      router.push('/');
     } else {
       setError('账号或密码错误');
       setPassword('');
