@@ -9,86 +9,31 @@ import {
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip,
   Legend,
   ResponsiveContainer,
   PieChart,
   Pie,
   Cell,
+  Tooltip,
 } from 'recharts';
-function IconX(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden {...props}>
-      <path d="M18 6 6 18M6 6l12 12" />
-    </svg>
-  );
-}
-
-function IconFeedback(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-      {...props}
-    >
-      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
-      <path d="M18 8h-4" />
-      <path d="M16 12h-2" />
-      <path d="M18 16h-6" />
-    </svg>
-  );
-}
-
-function IconThumbsUp(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden {...props}>
-      <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3" />
-    </svg>
-  );
-}
-
-function IconThumbsDown(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden {...props}>
-      <path d="M10 15v4a3 3 0 0 1-3 3l-4-9V2H11.28a2 2 0 0 1 2 1.7l1.38 9a2 2 0 0 1-2 2.3zM17 2h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2h-3" />
-    </svg>
-  );
-}
-
-function IconLoader(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden {...props}>
-      <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-    </svg>
-  );
-}
-
-function IconDownload(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden {...props}>
-      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-      <polyline points="7 10 12 15 17 10" />
-      <line x1="12" y1="15" x2="12" y2="3" />
-    </svg>
-  );
-}
-
-function IconFileText(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden {...props}>
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-      <polyline points="14 2 14 8 20 8" />
-      <line x1="16" x2="8" y1="13" y2="13" />
-      <line x1="16" x2="8" y1="17" y2="17" />
-      <polyline points="10 9 9 9 8 9" />
-    </svg>
-  );
-}
+import { Button } from '@/components/ui/Button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/Select';
+import {
+  X,
+  MessageSquare,
+  ThumbsUp,
+  ThumbsDown,
+  Loader2,
+  Download,
+  FileText,
+  RefreshCw,
+} from 'lucide-react';
 
 type FeedbackStats = {
   totalLikes: number;
@@ -344,84 +289,77 @@ export default function FeedbackPanel({ visible, onClose }: FeedbackPanelProps) 
 
         <div className="px-4 py-3 flex items-center justify-between border-b border-black/[0.06] bg-[#fafafa]">
           <div className="flex items-center gap-2">
-            <IconFeedback className="h-4 w-4 text-[#171717]" />
+            <MessageSquare className="h-4 w-4 text-[#171717]" />
             <span className="text-sm font-medium text-[#171717]">反馈统计</span>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-[#737373] hover:text-[#404040] transition-colors"
-            aria-label="关闭"
-          >
-            <IconX className="h-4 w-4" />
-          </button>
+          <Button variant="ghost" size="icon" onClick={onClose} aria-label="关闭">
+            <X className="h-4 w-4" />
+          </Button>
         </div>
 
         <div className="flex-1 overflow-y-auto p-4">
           <div className="mb-6">
             <div className="flex flex-wrap items-center gap-2 mb-3">
-              <button
-                type="button"
-                className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${timeRange === 'today' ? 'bg-[#171717] text-white' : 'bg-[#f5f5f5] text-[#525252] hover:bg-[#e5e5e5]'}`}
+              <Button
+                variant={timeRange === 'today' ? 'default' : 'outline'}
+                size="sm"
                 onClick={() => setTimeRange('today')}
+                className="text-xs"
               >
                 今天
-              </button>
-              <button
-                type="button"
-                className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${timeRange === 'last7days' ? 'bg-[#171717] text-white' : 'bg-[#f5f5f5] text-[#525252] hover:bg-[#e5e5e5]'}`}
+              </Button>
+              <Button
+                variant={timeRange === 'last7days' ? 'default' : 'outline'}
+                size="sm"
                 onClick={() => setTimeRange('last7days')}
+                className="text-xs"
               >
                 最近7天
-              </button>
-              <button
-                type="button"
-                className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${timeRange === 'last30days' ? 'bg-[#171717] text-white' : 'bg-[#f5f5f5] text-[#525252] hover:bg-[#e5e5e5]'}`}
+              </Button>
+              <Button
+                variant={timeRange === 'last30days' ? 'default' : 'outline'}
+                size="sm"
                 onClick={() => setTimeRange('last30days')}
+                className="text-xs"
               >
                 最近30天
-              </button>
-              <button
-                type="button"
-                className={`px-3 py-1 text-xs font-medium rounded-full transition-colors ${timeRange === 'custom' ? 'bg-[#171717] text-white' : 'bg-[#f5f5f5] text-[#525252] hover:bg-[#e5e5e5]'}`}
+              </Button>
+              <Button
+                variant={timeRange === 'custom' ? 'default' : 'outline'}
+                size="sm"
                 onClick={() => setTimeRange('custom')}
+                className="text-xs"
               >
                 自定义
-              </button>
+              </Button>
               <div className="flex items-center gap-2 mr-2">
                 <label className="text-xs font-medium text-[#525252] shrink-0">模型:</label>
-                <div className="relative shrink-0">
-                  <select
-                    value={selectedModel}
-                    onChange={(e) => setSelectedModel(e.target.value)}
-                    className="px-3 py-1.5 pr-8 text-xs border border-[#e5e5e5] rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#171717]/20 transition-all cursor-pointer min-w-[120px] max-w-[200px]"
-                  >
-                    <option value="all">全部模型</option>
+                <Select value={selectedModel} onValueChange={setSelectedModel}>
+                  <SelectTrigger className="w-[150px]">
+                    <SelectValue placeholder="选择模型" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">全部模型</SelectItem>
                     {stats?.availableModels.map((model) => (
-                      <option key={model} value={model} title={model}>
+                      <SelectItem key={model} value={model} title={model}>
                         {model.length > 20 ? model.substring(0, 20) + '...' : model}
-                      </option>
+                      </SelectItem>
                     ))}
-                  </select>
-                  <div className="absolute right-2 top-1/2 -translate-y-1/2 pointer-events-none">
-                    <svg className="h-3 w-3 text-[#737373]" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <polyline points="6 9 12 15 18 9" />
-                    </svg>
-                  </div>
-                </div>
+                  </SelectContent>
+                </Select>
               </div>
-              <button
-                type="button"
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => stats && downloadFeedbackStatsAsCsv(stats)}
                 disabled={loading || !stats || (timeRange === 'custom' && (!customStartDate || !customEndDate))}
-                className="flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full transition-all border disabled:cursor-not-allowed disabled:opacity-40 disabled:bg-[#fafafa] disabled:border-[#e5e5e5] disabled:text-[#a3a3a3] disabled:hover:bg-[#fafafa] disabled:hover:border-[#e5e5e5] disabled:hover:text-[#a3a3a3] bg-white border border-[#d4d4d4] text-[#525252] hover:bg-[#fafafa] hover:border-[#171717] hover:text-[#171717]"
-                aria-label="导出CSV"
+                className="text-xs"
               >
-                <IconDownload className="h-3.5 w-3.5" />
+                <Download className="h-3.5 w-3.5" />
                 导出CSV
-              </button>
-              <button
-                type="button"
+              </Button>
+              <Button
+                size="sm"
                 onClick={async () => {
                   if (!stats || !chartRef.current || !pieChartRef.current) return;
                   setExporting(true);
@@ -434,12 +372,11 @@ export default function FeedbackPanel({ visible, onClose }: FeedbackPanelProps) 
                   }
                 }}
                 disabled={loading || !stats || exporting || (timeRange === 'custom' && (!customStartDate || !customEndDate))}
-                className="flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-full transition-all border disabled:cursor-not-allowed disabled:opacity-40 disabled:bg-[#fafafa] disabled:border-[#e5e5e5] disabled:text-[#a3a3a3] disabled:hover:bg-[#fafafa] disabled:hover:border-[#e5e5e5] disabled:hover:text-[#a3a3a3] bg-[#171717] border border-[#171717] text-white hover:bg-black hover:border-black"
-                aria-label="导出PDF"
+                className="text-xs"
               >
-                <IconFileText className="h-3.5 w-3.5" />
+                <FileText className="h-3.5 w-3.5" />
                 {exporting ? '生成中...' : '导出PDF'}
-              </button>
+              </Button>
             </div>
             
             {timeRange === 'custom' && (
@@ -502,43 +439,36 @@ export default function FeedbackPanel({ visible, onClose }: FeedbackPanelProps) 
                     </div>
                   </div>
                 </div>
-                <button
-                  type="button"
+                <Button
                   onClick={fetchFeedbackStats}
-                  className="mt-3 px-4 py-2 text-xs font-medium text-white bg-[#171717] rounded-lg hover:bg-black transition-colors flex items-center justify-center gap-1"
+                  className="mt-3"
                 >
-                  <svg className="h-3 w-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M21 12a9 9 0 1 1-6.219-8.56" />
-                  </svg>
+                  <RefreshCw className="h-3 w-3" />
                   应用
-                </button>
+                </Button>
               </div>
             )}
           </div>
 
           {loading ? (
             <div className="flex flex-col items-center justify-center py-12">
-              <IconLoader className="h-8 w-8 text-[#d4d4d4] animate-spin mb-3" />
+              <Loader2 className="h-8 w-8 text-[#d4d4d4] animate-spin mb-3" />
               <p className="text-sm font-medium text-[#737373]">正在加载数据...</p>
             </div>
           ) : error ? (
             <div className="flex flex-col items-center justify-center py-12">
-              <IconFeedback className="h-12 w-12 text-[#d4d4d4] mb-3" />
+              <MessageSquare className="h-12 w-12 text-[#d4d4d4] mb-3" />
               <p className="text-sm font-medium text-[#737373] mb-1">{error}</p>
-              <button
-                type="button"
-                onClick={fetchFeedbackStats}
-                className="mt-2 px-4 py-2 text-sm font-medium text-white bg-[#171717] rounded-lg hover:bg-black transition-colors"
-              >
+              <Button onClick={fetchFeedbackStats} className="mt-2">
                 重试
-              </button>
+              </Button>
             </div>
           ) : stats ? (
             <div className="flex flex-col gap-6">
               <div className="flex items-center justify-around gap-4 py-4 border-b border-black/[0.06]">
                 <div className="flex flex-col items-center gap-2">
                   <div className="flex items-center justify-center w-12 h-12 rounded-full bg-[#f0fdf4] text-[#22c55e]">
-                    <IconThumbsUp className="h-6 w-6" />
+                    <ThumbsUp className="h-6 w-6" />
                   </div>
                   <div className="text-2xl font-bold text-[#171717]">{stats.totalLikes}</div>
                   <div className="text-xs text-[#737373]">点赞</div>
@@ -546,7 +476,7 @@ export default function FeedbackPanel({ visible, onClose }: FeedbackPanelProps) 
                 <div className="w-px h-12 bg-[#e5e5e5]"></div>
                 <div className="flex flex-col items-center gap-2">
                   <div className="flex items-center justify-center w-12 h-12 rounded-full bg-[#fef2f2] text-[#ef4444]">
-                    <IconThumbsDown className="h-6 w-6" />
+                    <ThumbsDown className="h-6 w-6" />
                   </div>
                   <div className="text-2xl font-bold text-[#171717]">{stats.totalDislikes}</div>
                   <div className="text-xs text-[#737373]">点踩</div>
@@ -638,11 +568,11 @@ export default function FeedbackPanel({ visible, onClose }: FeedbackPanelProps) 
                         </div>
                         <div className="flex items-center gap-3">
                           <div className="flex items-center gap-1">
-                            <IconThumbsUp className="h-3 w-3 text-[#22c55e]" />
+                            <ThumbsUp className="h-3 w-3 text-[#22c55e]" />
                             <span className="text-xs text-[#22c55e]">{item.likes}</span>
                           </div>
                           <div className="flex items-center gap-1">
-                            <IconThumbsDown className="h-3 w-3 text-[#ef4444]" />
+                            <ThumbsDown className="h-3 w-3 text-[#ef4444]" />
                             <span className="text-xs text-[#ef4444]">{item.dislikes}</span>
                           </div>
                           <span className="text-xs font-medium text-[#171717]">{item.total}</span>
@@ -697,7 +627,7 @@ export default function FeedbackPanel({ visible, onClose }: FeedbackPanelProps) 
                   </div>
                 ) : (
                   <div className="flex flex-col items-center justify-center py-8">
-                    <IconFeedback className="h-8 w-8 text-[#d4d4d4] mb-2" />
+                    <MessageSquare className="h-8 w-8 text-[#d4d4d4] mb-2" />
                     <p className="text-sm text-[#737373]">暂无反馈数据</p>
                   </div>
                 )}
@@ -705,7 +635,7 @@ export default function FeedbackPanel({ visible, onClose }: FeedbackPanelProps) 
             </div>
           ) : (
             <div className="flex flex-col items-center justify-center py-12">
-              <IconFeedback className="h-12 w-12 text-[#d4d4d4] mb-3" />
+              <MessageSquare className="h-12 w-12 text-[#d4d4d4] mb-3" />
               <p className="text-sm font-medium text-[#737373]">暂无反馈数据</p>
             </div>
           )}

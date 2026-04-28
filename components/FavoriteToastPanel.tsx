@@ -1,32 +1,8 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
-
-function IconX(props: React.SVGProps<SVGSVGElement>) {
-  return (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden {...props}>
-      <path d="M18 6 6 18M6 6l12 12" />
-    </svg>
-  );
-}
-
-function IconBookmark(props: React.SVGProps<SVGSVGElement> & { filled?: boolean }) {
-  const { filled, ...rest } = props;
-  return (
-    <svg
-      viewBox="0 0 24 24"
-      fill={filled ? 'currentColor' : 'none'}
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden
-      {...rest}
-    >
-      <path d="m19 21-7-4-7 4V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v16z" />
-    </svg>
-  );
-}
+import { Button } from '@/components/ui/Button';
+import { X, Bookmark } from 'lucide-react';
 
 function formatTime(iso: string): string {
   const d = new Date(iso);
@@ -131,17 +107,12 @@ export default function FavoriteToastPanel({
 
         <div className="px-4 py-3 flex items-center justify-between border-b border-black/[0.06]">
           <div className="flex items-center gap-2">
-            <IconBookmark className="h-4 w-4 text-[#404040]" filled />
+            <Bookmark className="h-4 w-4 text-[#404040] fill-[#404040]" />
             <span className="text-sm font-medium text-[#171717]">已收藏</span>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="text-[#737373] hover:text-[#404040] transition-colors"
-            aria-label="关闭"
-          >
-            <IconX className="h-4 w-4" />
-          </button>
+          <Button variant="ghost" size="icon" onClick={onClose} aria-label="关闭">
+            <X className="h-4 w-4" />
+          </Button>
         </div>
 
         <div className="p-4 space-y-3 bg-white/60">
@@ -169,20 +140,12 @@ export default function FavoriteToastPanel({
         </div>
 
         <div className="border-t border-black/[0.06] px-4 py-2.5 flex justify-end gap-2 bg-[#fafafa]/80">
-          <button
-            type="button"
-            onClick={handleUnfavorite}
-            className="px-3 py-1.5 text-xs text-[#737373] hover:text-[#404040] hover:bg-black/[0.04] rounded-md transition-colors"
-          >
+          <Button variant="ghost" size="sm" onClick={handleUnfavorite} className="text-xs">
             取消收藏
-          </button>
-          <button
-            type="button"
-            onClick={onClose}
-            className="px-3 py-1.5 text-xs text-[#737373] hover:text-[#404040] hover:bg-black/[0.04] rounded-md transition-colors"
-          >
+          </Button>
+          <Button variant="ghost" size="sm" onClick={onClose} className="text-xs">
             关闭
-          </button>
+          </Button>
         </div>
       </div>
     </div>
