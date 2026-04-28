@@ -1,7 +1,8 @@
 'use client';
 
 import { SettingsProvider } from '@/lib/settings';
-import { MessageProvider } from '@/components/ui/Message';
+import { ToastContainer } from 'react-toastify';
+import 'react-toastify/dist/ReactToastify.css';
 
 export default function ClientProviders({
   children,
@@ -10,7 +11,19 @@ export default function ClientProviders({
 }) {
   return (
     <SettingsProvider>
-      <MessageProvider>{children}</MessageProvider>
+      {children}
+      <ToastContainer
+        position="top-center"
+        autoClose={3000}
+        hideProgressBar={false}
+        newestOnTop={false}
+        closeOnClick
+        rtl={false}
+        pauseOnFocusLoss
+        draggable
+        pauseOnHover
+        theme="light"
+      />
     </SettingsProvider>
   );
 }

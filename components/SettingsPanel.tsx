@@ -31,7 +31,7 @@ import { downloadBlob } from '@/lib/export';
 import { Button } from '@/components/ui/Button';
 import { CloseButton } from '@/components/ui/Dialog';
 import { Switch } from '@/components/ui/Switch';
-import { useMessage } from '@/components/ui/Message';
+import { toast } from 'react-toastify';
 import {
   Settings,
   RefreshCw,
@@ -93,7 +93,7 @@ export default function SettingsPanel({ visible, onClose, onTrashEmptied }: Sett
     deletePreset,
   } = useSettings();
 
-  const { success: showSuccessMessage } = useMessage();
+  const showSuccessMessage = toast.success;
 
   const [activeTab, setActiveTab] = useState<SettingsTab>('appearance');
   const [showResetConfirm, setShowResetConfirm] = useState(false);
@@ -859,7 +859,8 @@ function DataTab({
   const [importErrors, setImportErrors] = useState<DataValidationError[]>([]);
   const [trashCount, setTrashCount] = useState<number | null>(null);
 
-  const { success, error } = useMessage();
+  const success = toast.success;
+  const error = toast.error;
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
