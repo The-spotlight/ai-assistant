@@ -117,16 +117,30 @@ export const BUBBLE_STYLES = {
   },
 } as const;
 
+export const AVATAR_SHAPES = {
+  circle: { name: '圆形', borderRadius: 'rounded-full' },
+  square: { name: '方形', borderRadius: 'rounded-lg' },
+} as const;
+
+export const AVATAR_BORDERS = {
+  bordered: { name: '带边框', border: 'border-2 border-[#e5e5e5]' },
+  none: { name: '无边框', border: '' },
+} as const;
+
 export type ThemeKey = keyof typeof THEME_PRESETS;
 export type CodeHighlightKey = keyof typeof CODE_HIGHLIGHT_THEMES;
 export type FontSizeKey = keyof typeof FONT_SIZES;
 export type BubbleStyleKey = keyof typeof BUBBLE_STYLES;
+export type AvatarShapeKey = keyof typeof AVATAR_SHAPES;
+export type AvatarBorderKey = keyof typeof AVATAR_BORDERS;
 
 export interface AppearanceSettings {
   theme: ThemeKey;
   fontSize: FontSizeKey;
   codeHighlight: CodeHighlightKey;
   bubbleStyle: BubbleStyleKey;
+  avatarShape: AvatarShapeKey;
+  avatarBorder: AvatarBorderKey;
 }
 
 export const DEFAULT_SETTINGS: AppearanceSettings = {
@@ -134,4 +148,6 @@ export const DEFAULT_SETTINGS: AppearanceSettings = {
   fontSize: 'medium',
   codeHighlight: 'oneDark',
   bubbleStyle: 'relaxed',
+  avatarShape: 'circle',
+  avatarBorder: 'none',
 };

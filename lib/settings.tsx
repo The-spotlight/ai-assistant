@@ -7,11 +7,15 @@ import {
   CODE_HIGHLIGHT_THEMES,
   FONT_SIZES,
   BUBBLE_STYLES,
+  AVATAR_SHAPES,
+  AVATAR_BORDERS,
   DEFAULT_SETTINGS,
   type ThemeKey,
   type CodeHighlightKey,
   type FontSizeKey,
   type BubbleStyleKey,
+  type AvatarShapeKey,
+  type AvatarBorderKey,
   type AppearanceSettings,
 } from '@/lib/theme-constants';
 import { getOrCreateDeviceId } from '@/lib/device';
@@ -21,11 +25,15 @@ export {
   CODE_HIGHLIGHT_THEMES,
   FONT_SIZES,
   BUBBLE_STYLES,
+  AVATAR_SHAPES,
+  AVATAR_BORDERS,
   DEFAULT_SETTINGS,
   type ThemeKey,
   type CodeHighlightKey,
   type FontSizeKey,
   type BubbleStyleKey,
+  type AvatarShapeKey,
+  type AvatarBorderKey,
   type AppearanceSettings,
 };
 
@@ -434,6 +442,8 @@ export function loadSettings(): AppearanceSettings {
       fontSize: (parsed.fontSize && parsed.fontSize in FONT_SIZES) ? parsed.fontSize as FontSizeKey : DEFAULT_SETTINGS.fontSize,
       codeHighlight: (parsed.codeHighlight && parsed.codeHighlight in CODE_HIGHLIGHT_THEMES) ? parsed.codeHighlight as CodeHighlightKey : DEFAULT_SETTINGS.codeHighlight,
       bubbleStyle: (parsed.bubbleStyle && parsed.bubbleStyle in BUBBLE_STYLES) ? parsed.bubbleStyle as BubbleStyleKey : DEFAULT_SETTINGS.bubbleStyle,
+      avatarShape: (parsed.avatarShape && parsed.avatarShape in AVATAR_SHAPES) ? parsed.avatarShape as AvatarShapeKey : DEFAULT_SETTINGS.avatarShape,
+      avatarBorder: (parsed.avatarBorder && parsed.avatarBorder in AVATAR_BORDERS) ? parsed.avatarBorder as AvatarBorderKey : DEFAULT_SETTINGS.avatarBorder,
     };
   } catch {
     return DEFAULT_SETTINGS;
