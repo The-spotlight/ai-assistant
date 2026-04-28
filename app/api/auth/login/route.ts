@@ -5,13 +5,24 @@ import { signJwt } from '@/lib/jwt';
 
 export const runtime = 'nodejs';
 
+function sha256(input: string): string {
+  return require('crypto').createHash('sha256').update(input).digest('hex');
+}
+
 export async function POST(request: Request) {
   try {
-    const { username, password } = await request.json();
+    const { username, passwordHash } = await request.json();
 
-    if (!username || !password) {
+    if (!username || !passwordHash) {
       return NextResponse.json(
         { error: '请输入账号和密码' },
+        { status: 400 }
+      );
+    }
+
+    if (passwordHash.length !== 64) {
+      return NextResponse.json(
+        { error: '无效的密码格式' },
         { status: 400 }
       );
     }
@@ -27,9 +38,9 @@ export async function POST(request: Request) {
       );
     }
 
-    const isPasswordValid = await compare(password, user.passwordHash);
-
-    if (!isPasswordValid) {
+    const serverPasswordHash = sha256(user.passwordHash);
+    
+    if (serverPasswordHash !== passwordHash) {
       return NextResponse.json(
         { error: '账号或密码错误' },
         { status: 401 }
