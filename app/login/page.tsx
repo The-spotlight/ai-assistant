@@ -151,9 +151,9 @@ export default function LoginPage() {
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
                   disabled={isLoading}
-                  className="w-4 h-4 rounded border-gray-300 text-[#171717] focus:ring-[#171717]"
+                  className="w-4 h-4 rounded border-gray-300 text-gray-600 focus:ring-gray-400"
                 />
-                <span className="text-sm text-[#737373]">记住我</span>
+                <span className="text-sm text-gray-500">记住我</span>
               </label>
             </div>
 
