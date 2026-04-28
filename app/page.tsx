@@ -27,6 +27,7 @@ import FavoriteToastPanel from '@/components/FavoriteToastPanel';
 import FavoritePanel from '@/components/FavoritePanel';
 import TrashPanel from '@/components/TrashPanel';
 import TemplatePanel, { FormModal } from '@/components/TemplatePanel';
+import FeedbackPanel from '@/components/FeedbackPanel';
 import ExportPanel from '@/components/ExportPanel';
 import SettingsPanel, { SettingsButton } from '@/components/SettingsPanel';
 import ResizablePanel, { useLayoutContext, AdaptiveText } from '@/components/ResizablePanel';
@@ -312,6 +313,26 @@ function IconDownload(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
+function IconFeedback(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      {...props}
+    >
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+      <path d="M18 8h-4" />
+      <path d="M16 12h-2" />
+      <path d="M18 16h-6" />
+    </svg>
+  );
+}
+
 function IconColumns(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg
@@ -390,6 +411,7 @@ interface SidebarContentProps {
   onOpenFavorites: () => void;
   onOpenTrash: () => void;
   onOpenTemplates: () => void;
+  onOpenFeedback: () => void;
   onOpenExport: () => void;
   onSaveAsTemplate: (conversationId: string) => Promise<void>;
   compareMode: CompareModeState;
@@ -604,6 +626,7 @@ function SidebarContent({
   onOpenFavorites,
   onOpenTrash,
   onOpenTemplates,
+  onOpenFeedback,
   onOpenExport,
   onSaveAsTemplate,
   compareMode,
@@ -1175,7 +1198,7 @@ function SidebarContent({
       )}
       </div>
 
-      {/* 底部图标按钮：模板、收藏、回收站和导出 */}
+      {/* 底部图标按钮：模板、收藏、回收站、反馈和导出 */}
       <div className="flex items-center justify-center gap-2 pt-3 border-t border-black/[0.08] shrink-0">
         <button
           type="button"
@@ -1218,6 +1241,15 @@ function SidebarContent({
               {trashList.length > 99 ? '99+' : trashList.length}
             </span>
           )}
+        </button>
+        <button
+          type="button"
+          onClick={onOpenFeedback}
+          className={`relative flex items-center justify-center rounded-lg p-2 transition-colors text-[#a3a3a3] hover:bg-[#f5f5f5] hover:text-[#171717] ${isNarrow ? 'p-1.5' : ''}`}
+          title="反馈统计"
+          aria-label="打开反馈统计面板"
+        >
+          <IconFeedback className={`h-5 w-5 ${isNarrow ? 'h-4 w-4' : ''}`} />
         </button>
         <button
           type="button"
@@ -1267,6 +1299,7 @@ export default function Home() {
   const [showFavoritePanel, setShowFavoritePanel] = useState<boolean>(false);
   const [showTrashPanel, setShowTrashPanel] = useState<boolean>(false);
   const [showTemplatePanel, setShowTemplatePanel] = useState<boolean>(false);
+  const [showFeedbackPanel, setShowFeedbackPanel] = useState<boolean>(false);
   const [showExportPanel, setShowExportPanel] = useState<boolean>(false);
   const [showSettingsPanel, setShowSettingsPanel] = useState<boolean>(false);
 
@@ -1399,6 +1432,16 @@ export default function Home() {
   const handleCloseFavoriteToast = useCallback(() => {
     setFavoriteToastVisible(false);
     setFavoriteToastData(null);
+  }, []);
+
+  // 打开反馈统计面板
+  const handleOpenFeedback = useCallback(() => {
+    setShowFeedbackPanel(true);
+  }, []);
+
+  // 关闭反馈统计面板
+  const handleCloseFeedback = useCallback(() => {
+    setShowFeedbackPanel(false);
   }, []);
 
   // 从面板中取消收藏
@@ -2263,6 +2306,7 @@ export default function Home() {
             onOpenFavorites={handleOpenFavorites}
             onOpenTrash={handleOpenTrash}
             onOpenTemplates={handleOpenTemplates}
+            onOpenFeedback={handleOpenFeedback}
             onOpenExport={handleOpenExport}
             onSaveAsTemplate={handleSaveAsTemplate}
             compareMode={compareMode}
@@ -2417,6 +2461,12 @@ export default function Home() {
         onAddTemplate={handleAddTemplate}
         onUpdateTemplate={handleUpdateTemplate}
         onDeleteTemplate={handleDeleteTemplate}
+      />
+
+      {/* 反馈统计浮层面板 */}
+      <FeedbackPanel
+        visible={showFeedbackPanel}
+        onClose={handleCloseFeedback}
       />
 
       {/* 批量导出浮层面板 */}
