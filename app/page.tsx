@@ -25,6 +25,7 @@ import ChatSession from '@/components/ChatSession';
 import CompareView from '@/components/CompareView';
 import FavoriteToastPanel from '@/components/FavoriteToastPanel';
 import FavoritePanel from '@/components/FavoritePanel';
+import ArchivePanel from '@/components/ArchivePanel';
 import TrashPanel from '@/components/TrashPanel';
 import TemplatePanel, { FormModal } from '@/components/TemplatePanel';
 import FeedbackPanel from '@/components/FeedbackPanel';
@@ -81,6 +82,19 @@ type FavoriteItem = {
   createdAt: string;
   replyToId: string | null;
   replyToSnapshot: string | null;
+};
+
+type ArchivedConversationRow = {
+  id: string;
+  title: string | null;
+  modelId: string | null;
+  isPinned: boolean | null;
+  pinnedAt: string | null;
+  isArchived: boolean | null;
+  archivedAt: string;
+  orderIndex: number | null;
+  createdAt: string;
+  updatedAt: string;
 };
 
 type TrashedConversationRow = {
@@ -298,6 +312,25 @@ function IconPackage(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
+function IconArchive(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      {...props}
+    >
+      <rect x="3" y="4" width="18" height="4" rx="1" ry="1" />
+      <path d="M10 12h4" />
+      <path d="M4 8v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8" />
+    </svg>
+  );
+}
+
 function IconDownload(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg
@@ -410,14 +443,17 @@ interface SidebarContentProps {
   renameConversation: (id: string, newTitle: string) => Promise<void>;
   reorderConversations: (order: { id: string; orderIndex: number }[]) => Promise<void>;
   favorites: FavoriteItem[];
+  archiveList: ArchivedConversationRow[];
   trashList: TrashedConversationRow[];
   templates: TemplateItem[];
   onOpenFavorites: () => void;
+  onOpenArchive: () => void;
   onOpenTrash: () => void;
   onOpenTemplates: () => void;
   onOpenFeedback: () => void;
   onOpenExport: () => void;
   onSaveAsTemplate: (conversationId: string) => Promise<void>;
+  onArchive: (id: string, e: React.MouseEvent) => Promise<void>;
   compareMode: CompareModeState;
   enterCompareMode: () => void;
   exitCompareMode: () => void;
@@ -443,6 +479,7 @@ function SortableConversationRow({
   togglePin,
   deleteConversation,
   onSaveAsTemplate,
+  onArchive,
   compareMode,
 }: {
   conversation: ConversationRow;
@@ -461,6 +498,7 @@ function SortableConversationRow({
   togglePin: (id: string, e: React.MouseEvent) => Promise<void>;
   deleteConversation: (id: string, e: React.MouseEvent) => Promise<void>;
   onSaveAsTemplate: (conversationId: string) => Promise<void>;
+  onArchive: (id: string, e: React.MouseEvent) => Promise<void>;
   compareMode: CompareModeState;
 }) {
   const {
@@ -594,6 +632,17 @@ function SortableConversationRow({
       </button>
       <button
         type="button"
+        aria-label="存档会话"
+        onClick={(e) => onArchive(conversation.id, e)}
+        className={`flex w-9 shrink-0 items-center justify-center text-[#a3a3a3] opacity-0 transition hover:bg-[#f5f5f5] hover:text-[#171717] group-hover:opacity-100 ${
+          isNarrow ? 'w-7' : ''
+        }`}
+        title="存档会话"
+      >
+        <IconArchive className={`h-4 w-4 ${isNarrow ? 'h-3.5 w-3.5' : ''}`} />
+      </button>
+      <button
+        type="button"
         aria-label="删除会话"
         onClick={(e) => deleteConversation(conversation.id, e)}
         className={`flex w-9 shrink-0 items-center justify-center text-[#a3a3a3] opacity-0 transition hover:bg-red-50 hover:text-red-600 group-hover:opacity-100 ${
@@ -625,14 +674,17 @@ function SidebarContent({
   renameConversation,
   reorderConversations,
   favorites,
+  archiveList,
   trashList,
   templates,
   onOpenFavorites,
+  onOpenArchive,
   onOpenTrash,
   onOpenTemplates,
   onOpenFeedback,
   onOpenExport,
   onSaveAsTemplate,
+  onArchive,
   compareMode,
   enterCompareMode,
   exitCompareMode,
@@ -1169,6 +1221,7 @@ function SidebarContent({
                     togglePin={togglePin}
                     deleteConversation={deleteConversation}
                     onSaveAsTemplate={onSaveAsTemplate}
+                    onArchive={onArchive}
                     compareMode={compareMode}
                   />
                 ))}
@@ -1234,6 +1287,20 @@ function SidebarContent({
         </button>
         <button
           type="button"
+          onClick={onOpenArchive}
+          className={`relative flex items-center justify-center rounded-lg p-2 transition-colors text-[#a3a3a3] hover:bg-[#f5f5f5] hover:text-[#171717] ${isNarrow ? 'p-1.5' : ''}`}
+          title="已存档"
+          aria-label="打开存档列表"
+        >
+          <IconArchive className={`h-5 w-5 ${isNarrow ? 'h-4 w-4' : ''}`} />
+          {archiveList.length > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-[#171717] text-[10px] font-medium text-white">
+              {archiveList.length > 99 ? '99+' : archiveList.length}
+            </span>
+          )}
+        </button>
+        <button
+          type="button"
           onClick={onOpenTrash}
           className={`relative flex items-center justify-center rounded-lg p-2 transition-colors text-[#a3a3a3] hover:bg-[#f5f5f5] hover:text-[#171717] ${isNarrow ? 'p-1.5' : ''}`}
           title="回收站"
@@ -1286,6 +1353,10 @@ export default function Home() {
   const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
   const [showFavorites, setShowFavorites] = useState<boolean>(false);
 
+  // 存档相关状态
+  const [archiveList, setArchiveList] = useState<ArchivedConversationRow[]>([]);
+  const [showArchive, setShowArchive] = useState<boolean>(false);
+
   // 回收站相关状态
   const [trashList, setTrashList] = useState<TrashedConversationRow[]>([]);
   const [showTrash, setShowTrash] = useState<boolean>(false);
@@ -1301,6 +1372,7 @@ export default function Home() {
   
   // 浮层面板显示状态
   const [showFavoritePanel, setShowFavoritePanel] = useState<boolean>(false);
+  const [showArchivePanel, setShowArchivePanel] = useState<boolean>(false);
   const [showTrashPanel, setShowTrashPanel] = useState<boolean>(false);
   const [showTemplatePanel, setShowTemplatePanel] = useState<boolean>(false);
   const [showFeedbackPanel, setShowFeedbackPanel] = useState<boolean>(false);
@@ -1380,6 +1452,112 @@ export default function Home() {
       console.error('加载回收站列表失败:', error);
       setTrashList([]);
     }
+  }, []);
+
+  // 加载存档列表
+  const loadArchive = useCallback(async (did: string) => {
+    try {
+      const r = await fetch('/api/archive', { headers: { 'x-device-id': did } });
+      if (!r.ok) return;
+      const data = (await r.json()) as { conversations?: ArchivedConversationRow[] };
+      setArchiveList(data.conversations ?? []);
+    } catch (error) {
+      console.error('加载存档列表失败:', error);
+      setArchiveList([]);
+    }
+  }, []);
+
+  // 存档会话
+  const archiveConversation = useCallback(async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!deviceId) return;
+
+    const r = await fetch(`/api/archive/${id}/archive`, {
+      method: 'PATCH',
+      headers: { 'x-device-id': deviceId },
+    });
+
+    if (r.ok) {
+      await loadArchive(deviceId);
+      await loadConversations(deviceId);
+    }
+  }, [deviceId, loadArchive, loadConversations]);
+
+  // 从存档恢复会话
+  const restoreFromArchive = useCallback(async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!deviceId) return;
+
+    const r = await fetch(`/api/archive/${id}/restore`, {
+      method: 'PATCH',
+      headers: { 'x-device-id': deviceId },
+    });
+
+    if (r.ok) {
+      await loadArchive(deviceId);
+      await loadConversations(deviceId);
+    }
+  }, [deviceId, loadArchive, loadConversations]);
+
+  // 从存档彻底删除
+  const deleteFromArchive = useCallback(async (id: string) => {
+    if (!deviceId) return;
+
+    const r = await fetch(`/api/archive/${id}`, {
+      method: 'DELETE',
+      headers: { 'x-device-id': deviceId },
+    });
+
+    if (r.ok) {
+      await loadArchive(deviceId);
+    }
+  }, [deviceId, loadArchive]);
+
+  // 批量从存档恢复
+  const handleArchiveBatchRestore = useCallback(async (ids: string[]) => {
+    if (!deviceId || ids.length === 0) return;
+
+    const r = await fetch('/api/archive/batch-restore', {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-device-id': deviceId,
+      },
+      body: JSON.stringify({ ids }),
+    });
+
+    if (r.ok) {
+      await loadArchive(deviceId);
+      await loadConversations(deviceId);
+    }
+  }, [deviceId, loadArchive, loadConversations]);
+
+  // 批量从存档彻底删除
+  const handleArchiveBatchDeletePermanently = useCallback(async (ids: string[]) => {
+    if (!deviceId || ids.length === 0) return;
+
+    const r = await fetch('/api/archive/batch-delete', {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-device-id': deviceId,
+      },
+      body: JSON.stringify({ ids }),
+    });
+
+    if (r.ok) {
+      await loadArchive(deviceId);
+    }
+  }, [deviceId, loadArchive]);
+
+  // 打开存档浮层面板
+  const handleOpenArchive = useCallback(() => {
+    setShowArchivePanel(true);
+  }, []);
+
+  // 关闭存档浮层面板
+  const handleCloseArchive = useCallback(() => {
+    setShowArchivePanel(false);
   }, []);
 
   // 自动归档
@@ -1799,6 +1977,7 @@ export default function Home() {
             });
             await loadConversations(did);
             await loadFavorites(did);
+            await loadArchive(did);
             await loadTrash(did);
             await loadTemplates(did);
             return;
@@ -1820,6 +1999,7 @@ export default function Home() {
         setChatPayload({ conversationId: id, messages: [] });
         await loadConversations(did);
         await loadFavorites(did);
+        await loadArchive(did);
         await loadTrash(did);
         await loadTemplates(did);
       } catch (e) {
@@ -2012,6 +2192,7 @@ export default function Home() {
       setChatPayload({ conversationId: id, messages: [] });
       await loadConversations(deviceId);
       await loadFavorites(deviceId);
+      await loadArchive(deviceId);
       await loadTrash(deviceId);
       await loadTemplates(deviceId);
     } catch {
@@ -2324,14 +2505,17 @@ export default function Home() {
               renameConversation={renameConversation}
               reorderConversations={reorderConversations}
               favorites={favorites}
+              archiveList={archiveList}
               trashList={trashList}
               templates={templates}
               onOpenFavorites={handleOpenFavorites}
+              onOpenArchive={handleOpenArchive}
               onOpenTrash={handleOpenTrash}
               onOpenTemplates={handleOpenTemplates}
               onOpenFeedback={handleOpenFeedback}
               onOpenExport={handleOpenExport}
               onSaveAsTemplate={handleSaveAsTemplate}
+              onArchive={archiveConversation}
               compareMode={compareMode}
               enterCompareMode={enterCompareMode}
               exitCompareMode={exitCompareMode}
@@ -2465,6 +2649,17 @@ export default function Home() {
         favorites={favorites}
         onFavoriteClick={handlePanelFavoriteClick}
         onUnfavorite={handlePanelUnfavorite}
+      />
+
+      {/* 存档浮层面板 */}
+      <ArchivePanel
+        visible={showArchivePanel}
+        onClose={handleCloseArchive}
+        archiveList={archiveList}
+        onRestore={restoreFromArchive}
+        onDeletePermanently={deleteFromArchive}
+        onBatchRestore={handleArchiveBatchRestore}
+        onBatchDeletePermanently={handleArchiveBatchDeletePermanently}
       />
 
       {/* 回收站浮层面板 */}
