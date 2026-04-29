@@ -23,25 +23,49 @@ export default function ModelSettings({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div className="w-80 max-h-[80vh] overflow-y-auto p-4">
+    <div className="w-96 max-h-[85vh] overflow-y-auto p-4">
       <h3 className="text-sm font-medium text-[#171717] mb-4">模型设置</h3>
       
       <div className="flex flex-col gap-6">
         <div className="flex flex-col gap-3">
           <span className="text-sm font-medium text-[#171717]">默认模型</span>
-          <div className="grid grid-cols-1 gap-2 max-h-48 overflow-y-auto">
+          <div className="grid grid-cols-1 gap-2 max-h-80 overflow-y-auto pr-1">
             {OPENROUTER_MODEL_OPTIONS.map((option) => {
               const isSelected = model.defaultModel === option.id;
               return (
-                <Button
+                <button
                   key={option.id}
-                  variant={isSelected ? 'default' : 'outline'}
-                  className="w-full justify-start"
                   onClick={() => updateModel('defaultModel', option.id)}
+                  className={`relative w-full text-left p-3 rounded-xl border-2 transition-all duration-200 hover:shadow-sm ${
+                    isSelected
+                      ? 'border-[#171717] bg-[#171717]/5'
+                      : 'border-transparent bg-[#f5f5f5] hover:border-[#d4d4d4]'
+                  }`}
                 >
-                  {isSelected && <Check className="h-3.5 w-3.5 shrink-0" />}
-                  <span className="truncate">{option.label}</span>
-                </Button>
+                  {isSelected && (
+                    <div className="absolute top-2 right-2">
+                      <Check className="h-4 w-4 text-[#171717]" />
+                    </div>
+                  )}
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="font-medium text-sm text-[#171717] truncate">
+                      {option.label}
+                    </span>
+                    <span className={`text-xs px-2 py-0.5 rounded-full ${
+                      option.isFree
+                        ? 'bg-[#4ade80] text-[#166534]'
+                        : 'bg-[#fb923c] text-[#c2410c]'
+                    }`}>
+                      {option.isFree ? '免费' : '付费'}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-[#737373]">{option.provider}</span>
+                    <span className="text-xs text-[#737373]">
+                      上下文窗口: {option.contextWindowLabel}
+                    </span>
+                  </div>
+                </button>
               );
             })}
           </div>
