@@ -8,6 +8,7 @@ import { login, refreshToken, type AuthError } from '@/lib/auth';
 import { saveRememberMeToken, getRememberMeToken, hasRememberMeToken } from '@/lib/auth-storage';
 import { Toast, ToastContainer } from '@/components/ui/Toast';
 import ParticleBackground from '@/components/ParticleBackground';
+import MouseSparkles from '@/components/MouseSparkles';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -111,8 +112,10 @@ export default function LoginPage() {
       <ToastContainer toasts={toasts} onRemove={removeToast} />
       
       <div className="relative z-10 w-full max-w-md">
-        <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-sm border border-black/[0.06] p-8">
-          <div className="text-center mb-8">
+        <div className="relative bg-white/90 backdrop-blur-sm rounded-2xl shadow-sm border border-black/[0.06] p-8 overflow-hidden">
+          <MouseSparkles />
+          <div className="relative z-20">
+            <div className="text-center mb-8">
             <div className="inline-flex items-center justify-center w-14 h-14 rounded-xl bg-[#171717] text-white mb-4">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-7 h-7">
                 <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
@@ -193,6 +196,7 @@ export default function LoginPage() {
             <p className="text-xs text-[#a3a3a3] mt-1">
               首次登录前请先通过注册接口创建用户
             </p>
+          </div>
           </div>
         </div>
       </div>
