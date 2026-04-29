@@ -2497,6 +2497,11 @@ export default function Home() {
         onAddTemplate={handleAddTemplate}
         onUpdateTemplate={handleUpdateTemplate}
         onDeleteTemplate={handleDeleteTemplate}
+        onImportComplete={async () => {
+          if (deviceId) {
+            await loadTemplates(deviceId);
+          }
+        }}
       />
 
       {/* 反馈统计浮层面板 */}
