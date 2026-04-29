@@ -2,69 +2,159 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import mermaid from 'mermaid';
-import { ZoomIn, ZoomOut, AlertCircle, CheckCircle } from 'lucide-react';
+import { ZoomIn, ZoomOut, AlertCircle, CheckCircle, RefreshCw } from 'lucide-react';
 
 interface MermaidRendererProps {
   code: string;
 }
 
-function sanitizeMermaidCode(code: string): string {
-  let sanitized = code.trim();
+function sanitizeSpecialChars(text: string): string {
+  let sanitized = text;
   
-  sanitized = sanitized.replace(/&lt;/g, '<');
-  sanitized = sanitized.replace(/&gt;/g, '>');
-  sanitized = sanitized.replace(/&amp;/g, '&');
-  sanitized = sanitized.replace(/&quot;/g, '"');
-  sanitized = sanitized.replace(/&#39;/g, "'");
+  sanitized = sanitized.replace(/≤/g, '&le;');
+  sanitized = sanitized.replace(/≥/g, '&ge;');
+  sanitized = sanitized.replace(/<(?![a-zA-Z])/g, '&lt;');
+  sanitized = sanitized.replace(/>/g, '&gt;');
+  sanitized = sanitized.replace(/&(?!amp;)/g, '&amp;');
   
-  sanitized = sanitized.replace(/\\n/g, '\n');
-  sanitized = sanitized.replace(/\\t/g, '\t');
-  sanitized = sanitized.replace(/\\r/g, '\r');
+  const escapedQuotes: { [key: string]: string } = {
+    '"': '\\"',
+    "'": "\\'",
+    '`': '\\`',
+  };
   
-  sanitized = sanitized.replace(/`([^`]+)`/g, '$1');
-  
-  sanitized = sanitized.replace(/\[(\s*)\]/g, '[ ]');
-  
-  sanitized = sanitized.replace(/\(\s*\)/g, '()');
-  
-  sanitized = sanitized.replace(/\{\s*\}/g, '{}');
-  
-  sanitized = sanitized.replace(/\|\s*\|/g, '| |');
-  
-  sanitized = sanitized.replace(/;\s*$/gm, ';');
-  
-  sanitized = sanitized.replace(/\n{3,}/g, '\n\n');
-  
-  sanitized = sanitized.replace(/^\s*\n/gm, '');
-  
-  sanitized = sanitized.replace(/<br\s*\/?>/gi, '\n');
-  sanitized = sanitized.replace(/<p>/gi, '');
-  sanitized = sanitized.replace(/<\/p>/gi, '\n');
-  
-  sanitized = sanitized.replace(/<[^>]+>/g, '');
-  
-  sanitized = sanitized.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
-  
-  const lines = sanitized.split('\n');
-  const cleanedLines = lines.map((line, index) => {
-    let cleaned = line;
-    
-    if (!cleaned.includes('graph') && 
-        !cleaned.includes('flowchart') && 
-        !cleaned.includes('sequenceDiagram') && 
-        !cleaned.includes('classDiagram') &&
-        !cleaned.includes('stateDiagram') &&
-        !cleaned.includes('journey') &&
-        !cleaned.includes('gantt') &&
-        !cleaned.includes('pie') &&
-        index > 0) {
-      cleaned = cleaned.replace(/^\s+/, '');
-    }
-    
-    return cleaned;
+  Object.entries(escapedQuotes).forEach(([char, escaped]) => {
+    sanitized = sanitized.split(char).join(escaped);
   });
   
-  return cleanedLines.join('\n').trim();
+  return sanitized;
+}
+
+function generateSafeId(text: string): string {
+  let safeId = text
+    .replace(/[\s\u4e00-\u9fa5]/g, '_')
+    .replace(/[^a-zA-Z0-9_\-]/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+|_+$/g, '');
+  
+  if (!safeId) {
+    safeId = `node_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+  }
+  
+  if (!/^[a-zA-Z_]/.test(safeId)) {
+    safeId = `n_${safeId}`;
+  }
+  
+  return safeId;
+}
+
+function preprocessMermaidCode(code: string): string {
+  let processed = code.trim();
+  
+  processed = processed.replace(/&lt;/g, '<');
+  processed = processed.replace(/&gt;/g, '>');
+  processed = processed.replace(/&amp;/g, '&');
+  processed = processed.replace(/&quot;/g, '"');
+  processed = processed.replace(/&#39;/g, "'");
+  
+  processed = processed.replace(/\\n/g, '\n');
+  processed = processed.replace(/\\t/g, '\t');
+  processed = processed.replace(/\\r/g, '\r');
+  
+  processed = processed.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+  
+  const lines = processed.split('\n');
+  const nodeIdMap = new Map<string, string>();
+  
+  const processedLines = lines.map((line) => {
+    if (!line.trim()) return line;
+    
+    const graphOrFlowchartMatch = line.match(/^(graph|flowchart)\s+(\w+)?\s*$/);
+    if (graphOrFlowchartMatch) {
+      return line;
+    }
+    
+    const subgraphMatch = line.match(/^(subgraph)\s+(.+)/);
+    if (subgraphMatch) {
+      const subgraphName = subgraphMatch[2].trim();
+      const safeId = generateSafeId(subgraphName);
+      if (!nodeIdMap.has(safeId)) {
+        nodeIdMap.set(safeId, subgraphName);
+      }
+      return `subgraph ${safeId}["${sanitizeSpecialChars(subgraphName)}"]`;
+    }
+    
+    if (line.trim() === 'end') {
+      return line;
+    }
+    
+    const nodePattern = /([^\[\]\(\)\{\}\|\-\>]+?)(\[.+?\])?(\s*-->\s*)([^\[\]\(\)\{\}\|]+?)(\[.+?\])?/g;
+    let result = line;
+    let match;
+    
+    while ((match = nodePattern.exec(line)) !== null) {
+      const [fullMatch, fromPart, fromLabel, arrow, toPart, toLabel] = match;
+      
+      const processNode = (part: string, label: string | undefined) => {
+        const trimmedPart = part.trim();
+        
+        if (!trimmedPart) return part;
+        
+        if (trimmedPart.includes('[') || trimmedPart.includes(']')) {
+          return trimmedPart;
+        }
+        
+        const isSpecial = trimmedPart === 'yes' || trimmedPart === 'no' || 
+                         trimmedPart === 'true' || trimmedPart === 'false' ||
+                         trimmedPart.match(/^\d+$/) !== null;
+        if (isSpecial) {
+          return trimmedPart;
+        }
+        
+        const hasSpecialChars = !/^[a-zA-Z0-9_\-]+$/.test(trimmedPart);
+        
+        if (!hasSpecialChars && !label) {
+          return trimmedPart;
+        }
+        
+        const safeId = generateSafeId(trimmedPart);
+        const displayText = label ? label.slice(1, -1) : trimmedPart;
+        
+        return `${safeId}["${sanitizeSpecialChars(displayText)}"]`;
+      };
+      
+      const newFrom = processNode(fromPart, fromLabel);
+      const newTo = processNode(toPart, toLabel);
+      
+      result = result.replace(fullMatch, `${newFrom}${arrow}${newTo}`);
+    }
+    
+    const standaloneNodePattern = /^([^\[\]\(\)\{\}\|\-\>]+?)(\[.+?\])?$/;
+    const standaloneMatch = line.match(standaloneNodePattern);
+    if (standaloneMatch && !line.includes('-->')) {
+      const [, nodePart, label] = standaloneMatch;
+      const trimmedPart = nodePart.trim();
+      
+      if (trimmedPart && !trimmedPart.includes('[') && !trimmedPart.includes(']')) {
+        const hasSpecialChars = !/^[a-zA-Z0-9_\-]+$/.test(trimmedPart);
+        
+        if (hasSpecialChars || label) {
+          const safeId = generateSafeId(trimmedPart);
+          const displayText = label ? label.slice(1, -1) : trimmedPart;
+          result = `${safeId}["${sanitizeSpecialChars(displayText)}"]`;
+        }
+      }
+    }
+    
+    result = result.replace(/\[\s*\]/g, '[ ]');
+    result = result.replace(/\(\s*\)/g, '()');
+    result = result.replace(/\{\s*\}/g, '{}');
+    result = result.replace(/\|\s*\|/g, '| |');
+    
+    return result;
+  });
+  
+  return processedLines.join('\n').trim();
 }
 
 function validateMermaidSyntax(code: string): { valid: boolean; errors: string[] } {
@@ -73,9 +163,6 @@ function validateMermaidSyntax(code: string): { valid: boolean; errors: string[]
   if (!code.includes('graph') && !code.includes('flowchart')) {
     errors.push('缺少graph或flowchart声明');
   }
-  
-  const nodePattern = /^[\w_-]+(\s*-->\s*[\w_-]+)?/gm;
-  const nodes = code.match(nodePattern);
   
   const arrowPattern = /-->/g;
   const arrows = code.match(arrowPattern);
@@ -102,6 +189,7 @@ export default function MermaidRenderer({ code }: MermaidRendererProps) {
   const [hoveredElement, setHoveredElement] = useState<string | null>(null);
   const [isValid, setIsValid] = useState<boolean | null>(null);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [renderAttempts, setRenderAttempts] = useState(0);
 
   useEffect(() => {
     mermaid.initialize({
@@ -133,31 +221,32 @@ export default function MermaidRenderer({ code }: MermaidRendererProps) {
     setValidationErrors(validation.errors);
   }, [code]);
 
-  useEffect(() => {
-    const renderMermaid = async () => {
+  const renderMermaid = useCallback(async () => {
+    if (!containerRef.current) return;
+    
+    try {
+      setError(null);
+      setIsLoaded(false);
+      
+      const processedCode = preprocessMermaidCode(code);
+      console.log('Processed Mermaid code:', processedCode);
+      
+      const { svg } = await mermaid.render('mermaid-chart', processedCode);
+      
       if (!containerRef.current) return;
       
-      try {
-        setError(null);
-        
-        const sanitizedCode = sanitizeMermaidCode(code);
-        console.log('Sanitized Mermaid code:', sanitizedCode);
-        
-        const { svg } = await mermaid.render('mermaid-chart', sanitizedCode);
-        
-        if (!containerRef.current) return;
-        
-        containerRef.current.innerHTML = svg;
-        setIsLoaded(true);
-        setIsValid(true);
-      } catch (err) {
-        const errorMsg = (err as Error).message;
-        setError(errorMsg);
-        setIsValid(false);
-        console.error('Mermaid rendering error:', err);
-      }
-    };
+      containerRef.current.innerHTML = svg;
+      setIsLoaded(true);
+      setIsValid(true);
+    } catch (err) {
+      const errorMsg = (err as Error).message;
+      setError(errorMsg);
+      setIsValid(false);
+      console.error('Mermaid rendering error:', err);
+    }
+  }, [code]);
 
+  useEffect(() => {
     renderMermaid();
 
     return () => {
@@ -165,7 +254,12 @@ export default function MermaidRenderer({ code }: MermaidRendererProps) {
         containerRef.current.innerHTML = '';
       }
     };
-  }, [code]);
+  }, [renderMermaid]);
+
+  const handleRetry = useCallback(() => {
+    setRenderAttempts((prev) => prev + 1);
+    renderMermaid();
+  }, [renderMermaid]);
 
   useEffect(() => {
     if (!isLoaded || !containerRef.current) return;
@@ -307,17 +401,29 @@ export default function MermaidRenderer({ code }: MermaidRendererProps) {
 
   if (error) {
     return (
-      <div className="my-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-        <div className="flex items-start gap-2">
-          <AlertCircle className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" />
-          <div>
-            <p className="text-red-600 text-sm font-medium">Mermaid渲染错误</p>
-            <p className="text-red-500 text-xs mt-1 break-words">{error}</p>
-            <div className="mt-3 p-3 bg-white rounded border border-red-100">
-              <p className="text-xs text-red-600 font-medium mb-2">原始代码:</p>
-              <pre className="text-xs text-red-700 whitespace-pre-wrap break-all">{code}</pre>
+      <div className="my-4 rounded-lg border border-neutral-200 bg-white overflow-hidden">
+        <div className="p-4 bg-red-50 border-b border-red-200">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-red-500" />
+              <span className="text-sm font-medium text-red-700">该流程图格式有误，无法渲染</span>
             </div>
+            <button
+              onClick={handleRetry}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-red-600 bg-white border border-red-200 rounded-lg hover:bg-red-50 transition-colors"
+            >
+              <RefreshCw className="w-4 h-4" />
+              重试
+            </button>
           </div>
+        </div>
+        <div className="p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-xs font-medium text-[#6b7280] uppercase tracking-wider">原始代码</span>
+          </div>
+          <pre className="text-xs text-[#4d4d4d] bg-[#fafafa] p-3 rounded-lg overflow-x-auto whitespace-pre-wrap break-all">
+            {code}
+          </pre>
         </div>
       </div>
     );
@@ -325,17 +431,29 @@ export default function MermaidRenderer({ code }: MermaidRendererProps) {
 
   if (isValid === false && !error && validationErrors.length > 0) {
     return (
-      <div className="my-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-        <div className="flex items-start gap-2">
-          <AlertCircle className="w-5 h-5 text-yellow-500 mt-0.5 flex-shrink-0" />
-          <div>
-            <p className="text-yellow-700 text-sm font-medium">Mermaid语法验证失败</p>
-            <ul className="text-yellow-600 text-xs mt-1 list-disc list-inside">
-              {validationErrors.map((err, index) => (
-                <li key={index}>{err}</li>
-              ))}
-            </ul>
+      <div className="my-4 rounded-lg border border-neutral-200 bg-white overflow-hidden">
+        <div className="p-4 bg-yellow-50 border-b border-yellow-200">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-5 h-5 text-yellow-500" />
+              <span className="text-sm font-medium text-yellow-700">该流程图格式有误，无法渲染</span>
+            </div>
+            <button
+              onClick={handleRetry}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-yellow-600 bg-white border border-yellow-200 rounded-lg hover:bg-yellow-50 transition-colors"
+            >
+              <RefreshCw className="w-4 h-4" />
+              重试
+            </button>
           </div>
+        </div>
+        <div className="p-4">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-xs font-medium text-[#6b7280] uppercase tracking-wider">原始代码</span>
+          </div>
+          <pre className="text-xs text-[#4d4d4d] bg-[#fafafa] p-3 rounded-lg overflow-x-auto whitespace-pre-wrap break-all">
+            {code}
+          </pre>
         </div>
       </div>
     );
