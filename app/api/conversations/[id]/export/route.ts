@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { conversationToMarkdown, conversationToCsv, ExportFormat } from '@/lib/export';
+import { conversationToMarkdown, conversationToCsv, ExportFormat, ExportOptions, CsvContentFormat } from '@/lib/export';
 
 export const runtime = 'nodejs';
 
@@ -17,6 +17,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
 
   const url = new URL(req.url);
   const format = (url.searchParams.get('format') as ExportFormat) || 'markdown';
+  const csvContentFormat = (url.searchParams.get('csvContentFormat') as CsvContentFormat) || undefined;
 
   const conv = await prisma.conversation.findFirst({
     where: { id: conversationId, deviceId, isDeleted: false },
@@ -52,7 +53,11 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
   let filename: string;
 
   if (format === 'csv') {
-    const csvContent = conversationToCsv(conversationData);
+    const exportOptions: ExportOptions = {
+      format,
+      csvContentFormat,
+    };
+    const csvContent = conversationToCsv(conversationData, exportOptions);
     const bom = getUtf8Bom();
     const contentBuffer = new TextEncoder().encode(csvContent);
     const combined = new Uint8Array(bom.length + contentBuffer.length);

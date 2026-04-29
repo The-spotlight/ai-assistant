@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { createZipFromConversations, ExportFormat, ExportOptions, conversationsToCsv } from '@/lib/export';
+import { createZipFromConversations, ExportFormat, ExportOptions, conversationsToCsv, conversationToCsv, CsvContentFormat } from '@/lib/export';
 
 export const runtime = 'nodejs';
 
@@ -11,6 +11,7 @@ interface ExportRequest {
   customNote?: string;
   includeMetadata?: boolean;
   selectedMessages?: Record<string, string[]>;
+  csvContentFormat?: CsvContentFormat;
 }
 
 function getUtf8Bom(): Uint8Array {
@@ -24,7 +25,7 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json();
-  const { ids, format = 'markdown', customTitle, customNote, includeMetadata = true, selectedMessages } = body as ExportRequest;
+  const { ids, format = 'markdown', customTitle, customNote, includeMetadata = true, selectedMessages, csvContentFormat } = body as ExportRequest;
 
   // 确定要导出的对话
   let conversations;
@@ -91,21 +92,32 @@ export async function POST(req: Request) {
     customTitle,
     customNote,
     selectedMessageIds: selectedMessages ? Object.values(selectedMessages).flat() : undefined,
+    csvContentFormat,
   };
 
   const timestamp = new Date().toISOString().slice(0, 10);
   
-  // 对于 CSV 格式，如果是多条对话，直接返回带 BOM 的 CSV 文件
-  if (format === 'csv' && exportConversations.length > 1) {
-    const csvContent = conversationsToCsv(exportConversations, exportOptions);
+  // 对于 CSV 格式，直接返回带 BOM 的 CSV 文件（不管几条对话）
+  if (format === 'csv') {
+    let csvContent: string;
+    let filename: string;
+    
+    if (exportConversations.length === 1) {
+      csvContent = conversationToCsv(exportConversations[0], exportOptions);
+      const convTitle = exportConversations[0].title?.trim() || '未命名对话';
+      filename = `${convTitle}.csv`;
+    } else {
+      csvContent = conversationsToCsv(exportConversations, exportOptions);
+      filename = ids && ids.length > 0 ? `对话导出_${timestamp}.csv` : `全部对话导出_${timestamp}.csv`;
+    }
+    
     const bom = getUtf8Bom();
     const contentBuffer = new TextEncoder().encode(csvContent);
     const combined = new Uint8Array(bom.length + contentBuffer.length);
     combined.set(bom);
     combined.set(contentBuffer, bom.length);
     
-    const filename = ids && ids.length > 0 ? `对话导出_${timestamp}.csv` : `全部对话导出_${timestamp}.csv`;
-    const sanitizedFilename = encodeURIComponent(filename);
+    const sanitizedFilename = encodeURIComponent(filename.replace(/[<>:"/\\|?*]/g, '_'));
     
     return new Response(Buffer.from(combined), {
       headers: {
