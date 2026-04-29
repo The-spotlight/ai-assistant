@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { createZipFromConversations, ExportFormat, ExportOptions } from '@/lib/export';
+import { createZipFromConversations, ExportFormat, ExportOptions, conversationsToCsv } from '@/lib/export';
 
 export const runtime = 'nodejs';
 
@@ -11,6 +11,10 @@ interface ExportRequest {
   customNote?: string;
   includeMetadata?: boolean;
   selectedMessages?: Record<string, string[]>;
+}
+
+function getUtf8Bom(): Uint8Array {
+  return new Uint8Array([0xEF, 0xBB, 0xBF]);
 }
 
 export async function POST(req: Request) {
@@ -66,6 +70,9 @@ export async function POST(req: Request) {
       role: m.role as 'user' | 'assistant' | 'system',
       content: m.content,
       createdAt: m.createdAt.toISOString(),
+      promptTokens: m.promptTokens ?? undefined,
+      completionTokens: m.completionTokens ?? undefined,
+      totalTokens: m.totalTokens ?? undefined,
     }));
 
     return {
@@ -83,11 +90,33 @@ export async function POST(req: Request) {
     includeMetadata,
     customTitle,
     customNote,
+    selectedMessageIds: selectedMessages ? Object.values(selectedMessages).flat() : undefined,
   };
+
+  const timestamp = new Date().toISOString().slice(0, 10);
+  
+  // 对于 CSV 格式，如果是多条对话，直接返回带 BOM 的 CSV 文件
+  if (format === 'csv' && exportConversations.length > 1) {
+    const csvContent = conversationsToCsv(exportConversations, exportOptions);
+    const bom = getUtf8Bom();
+    const contentBuffer = new TextEncoder().encode(csvContent);
+    const combined = new Uint8Array(bom.length + contentBuffer.length);
+    combined.set(bom);
+    combined.set(contentBuffer, bom.length);
+    
+    const filename = ids && ids.length > 0 ? `对话导出_${timestamp}.csv` : `全部对话导出_${timestamp}.csv`;
+    const sanitizedFilename = encodeURIComponent(filename);
+    
+    return new Response(Buffer.from(combined), {
+      headers: {
+        'Content-Type': 'text/csv; charset=utf-8',
+        'Content-Disposition': `attachment; filename*=UTF-8''${sanitizedFilename}`,
+      },
+    });
+  }
 
   const zipBuffer = await createZipFromConversations(exportConversations, exportOptions);
 
-  const timestamp = new Date().toISOString().slice(0, 10);
   const filename = ids && ids.length > 0 ? `对话导出_${timestamp}.zip` : `全部对话导出_${timestamp}.zip`;
   const sanitizedFilename = encodeURIComponent(filename);
 

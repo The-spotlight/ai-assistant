@@ -7,6 +7,9 @@ interface Message {
   role: 'user' | 'assistant' | 'system';
   content: string;
   createdAt?: string;
+  promptTokens?: number;
+  completionTokens?: number;
+  totalTokens?: number;
 }
 
 interface ConversationExport {
@@ -17,7 +20,7 @@ interface ConversationExport {
   updatedAt?: string;
 }
 
-export type ExportFormat = 'markdown' | 'plaintext' | 'json';
+export type ExportFormat = 'markdown' | 'plaintext' | 'json' | 'csv';
 
 export interface ExportOptions {
   format: ExportFormat;
@@ -154,6 +157,95 @@ export function conversationToJson(
   return JSON.stringify(exportData, null, 2);
 }
 
+function escapeCsvField(field: string | number | null | undefined): string {
+  if (field == null) return '';
+  const value = String(field);
+  if (value.includes(',') || value.includes('"') || value.includes('\n') || value.includes('\r')) {
+    return `"${value.replace(/"/g, '""')}"`;
+  }
+  return value;
+}
+
+function formatCsvDate(isoString: string | undefined): string {
+  if (!isoString) return '';
+  const d = new Date(isoString);
+  if (Number.isNaN(d.getTime())) return '';
+  return d.toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  }).replace(/\//g, '-');
+}
+
+function getRoleLabel(role: string): string {
+  if (role === 'user') return '我';
+  if (role === 'assistant') return 'AI';
+  if (role === 'system') return '系统';
+  return role;
+}
+
+export function conversationToCsv(
+  conversation: ConversationExport,
+  options?: ExportOptions
+): string {
+  const { selectedMessageIds, customTitle } = options || {};
+  
+  const title = customTitle?.trim() || conversation.title?.trim() || '未命名对话';
+  const messages = getFilteredMessages(conversation, selectedMessageIds);
+  
+  let csv = '';
+  
+  csv += '对话标题,消息序号,发送者,消息内容,创建时间,Token数量\n';
+  
+  messages.forEach((message, index) => {
+    const messageIndex = index + 1;
+    const roleLabel = getRoleLabel(message.role);
+    const createdAt = formatCsvDate(message.createdAt);
+    const tokenCount = message.totalTokens ?? '';
+    
+    csv += `${escapeCsvField(title)},${escapeCsvField(messageIndex)},${escapeCsvField(roleLabel)},${escapeCsvField(message.content)},${escapeCsvField(createdAt)},${escapeCsvField(tokenCount)}\n`;
+  });
+  
+  return csv;
+}
+
+export function conversationsToCsv(
+  conversations: ConversationExport[],
+  options?: ExportOptions
+): string {
+  let csv = '';
+  
+  csv += '对话标题,消息序号,发送者,消息内容,创建时间,Token数量\n';
+  
+  conversations.forEach((conversation, convIndex) => {
+    const { selectedMessageIds, customTitle } = options || {};
+    
+    const title = customTitle?.trim() || conversation.title?.trim() || '未命名对话';
+    const messages = getFilteredMessages(conversation, selectedMessageIds);
+    
+    if (messages.length === 0) return;
+    
+    messages.forEach((message, msgIndex) => {
+      const messageIndex = msgIndex + 1;
+      const roleLabel = getRoleLabel(message.role);
+      const createdAt = formatCsvDate(message.createdAt);
+      const tokenCount = message.totalTokens ?? '';
+      
+      csv += `${escapeCsvField(title)},${escapeCsvField(messageIndex)},${escapeCsvField(roleLabel)},${escapeCsvField(message.content)},${escapeCsvField(createdAt)},${escapeCsvField(tokenCount)}\n`;
+    });
+    
+    if (convIndex < conversations.length - 1) {
+      csv += '\n';
+    }
+  });
+  
+  return csv;
+}
+
 export function conversationToFormat(
   conversation: ConversationExport,
   options: ExportOptions
@@ -165,6 +257,8 @@ export function conversationToFormat(
       return conversationToPlainText(conversation, options);
     case 'json':
       return conversationToJson(conversation, options);
+    case 'csv':
+      return conversationToCsv(conversation, options);
     default:
       return conversationToMarkdown(conversation, options);
   }
@@ -177,12 +271,19 @@ export async function createZipFromConversations(
   const zip = new JSZip();
   const format = options?.format || 'markdown';
   
-  for (const conv of conversations) {
-    const title = options?.customTitle?.trim() || conv.title?.trim() || '未命名对话';
-    const extension = format === 'markdown' ? 'md' : format === 'plaintext' ? 'txt' : 'json';
-    const filename = `${sanitizeFilename(title)}.${extension}`;
-    const content = conversationToFormat(conv, { ...options, format });
-    zip.file(filename, content);
+  if (format === 'csv' && conversations.length > 1) {
+    const csvContent = conversationsToCsv(conversations, options);
+    const timestamp = new Date().toISOString().slice(0, 10);
+    const filename = `对话导出_${timestamp}.csv`;
+    zip.file(filename, csvContent);
+  } else {
+    for (const conv of conversations) {
+      const title = options?.customTitle?.trim() || conv.title?.trim() || '未命名对话';
+      const extension = format === 'markdown' ? 'md' : format === 'plaintext' ? 'txt' : format === 'csv' ? 'csv' : 'json';
+      const filename = `${sanitizeFilename(title)}.${extension}`;
+      const content = conversationToFormat(conv, { ...options, format });
+      zip.file(filename, content);
+    }
   }
   
   return zip.generateAsync({ type: 'uint8array' });
@@ -219,14 +320,6 @@ interface FeedbackStats {
     total: number;
   }[];
   availableModels: string[];
-}
-
-function escapeCsvField(field: string | number): string {
-  const value = String(field);
-  if (value.includes(',') || value.includes('"') || value.includes('\n')) {
-    return `"${value.replace(/"/g, '""')}"`;
-  }
-  return value;
 }
 
 export function feedbackStatsToCsv(stats: FeedbackStats): string {
