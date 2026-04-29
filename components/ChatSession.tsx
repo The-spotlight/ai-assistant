@@ -852,7 +852,7 @@ export default function ChatSession({
     >
       {/* 顶部状态栏：显示 token 和费用 */}
       {messages.length > 0 && behavior.showTokenStats && (
-        <div className="relative shrink-0 border-b border-black/[0.06] bg-white/80 px-4 py-2 text-xs text-[#737373]">
+        <div className="relative shrink-0 border-b border-white/20 bg-white/60 backdrop-blur-xl px-4 py-2 text-xs text-[#737373]">
           <div className="flex items-center justify-between gap-2">
             <span className="truncate">
               模型：{modelPricing.label}
@@ -891,7 +891,7 @@ export default function ChatSession({
                     type="button"
                     onClick={onToggleImmersiveMode}
                     title="沉浸模式"
-                    className="flex h-8 w-8 items-center justify-center rounded-lg text-[#a3a3a3] hover:text-[#171717] hover:bg-[#f5f5f5] transition-all duration-300 ease-in-out"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg text-[#a3a3a3] hover:text-[#171717] hover:bg-white/40 transition-all duration-300 ease-in-out"
                   >
                     <Maximize2 className="h-5 w-5" />
                   </button>
@@ -899,7 +899,7 @@ export default function ChatSession({
                 <div
                   onClick={() => setShowMenu(!showMenu)}
                   title="更多选项"
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-[#a3a3a3] hover:text-[#171717] hover:bg-[#f5f5f5] cursor-pointer transition-all duration-300 ease-in-out"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-[#a3a3a3] hover:text-[#171717] hover:bg-white/40 cursor-pointer transition-all duration-300 ease-in-out"
                 >
                   <MoreVertical className="h-5 w-5" />
                 </div>
@@ -1354,7 +1354,7 @@ export default function ChatSession({
         <div ref={bottomRef} className="h-px shrink-0" aria-hidden />
       </div>
 
-      <div className="shrink-0 border-t border-[rgba(0,0,0,0.08)] bg-white p-4 sm:p-5">
+      <div className="shrink-0 border-t border-white/20 bg-white/60 backdrop-blur-xl p-4 sm:p-5">
         <div className="relative mx-auto max-w-3xl">
           <SkillPanel
             visible={showSkills}
@@ -1376,7 +1376,7 @@ export default function ChatSession({
 
           {/* 引用预览 */}
           {replyingTo && (
-            <div className="mb-2 flex items-center gap-2 rounded-lg bg-[#f5f5f5] px-3 py-2">
+            <div className="mb-2 flex items-center gap-2 rounded-lg bg-white/60 backdrop-blur-sm px-3 py-2">
               <Reply className="h-4 w-4 text-[#737373]" />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
@@ -1413,8 +1413,8 @@ export default function ChatSession({
 
           <form
             onSubmit={handleFormSubmit}
-            className="flex flex-col gap-3 rounded-lg bg-white p-2 sm:flex-row sm:items-center sm:gap-2 sm:p-2"
-            style={{ boxShadow: 'rgba(0,0,0,0.08) 0px 0px 0px 1px' }}
+            className="flex flex-col gap-3 rounded-lg bg-white/80 backdrop-blur-sm p-2 sm:flex-row sm:items-center sm:gap-2 sm:p-2"
+            style={{ boxShadow: 'rgba(0,0,0,0.06) 0px 0px 0px 1px' }}
           >
             <input
               ref={inputRef}
@@ -1429,7 +1429,7 @@ export default function ChatSession({
               <button
                 type="button"
                 onClick={() => setShowSkills(!showSkills)}
-                className="rounded px-3 py-2 text-sm text-[#4d4d4d] transition-colors hover:bg-[#fafafa] hover:text-[#171717]"
+                className="rounded px-3 py-2 text-sm text-[#4d4d4d] transition-colors hover:bg-white/40 hover:text-[#171717]"
                 title="技能"
               >
                 技能
