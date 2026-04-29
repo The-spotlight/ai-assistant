@@ -425,9 +425,10 @@ export default function UserStatsPanel({ visible, onClose }: UserStatsPanelProps
                             const { payload, percent } = props as any;
                             if (!payload || payload.count === 0) return '';
                             const pct = percent ?? 0;
-                            return `${payload.label} (${(pct * 100).toFixed(1)}%)`;
+                            if (pct < 0.05) return '';
+                            return `${(pct * 100).toFixed(0)}%`;
                           }}
-                          labelLine={{ stroke: '#737373', strokeWidth: 1 }}
+                          labelLine={false}
                         >
                           {stats.modelUsage.map((entry, index) => (
                             <Cell
