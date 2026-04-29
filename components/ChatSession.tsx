@@ -79,6 +79,7 @@ type ChatSessionProps = {
   templateContent?: string | null;
   onTemplateUsed?: () => void;
   onToggleImmersiveMode?: () => void;
+  isImmersiveMode?: boolean;
 };
 
 export default function ChatSession({
@@ -93,6 +94,7 @@ export default function ChatSession({
   templateContent,
   onTemplateUsed,
   onToggleImmersiveMode,
+  isImmersiveMode = false,
 }: ChatSessionProps) {
   const { settings, themeColors, behavior, model, keyboardShortcuts } = useSettings();
   const bubbleStyle = BUBBLE_STYLES[settings.bubbleStyle];
@@ -743,12 +745,12 @@ export default function ChatSession({
                 </span>
               </div>
               <div className="flex items-center gap-1" ref={menuContainerRef}>
-                {onToggleImmersiveMode && (
+                {onToggleImmersiveMode && !isImmersiveMode && (
                   <button
                     type="button"
                     onClick={onToggleImmersiveMode}
                     title="沉浸模式"
-                    className="flex h-8 w-8 items-center justify-center rounded-lg text-[#a3a3a3] hover:text-[#171717] hover:bg-[#f5f5f5] transition-colors"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg text-[#a3a3a3] hover:text-[#171717] hover:bg-[#f5f5f5] transition-all duration-300 ease-in-out"
                   >
                     <Maximize2 className="h-5 w-5" />
                   </button>
@@ -756,7 +758,7 @@ export default function ChatSession({
                 <div
                   onClick={() => setShowMenu(!showMenu)}
                   title="更多选项"
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-[#a3a3a3] hover:text-[#171717] hover:bg-[#f5f5f5] cursor-pointer transition-colors"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-[#a3a3a3] hover:text-[#171717] hover:bg-[#f5f5f5] cursor-pointer transition-all duration-300 ease-in-out"
                 >
                   <MoreVertical className="h-5 w-5" />
                 </div>

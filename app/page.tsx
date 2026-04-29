@@ -2273,35 +2273,37 @@ export default function Home() {
 
   return (
     <div className="flex h-dvh max-h-dvh min-h-0 flex-col overflow-hidden">
-      {!isImmersiveMode && (
-        <header className="z-30 shrink-0 border-b border-[rgba(0,0,0,0.08)] bg-white/95 backdrop-blur-md">
-          <div className="mx-auto flex h-14 max-w-[1280px] items-center justify-between gap-3 px-4 sm:px-6">
-            <div className="flex min-w-0 items-center gap-3">
-              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#171717] text-[11px] font-medium text-white">
-                AI
-              </div>
-              <div className="min-w-0">
-                <h1 className="truncate text-[15px] font-semibold tracking-tight text-[#171717] sm:text-base" style={{ letterSpacing: '-0.32px' }}>
-                  智能助手
-                </h1>
-                <p className="hidden text-[11px] text-[#666666] sm:block">对话已同步到此浏览器</p>
-              </div>
+      <header className={`z-30 shrink-0 border-b border-[rgba(0,0,0,0.08)] bg-white/95 backdrop-blur-md transition-all duration-300 ease-in-out ${
+        isImmersiveMode ? 'opacity-0 pointer-events-none h-0 overflow-hidden' : 'opacity-100'
+      }`}>
+        <div className="mx-auto flex h-14 max-w-[1280px] items-center justify-between gap-3 px-4 sm:px-6">
+          <div className="flex min-w-0 items-center gap-3">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#171717] text-[11px] font-medium text-white">
+              AI
             </div>
-            <div className="flex items-center gap-2">
-              <p className="shrink-0 max-w-[min(52vw,14rem)] truncate text-right text-[11px] text-[#666666] sm:max-w-none sm:text-xs" title="当前对话模型">
-                {DEFAULT_OPENROUTER_MODEL_LABEL}
-              </p>
-              <UserDropdown
-                onOpenSettings={() => setShowSettingsPanel(true)}
-                onOpenUserStats={() => setShowUserStatsPanel(true)}
-              />
+            <div className="min-w-0">
+              <h1 className="truncate text-[15px] font-semibold tracking-tight text-[#171717] sm:text-base" style={{ letterSpacing: '-0.32px' }}>
+                智能助手
+              </h1>
+              <p className="hidden text-[11px] text-[#666666] sm:block">对话已同步到此浏览器</p>
             </div>
           </div>
-        </header>
-      )}
+          <div className="flex items-center gap-2">
+            <p className="shrink-0 max-w-[min(52vw,14rem)] truncate text-right text-[11px] text-[#666666] sm:max-w-none sm:text-xs" title="当前对话模型">
+              {DEFAULT_OPENROUTER_MODEL_LABEL}
+            </p>
+            <UserDropdown
+              onOpenSettings={() => setShowSettingsPanel(true)}
+              onOpenUserStats={() => setShowUserStatsPanel(true)}
+            />
+          </div>
+        </div>
+      </header>
 
-      <div className={`mx-auto flex min-h-0 w-full max-w-[1280px] flex-1 flex-col gap-0 overflow-hidden px-3 pb-4 pt-4 sm:flex-row sm:px-5 sm:pb-6 sm:pt-5 ${isImmersiveMode ? 'max-w-none px-0 py-0' : ''}`}>
-        {!isImmersiveMode && (
+      <div className={`mx-auto flex min-h-0 w-full max-w-[1280px] flex-1 flex-col gap-0 overflow-hidden px-3 pb-4 pt-4 sm:flex-row sm:px-5 sm:pb-6 sm:pt-5 transition-all duration-300 ease-in-out ${isImmersiveMode ? 'max-w-none px-0 py-0' : ''}`}>
+        <div className={`transition-all duration-300 ease-in-out overflow-hidden ${
+          isImmersiveMode ? 'opacity-0 w-0 shrink-0' : 'opacity-100'
+        }`}>
           <ResizablePanel defaultWidth={260} minWidth={200} maxWidth={500}>
             <SidebarContent
               deviceId={deviceId}
@@ -2337,7 +2339,7 @@ export default function Home() {
               toggleCompareSelecting={toggleCompareSelecting}
             />
           </ResizablePanel>
-        )}
+        </div>
 
         <main className={`flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden ${isImmersiveMode ? 'bg-white' : ''}`}>
           {/* 移动端：会话 + 新对话 */}
@@ -2435,6 +2437,7 @@ export default function Home() {
                 templateContent={pendingTemplateContent}
                 onTemplateUsed={handleTemplateUsed}
                 onToggleImmersiveMode={() => setIsImmersiveMode(true)}
+                isImmersiveMode={isImmersiveMode}
               />
             </div>
           ) : null}
