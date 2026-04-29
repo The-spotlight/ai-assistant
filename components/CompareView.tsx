@@ -287,33 +287,9 @@ function useChatSession({
   conversationId: string | null;
   initialMessages: Message[];
 }) {
-  if (!conversationId) {
-    return {
-      messages: initialMessages as MessageWithTokens[],
-      input: '',
-      handleInputChange: () => {},
-      handleSubmit: () => {},
-      isLoading: false,
-      append: () => {},
-      setMessages: () => {},
-      setInput: () => {},
-      totalTokens: 0,
-      totalCost: 0,
-    };
-  }
-
-  const {
-    messages: chatMessages,
-    input,
-    handleInputChange,
-    handleSubmit,
-    isLoading,
-    append,
-    setMessages,
-    setInput,
-  } = useChat({
+  const chatResult = useChat({
     api: '/api/chat',
-    id: conversationId,
+    id: conversationId ?? '',
     initialMessages,
     body: {
       model: DEFAULT_OPENROUTER_MODEL_ID,
@@ -323,9 +299,14 @@ function useChatSession({
     headers: { 'X-Device-Id': deviceId },
   });
 
+  const isActive = !!conversationId;
+
   const messages: MessageWithTokens[] = useMemo(() => {
-    return chatMessages as MessageWithTokens[];
-  }, [chatMessages]);
+    if (!isActive) {
+      return initialMessages as MessageWithTokens[];
+    }
+    return chatResult.messages as MessageWithTokens[];
+  }, [isActive, initialMessages, chatResult.messages]);
 
   const { totalTokens, totalCost } = useMemo(() => {
     let tokens = 0;
@@ -340,15 +321,30 @@ function useChatSession({
     return { totalTokens: tokens, totalCost: cost };
   }, [messages]);
 
+  if (!isActive) {
+    return {
+      messages,
+      input: '',
+      handleInputChange: () => {},
+      handleSubmit: () => {},
+      isLoading: false,
+      append: () => {},
+      setMessages: () => {},
+      setInput: () => {},
+      totalTokens,
+      totalCost,
+    };
+  }
+
   return {
     messages,
-    input,
-    handleInputChange,
-    handleSubmit,
-    isLoading,
-    append,
-    setMessages,
-    setInput,
+    input: chatResult.input,
+    handleInputChange: chatResult.handleInputChange,
+    handleSubmit: chatResult.handleSubmit,
+    isLoading: chatResult.isLoading,
+    append: chatResult.append,
+    setMessages: chatResult.setMessages,
+    setInput: chatResult.setInput,
     totalTokens,
     totalCost,
   };
