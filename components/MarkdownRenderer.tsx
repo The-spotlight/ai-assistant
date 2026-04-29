@@ -4,6 +4,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { useSettings } from '@/lib/settings';
 import CodeBlock from './CodeBlock';
+import MermaidRenderer from './MermaidRenderer';
 
 interface MarkdownRendererProps {
   content: string;
@@ -20,6 +21,11 @@ export default function MarkdownRenderer({ content }: MarkdownRendererProps) {
           code({ className, children, ...props }) {
             const match = /language-(\w+)/.exec(className || '');
             const isInline = !match;
+            
+            if (!isInline && match[1] === 'mermaid') {
+              return <MermaidRenderer code={String(children).replace(/\n$/, '')} />;
+            }
+            
             return !isInline ? (
               <CodeBlock
                 language={match[1]}
