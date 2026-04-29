@@ -42,6 +42,7 @@ import {
   Maximize2,
 } from 'lucide-react';
 import { useMessageFeedback, MessageFeedbackButton } from '@/components/MessageFeedback';
+import { saveDraft, loadDraft, clearDraft, addToHistory, getHistory } from '@/lib/draft-history';
 
 const SUGGESTIONS = [
   '搜索今日新闻',
@@ -186,6 +187,11 @@ export default function ChatSession({
 
   // 消息反馈相关状态（使用组件化的hook）
   const { feedbackMap, handleLike, handleDislike, handleUndoDislike } = useMessageFeedback(deviceId);
+
+  // 历史消息相关状态
+  const [messageHistory, setMessageHistory] = useState<string[]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const [originalInput, setOriginalInput] = useState('');
 
   // 格式化相对时间
   const formatRelativeTime = useCallback((dateStr: string) => {
@@ -454,6 +460,23 @@ export default function ChatSession({
     }
   }, [input, customCommands, selectedCommandIndex]);
 
+  // 组件挂载时加载草稿和历史消息
+  useEffect(() => {
+    const draft = loadDraft(conversationId);
+    if (draft && !input) {
+      setInput(draft);
+    }
+    const history = getHistory(conversationId);
+    setMessageHistory(history);
+  }, [conversationId, input, setInput]);
+
+  // 监听输入变化，自动保存草稿
+  useEffect(() => {
+    if (input && !showQuickCommands) {
+      saveDraft(conversationId, input);
+    }
+  }, [input, conversationId, showQuickCommands]);
+
   // 自定义表单提交处理
   const handleFormSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
@@ -470,6 +493,9 @@ export default function ChatSession({
       const prompt = generateQuickCommandPrompt(systemCommand, argument);
       append({ role: 'user', content: prompt });
       setInput('');
+      clearDraft(conversationId);
+      addToHistory(conversationId, prompt);
+      setHistoryIndex(-1);
       // 提交后清除引用状态
       setReplyingTo(null);
       replyingToRef.current = null;
@@ -477,6 +503,9 @@ export default function ChatSession({
       // 如果是自定义指令，直接发送预设提示词
       append({ role: 'user', content: customCommand.prompt });
       setInput('');
+      clearDraft(conversationId);
+      addToHistory(conversationId, customCommand.prompt);
+      setHistoryIndex(-1);
       setReplyingTo(null);
       replyingToRef.current = null;
     } else if (systemCommand && argument === null) {
@@ -485,6 +514,9 @@ export default function ChatSession({
     } else {
       // 正常提交
       handleSubmit(e);
+      clearDraft(conversationId);
+      addToHistory(conversationId, input);
+      setHistoryIndex(-1);
       // 提交后清除引用状态
       // 注意：这里需要延迟一点，确保 useChat 已经读取了 body 中的引用信息
       setTimeout(() => {
@@ -492,7 +524,7 @@ export default function ChatSession({
         replyingToRef.current = null;
       }, 0);
     }
-  }, [input, customCommands, append, setInput, handleSubmit, generateQuickCommandPrompt]);
+  }, [input, customCommands, append, setInput, handleSubmit, generateQuickCommandPrompt, conversationId]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     // 快捷指令导航
@@ -533,6 +565,46 @@ export default function ChatSession({
         setMatchingCustomCommands([]);
         return;
       }
+    }
+
+    // 历史消息切换（输入框为空时）
+    if (!showQuickCommands && !input.trim()) {
+      if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (messageHistory.length > 0) {
+          if (historyIndex < messageHistory.length - 1) {
+            const newIndex = historyIndex + 1;
+            setHistoryIndex(newIndex);
+            setInput(messageHistory[newIndex]);
+          }
+        }
+        return;
+      }
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        if (historyIndex >= 0) {
+          if (historyIndex === 0) {
+            setHistoryIndex(-1);
+            setInput('');
+          } else {
+            const newIndex = historyIndex - 1;
+            setHistoryIndex(newIndex);
+            setInput(messageHistory[newIndex]);
+          }
+        }
+        return;
+      }
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        setHistoryIndex(-1);
+        setInput('');
+        return;
+      }
+    }
+
+    // 输入内容时重置历史索引
+    if (input.trim() && historyIndex !== -1) {
+      setHistoryIndex(-1);
     }
 
     // 发送快捷键处理
