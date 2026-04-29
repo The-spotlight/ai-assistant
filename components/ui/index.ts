@@ -24,4 +24,4 @@ export {
   DialogDescription,
   DialogCloseButton,
 } from "./Dialog";
-export { Tooltip, TooltipTrigger, TooltipProvider } from "./Tooltip";
+export { Tooltip, TooltipTrigger, TooltipContent, TooltipProvider } from "./Tooltip";
