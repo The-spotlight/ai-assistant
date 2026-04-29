@@ -221,6 +221,11 @@ export default function MermaidRenderer({ code }: MermaidRendererProps) {
     setValidationErrors(validation.errors);
   }, [code]);
 
+  const cleanupOrphanMermaidNodes = useCallback(() => {
+    const orphanNodes = document.querySelectorAll('.mermaid-measure');
+    orphanNodes.forEach(node => node.remove());
+  }, []);
+
   const renderMermaid = useCallback(async () => {
     if (!containerRef.current) return;
     
@@ -231,6 +236,11 @@ export default function MermaidRenderer({ code }: MermaidRendererProps) {
       const processedCode = preprocessMermaidCode(code);
       console.log('Processed Mermaid code:', processedCode);
       
+      const parseResult = await mermaid.parse(processedCode);
+      if (!parseResult) {
+        throw new Error('Mermaid syntax validation failed');
+      }
+      
       const { svg } = await mermaid.render('mermaid-chart', processedCode);
       
       if (!containerRef.current) return;
@@ -239,12 +249,13 @@ export default function MermaidRenderer({ code }: MermaidRendererProps) {
       setIsLoaded(true);
       setIsValid(true);
     } catch (err) {
+      cleanupOrphanMermaidNodes();
       const errorMsg = (err as Error).message;
       setError(errorMsg);
       setIsValid(false);
       console.error('Mermaid rendering error:', err);
     }
-  }, [code]);
+  }, [code, cleanupOrphanMermaidNodes]);
 
   useEffect(() => {
     renderMermaid();

@@ -465,7 +465,7 @@ export default function ChatSession({
       const prevHistoryValue = historyIndex >= 0 && historyIndex < messageHistory.length 
         ? messageHistory[historyIndex] 
         : '';
-      if (newValue !== prevHistoryValue) {
+      if (newValue !== prevHistoryValue || newValue === '') {
         isBrowsingHistoryRef.current = false;
         setHistoryIndex(-1);
       }
