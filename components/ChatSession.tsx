@@ -22,7 +22,7 @@ import {
   getMatchingCommands,
 } from '@/lib/tools/quick-commands';
 import type { QuickCommand, CustomCommand } from '@/lib/tools/quick-commands';
-import { useSettings, FONT_SIZES, BUBBLE_STYLES, loadCustomCommands, type TimestampFormatKey, type SendShortcutKey, getCustomModelById, decryptApiKey } from '@/lib/settings';
+import { useSettings, FONT_SIZES, BUBBLE_STYLES, PRESET_GRADIENTS, IMAGE_DISPLAY_MODES, loadCustomCommands, type TimestampFormatKey, type SendShortcutKey, getCustomModelById, decryptApiKey } from '@/lib/settings';
 import {
   RefreshCw,
   Bookmark,
@@ -100,6 +100,30 @@ export default function ChatSession({
   const { settings, themeColors, behavior, model, keyboardShortcuts } = useSettings();
   const bubbleStyle = BUBBLE_STYLES[settings.bubbleStyle];
   const fontSizeConfig = FONT_SIZES[settings.fontSize];
+
+  const getChatBackgroundStyle = (): React.CSSProperties => {
+    const bg = settings.background;
+    switch (bg.type) {
+      case 'solid':
+        return { backgroundColor: bg.solidColor };
+      case 'gradient':
+        const gradient = PRESET_GRADIENTS.find(g => g.id === bg.gradientId);
+        return { background: gradient?.value || '#ffffff' };
+      case 'image':
+        if (bg.imageUrl) {
+          const modeConfig = IMAGE_DISPLAY_MODES[bg.imageMode];
+          return {
+            backgroundImage: `url(${bg.imageUrl})`,
+            backgroundSize: modeConfig.size,
+            backgroundPosition: modeConfig.position,
+            backgroundRepeat: modeConfig.repeat,
+          };
+        }
+        return { backgroundColor: '#ffffff' };
+      default:
+        return { backgroundColor: '#ffffff' };
+    }
+  };
 
   const replyingToRef = useRef<ReplyInfo | null>(null);
 
@@ -819,9 +843,13 @@ export default function ChatSession({
   );
 
   const modelPricing = getModelPricing(modelId);
+  const chatBackgroundStyle = getChatBackgroundStyle();
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-black/[0.06] bg-white shadow-[0_1px_2px_rgba(0,0,0,0.04),0_8px_24px_-4px_rgba(0,0,0,0.06)]">
+    <div
+      className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-2xl border border-black/[0.06] shadow-[0_1px_2px_rgba(0,0,0,0.04),0_8px_24px_-4px_rgba(0,0,0,0.06)]"
+      style={chatBackgroundStyle}
+    >
       {/* 顶部状态栏：显示 token 和费用 */}
       {messages.length > 0 && behavior.showTokenStats && (
         <div className="relative shrink-0 border-b border-black/[0.06] bg-white/80 px-4 py-2 text-xs text-[#737373]">

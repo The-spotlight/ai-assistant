@@ -10,6 +10,11 @@ import {
   AVATAR_SHAPES,
   AVATAR_BORDERS,
   DEFAULT_SETTINGS,
+  DEFAULT_BACKGROUND_SETTINGS,
+  BACKGROUND_TYPES,
+  PRESET_GRADIENTS,
+  PRESET_BACKGROUND_IMAGES,
+  IMAGE_DISPLAY_MODES,
   type ThemeKey,
   type CodeHighlightKey,
   type FontSizeKey,
@@ -17,8 +22,12 @@ import {
   type AvatarShapeKey,
   type AvatarBorderKey,
   type AppearanceSettings,
+  type BackgroundSettings,
+  type BackgroundTypeKey,
+  type GradientPresetId,
+  type ImagePresetId,
+  type ImageDisplayModeKey,
 } from '@/lib/theme-constants';
-import { getOrCreateDeviceId } from '@/lib/device';
 
 export {
   THEME_PRESETS,
@@ -28,6 +37,11 @@ export {
   AVATAR_SHAPES,
   AVATAR_BORDERS,
   DEFAULT_SETTINGS,
+  DEFAULT_BACKGROUND_SETTINGS,
+  BACKGROUND_TYPES,
+  PRESET_GRADIENTS,
+  PRESET_BACKGROUND_IMAGES,
+  IMAGE_DISPLAY_MODES,
   type ThemeKey,
   type CodeHighlightKey,
   type FontSizeKey,
@@ -35,6 +49,11 @@ export {
   type AvatarShapeKey,
   type AvatarBorderKey,
   type AppearanceSettings,
+  type BackgroundSettings,
+  type BackgroundTypeKey,
+  type GradientPresetId,
+  type ImagePresetId,
+  type ImageDisplayModeKey,
 };
 
 export const SEND_SHORTCUT_OPTIONS = {
@@ -424,6 +443,34 @@ export function saveKeyboardShortcuts(settings: KeyboardShortcuts): void {
 
 const SETTINGS_STORAGE_KEY = 'ai-assistant-appearance-settings';
 
+function validateBackgroundSettings(background: unknown): BackgroundSettings {
+  if (!background || typeof background !== 'object') {
+    return DEFAULT_BACKGROUND_SETTINGS;
+  }
+
+  const bg = background as any;
+
+  const type = (bg.type && bg.type in BACKGROUND_TYPES) ? bg.type as BackgroundTypeKey : DEFAULT_BACKGROUND_SETTINGS.type;
+  
+  const gradientIds = new Set(PRESET_GRADIENTS.map(g => g.id));
+  const gradientId = (bg.gradientId && gradientIds.has(bg.gradientId)) ? bg.gradientId as GradientPresetId : DEFAULT_BACKGROUND_SETTINGS.gradientId;
+  
+  const imageIds = new Set(PRESET_BACKGROUND_IMAGES.map(i => i.id));
+  const presetImageId = bg.presetImageId ? (imageIds.has(bg.presetImageId) ? bg.presetImageId as ImagePresetId : null) : null;
+  
+  const imageMode = (bg.imageMode && bg.imageMode in IMAGE_DISPLAY_MODES) ? bg.imageMode as ImageDisplayModeKey : DEFAULT_BACKGROUND_SETTINGS.imageMode;
+
+  return {
+    type,
+    solidColor: typeof bg.solidColor === 'string' ? bg.solidColor : DEFAULT_BACKGROUND_SETTINGS.solidColor,
+    gradientId,
+    imageUrl: typeof bg.imageUrl === 'string' ? bg.imageUrl : DEFAULT_BACKGROUND_SETTINGS.imageUrl,
+    imageMode,
+    isPresetImage: typeof bg.isPresetImage === 'boolean' ? bg.isPresetImage : DEFAULT_BACKGROUND_SETTINGS.isPresetImage,
+    presetImageId,
+  };
+}
+
 export function loadSettings(): AppearanceSettings {
   if (typeof window === 'undefined') {
     return DEFAULT_SETTINGS;
@@ -444,6 +491,7 @@ export function loadSettings(): AppearanceSettings {
       bubbleStyle: (parsed.bubbleStyle && parsed.bubbleStyle in BUBBLE_STYLES) ? parsed.bubbleStyle as BubbleStyleKey : DEFAULT_SETTINGS.bubbleStyle,
       avatarShape: (parsed.avatarShape && parsed.avatarShape in AVATAR_SHAPES) ? parsed.avatarShape as AvatarShapeKey : DEFAULT_SETTINGS.avatarShape,
       avatarBorder: (parsed.avatarBorder && parsed.avatarBorder in AVATAR_BORDERS) ? parsed.avatarBorder as AvatarBorderKey : DEFAULT_SETTINGS.avatarBorder,
+      background: validateBackgroundSettings(parsed.background),
     };
   } catch {
     return DEFAULT_SETTINGS;
@@ -465,6 +513,7 @@ interface SettingsContextType {
   model: ModelSettings;
   keyboardShortcuts: KeyboardShortcuts;
   updateAppearance: <K extends keyof AppearanceSettings>(key: K, value: AppearanceSettings[K]) => void;
+  updateBackground: <K extends keyof BackgroundSettings>(key: K, value: BackgroundSettings[K]) => void;
   updateBehavior: <K extends keyof BehaviorSettings>(key: K, value: BehaviorSettings[K]) => void;
   updateModel: <K extends keyof ModelSettings>(key: K, value: ModelSettings[K]) => void;
   updateKeyboardShortcuts: <K extends keyof KeyboardShortcuts>(key: K, value: KeyboardShortcuts[K]) => void;
@@ -662,6 +711,18 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
+  const updateBackground = useCallback(<K extends keyof BackgroundSettings>(
+    key: K,
+    value: BackgroundSettings[K]
+  ) => {
+    setAppearance((prev) => {
+      const newBackground = { ...prev.background, [key]: value };
+      const newSettings = { ...prev, background: newBackground };
+      saveSettings(newSettings);
+      return newSettings;
+    });
+  }, []);
+
   const updateBehavior = useCallback(<K extends keyof BehaviorSettings>(
     key: K,
     value: BehaviorSettings[K]
@@ -757,6 +818,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         model,
         keyboardShortcuts,
         updateAppearance,
+        updateBackground,
         updateBehavior,
         updateModel,
         updateKeyboardShortcuts,
