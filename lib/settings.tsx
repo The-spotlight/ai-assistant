@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
 import { DEFAULT_OPENROUTER_MODEL_ID, OPENROUTER_MODEL_OPTIONS } from '@/lib/openrouter-models';
+import { getOrCreateDeviceId } from '@/lib/device';
 import {
   THEME_PRESETS,
   CODE_HIGHLIGHT_THEMES,
