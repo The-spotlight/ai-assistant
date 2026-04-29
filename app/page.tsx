@@ -1312,9 +1312,6 @@ export default function Home() {
   const [templates, setTemplates] = useState<TemplateItem[]>([]);
   const [pendingTemplateContent, setPendingTemplateContent] = useState<string | null>(null);
   
-  // 转发相关状态
-  const [pendingForwardContent, setPendingForwardContent] = useState<string | null>(null);
-  
   // 从对话另存为模板相关状态
   const [showSaveAsTemplateModal, setShowSaveAsTemplateModal] = useState<boolean>(false);
   const [saveAsTemplateData, setSaveAsTemplateData] = useState<{ title: string; content: string } | null>(null);
@@ -2105,16 +2102,11 @@ export default function Home() {
   }, []);
 
   const handleForward = useCallback(
-    async (targetConversationId: string, forwardContent: string) => {
-      setPendingForwardContent(forwardContent);
+    async (targetConversationId: string) => {
       await selectConversation(targetConversationId);
     },
     []
   );
-
-  const handleForwardUsed = useCallback(() => {
-    setPendingForwardContent(null);
-  }, []);
 
   // 从对话另存为模板相关函数
   const handleCloseSaveAsTemplateModal = useCallback(() => {
@@ -2449,11 +2441,8 @@ export default function Home() {
                 onHighlightCleared={clearHighlight}
                 favoriteMessageIds={new Set(favorites.map(fav => fav.messageId))}
                 onToggleFavorite={handleToggleFavorite}
-                templateContent={pendingTemplateContent || pendingForwardContent}
-                onTemplateUsed={() => {
-                  handleTemplateUsed();
-                  handleForwardUsed();
-                }}
+                templateContent={pendingTemplateContent}
+                onTemplateUsed={handleTemplateUsed}
                 onToggleImmersiveMode={() => setIsImmersiveMode(true)}
                 isImmersiveMode={isImmersiveMode}
                 conversations={convList}
