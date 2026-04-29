@@ -1,11 +1,38 @@
 'use client';
 
-import { Check } from 'lucide-react';
+import { Modal, Select } from 'antd';
 import { useSettings } from '@/lib/settings';
-import { OPENROUTER_MODEL_OPTIONS } from '@/lib/openrouter-models';
-import { Button } from '@/components/ui/Button';
+import { OPENROUTER_MODEL_OPTIONS, type ModelOption } from '@/lib/openrouter-models';
 
-export default function ModelSettings({ onClose }: { onClose: () => void }) {
+interface ModelSettingsProps {
+  open: boolean;
+  onClose: () => void;
+}
+
+function ModelSelectOption(props: { option: ModelOption }) {
+  const { option } = props;
+  return (
+    <div className="flex items-center justify-between w-full">
+      <div className="flex-1">
+        <div className="font-medium text-sm text-gray-900">{option.label}</div>
+        <div className="text-xs text-gray-500">
+          {option.provider} · 上下文窗口: {option.contextWindowLabel}
+        </div>
+      </div>
+      <span
+        className={`text-xs px-2 py-0.5 rounded-full ml-2 shrink-0 ${
+          option.isFree
+            ? 'bg-green-100 text-green-700'
+            : 'bg-orange-100 text-orange-700'
+        }`}
+      >
+        {option.isFree ? '免费' : '付费'}
+      </span>
+    </div>
+  );
+}
+
+export default function ModelSettings({ open, onClose }: ModelSettingsProps) {
   const { model, updateModel } = useSettings();
 
   const handleTemperatureChange = (value: string) => {
@@ -23,61 +50,40 @@ export default function ModelSettings({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div className="w-96 max-h-[85vh] overflow-y-auto p-4">
-      <h3 className="text-sm font-medium text-[#171717] mb-4">模型设置</h3>
-      
+    <Modal
+      title="模型设置"
+      open={open}
+      onCancel={onClose}
+      footer={null}
+      width={480}
+      bodyStyle={{ padding: 24 }}
+    >
       <div className="flex flex-col gap-6">
         <div className="flex flex-col gap-3">
-          <span className="text-sm font-medium text-[#171717]">默认模型</span>
-          <div className="grid grid-cols-1 gap-2 max-h-80 overflow-y-auto pr-1">
-            {OPENROUTER_MODEL_OPTIONS.map((option) => {
-              const isSelected = model.defaultModel === option.id;
-              return (
-                <button
-                  key={option.id}
-                  onClick={() => updateModel('defaultModel', option.id)}
-                  className={`relative w-full text-left p-3 rounded-xl border-2 transition-all duration-200 hover:shadow-sm ${
-                    isSelected
-                      ? 'border-[#171717] bg-[#171717]/5'
-                      : 'border-transparent bg-[#f5f5f5] hover:border-[#d4d4d4]'
-                  }`}
-                >
-                  {isSelected && (
-                    <div className="absolute top-2 right-2">
-                      <Check className="h-4 w-4 text-[#171717]" />
-                    </div>
-                  )}
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="font-medium text-sm text-[#171717] truncate">
-                      {option.label}
-                    </span>
-                    <span className={`text-xs px-2 py-0.5 rounded-full ${
-                      option.isFree
-                        ? 'bg-[#4ade80] text-[#166534]'
-                        : 'bg-[#fb923c] text-[#c2410c]'
-                    }`}>
-                      {option.isFree ? '免费' : '付费'}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs text-[#737373]">{option.provider}</span>
-                    <span className="text-xs text-[#737373]">
-                      上下文窗口: {option.contextWindowLabel}
-                    </span>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-          <p className="text-[11px] text-[#a3a3a3]">
+          <span className="text-sm font-medium text-gray-900">默认模型</span>
+          <Select
+            value={model.defaultModel}
+            onChange={(value) => updateModel('defaultModel', value)}
+            dropdownStyle={{ maxHeight: 400 }}
+            optionLabelProp="children"
+          >
+            {OPENROUTER_MODEL_OPTIONS.map((option) => (
+              <Select.Option key={option.id} value={option.id}>
+                <ModelSelectOption option={option} />
+              </Select.Option>
+            ))}
+          </Select>
+          <p className="text-xs text-gray-500">
             新对话将使用此模型，已有对话保持原模型
           </p>
         </div>
 
         <div className="flex flex-col gap-3">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-[#171717]">温度参数</span>
-            <span className="text-sm font-mono text-[#525252]">{model.temperature.toFixed(1)}</span>
+            <span className="text-sm font-medium text-gray-900">温度参数</span>
+            <span className="text-sm font-mono text-gray-600">
+              {model.temperature.toFixed(1)}
+            </span>
           </div>
           <div className="flex items-center gap-4">
             <input
@@ -87,7 +93,7 @@ export default function ModelSettings({ onClose }: { onClose: () => void }) {
               step="0.1"
               value={model.temperature}
               onChange={(e) => handleTemperatureChange(e.target.value)}
-              className="flex-1 h-2 bg-[#e5e5e5] rounded-full appearance-none cursor-pointer accent-[#171717]"
+              className="flex-1 h-2 bg-gray-200 rounded-full appearance-none cursor-pointer accent-gray-900"
             />
             <div className="flex items-center gap-1">
               <input
@@ -97,24 +103,26 @@ export default function ModelSettings({ onClose }: { onClose: () => void }) {
                 step="0.1"
                 value={model.temperature}
                 onChange={(e) => handleTemperatureChange(e.target.value)}
-                className="w-16 h-8 px-2 text-sm text-center border border-black/[0.08] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#171717]/20"
+                className="w-16 h-8 px-2 text-sm text-center border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900/20"
               />
             </div>
           </div>
-          <div className="flex justify-between text-[10px] text-[#a3a3a3]">
+          <div className="flex justify-between text-xs text-gray-400">
             <span>精确 (0.0)</span>
             <span>平衡 (1.0)</span>
             <span>创意 (2.0)</span>
           </div>
-          <p className="text-[11px] text-[#a3a3a3]">
+          <p className="text-xs text-gray-500">
             控制输出随机性：越低越精确稳定，越高越有创意多变
           </p>
         </div>
 
         <div className="flex flex-col gap-3">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-[#171717]">最大 Token 限制</span>
-            <span className="text-sm font-mono text-[#525252]">{model.maxTokens.toLocaleString()}</span>
+            <span className="text-sm font-medium text-gray-900">最大 Token 限制</span>
+            <span className="text-sm font-mono text-gray-600">
+              {model.maxTokens.toLocaleString()}
+            </span>
           </div>
           <div className="flex items-center gap-4">
             <input
@@ -124,7 +132,7 @@ export default function ModelSettings({ onClose }: { onClose: () => void }) {
               step="256"
               value={model.maxTokens}
               onChange={(e) => handleMaxTokensChange(e.target.value)}
-              className="flex-1 h-2 bg-[#e5e5e5] rounded-full appearance-none cursor-pointer accent-[#171717]"
+              className="flex-1 h-2 bg-gray-200 rounded-full appearance-none cursor-pointer accent-gray-900"
             />
             <div className="flex items-center gap-1">
               <input
@@ -134,23 +142,23 @@ export default function ModelSettings({ onClose }: { onClose: () => void }) {
                 step="1"
                 value={model.maxTokens}
                 onChange={(e) => handleMaxTokensChange(e.target.value)}
-                className="w-20 h-8 px-2 text-sm text-center border border-black/[0.08] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#171717]/20"
+                className="w-20 h-8 px-2 text-sm text-center border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-900/20"
               />
             </div>
           </div>
-          <p className="text-[11px] text-[#a3a3a3]">
+          <p className="text-xs text-gray-500">
             限制单次回复的最大 Token 数量，影响可生成的文本长度
           </p>
         </div>
 
         <div className="flex flex-col gap-3">
           <div className="flex items-center justify-between">
-            <span className="text-sm font-medium text-[#171717]">流式输出</span>
+            <span className="text-sm font-medium text-gray-900">流式输出</span>
             <button
               type="button"
               onClick={() => updateModel('streaming', !model.streaming)}
               className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                model.streaming ? 'bg-[#171717]' : 'bg-[#d4d4d4]'
+                model.streaming ? 'bg-gray-900' : 'bg-gray-300'
               }`}
               aria-checked={model.streaming}
               role="switch"
@@ -162,13 +170,13 @@ export default function ModelSettings({ onClose }: { onClose: () => void }) {
               />
             </button>
           </div>
-          <p className="text-[11px] text-[#a3a3a3]">
+          <p className="text-xs text-gray-500">
             {model.streaming
               ? '逐字显示回复内容，提供更好的实时体验'
               : '等待完整回复后一次性显示，适合低速网络'}
           </p>
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }
