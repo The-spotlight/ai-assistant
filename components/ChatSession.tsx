@@ -167,8 +167,12 @@ export default function ChatSession({
   const [showForwardModal, setShowForwardModal] = useState(false);
   const [forwardingMessage, setForwardingMessage] = useState<ForwardMessageInfo | null>(null);
   const [forwardSearchQuery, setForwardSearchQuery] = useState('');
+  const [selectedTargetConversation, setSelectedTargetConversation] = useState<ConversationItem | null>(null);
+  const [showForwardConfirmModal, setShowForwardConfirmModal] = useState(false);
   const [forwardSuccessToast, setForwardSuccessToast] = useState<string | null>(null);
   const forwardToastTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const FORWARD_STORAGE_KEY = 'ai-assistant-forward-pending';
 
   // 分享相关状态
   const [showShareModal, setShowShareModal] = useState(false);
@@ -380,34 +384,49 @@ export default function ChatSession({
 
   const handleForwardClose = useCallback(() => {
     setShowForwardModal(false);
+    setShowForwardConfirmModal(false);
     setForwardingMessage(null);
     setForwardSearchQuery('');
+    setSelectedTargetConversation(null);
   }, []);
 
-  const handleForwardConfirm = useCallback((targetConversation: ConversationItem) => {
-    if (!forwardingMessage || !onForward) {
+  const handleForwardSelectConversation = useCallback((targetConversation: ConversationItem) => {
+    if (!forwardingMessage) {
+      handleForwardClose();
+      return;
+    }
+
+    setSelectedTargetConversation(targetConversation);
+    setShowForwardModal(false);
+    setShowForwardConfirmModal(true);
+  }, [forwardingMessage, handleForwardClose]);
+
+  const handleForwardConfirmFinal = useCallback(() => {
+    if (!forwardingMessage || !selectedTargetConversation || !onForward) {
       handleForwardClose();
       return;
     }
 
     const sourceTitle = currentConversationTitle || '新对话';
-    const targetTitle = targetConversation.title || '新对话';
+    const targetTitle = selectedTargetConversation.title || '新对话';
     const roleLabel = forwardingMessage.role === 'user' ? '我' : 'AI';
     const forwardContent = `--- 转发自：${sourceTitle} ---\n【${roleLabel}】${forwardingMessage.content}`;
 
-    onForward(targetConversation.id, forwardContent);
-
-    setForwardSuccessToast(`已转发到 ${targetTitle}`);
-    if (forwardToastTimerRef.current) {
-      clearTimeout(forwardToastTimerRef.current);
+    try {
+      const forwardData = {
+        targetConversationId: selectedTargetConversation.id,
+        targetConversationTitle: targetTitle,
+        content: forwardContent,
+      };
+      localStorage.setItem(FORWARD_STORAGE_KEY, JSON.stringify(forwardData));
+    } catch (e) {
+      console.error('保存转发数据失败:', e);
     }
-    forwardToastTimerRef.current = setTimeout(() => {
-      setForwardSuccessToast(null);
-      forwardToastTimerRef.current = null;
-    }, 1500);
+
+    onForward(selectedTargetConversation.id, '');
 
     handleForwardClose();
-  }, [forwardingMessage, onForward, currentConversationTitle, handleForwardClose]);
+  }, [forwardingMessage, selectedTargetConversation, onForward, currentConversationTitle, handleForwardClose, FORWARD_STORAGE_KEY]);
 
   useEffect(() => {
     return () => {
@@ -495,6 +514,41 @@ export default function ChatSession({
       }
     }
   }, [templateContent, setInput, onTemplateUsed]);
+
+  // 处理转发内容（从 localStorage 读取）
+  useEffect(() => {
+    try {
+      const storedData = localStorage.getItem(FORWARD_STORAGE_KEY);
+      if (!storedData) return;
+
+      const forwardData = JSON.parse(storedData) as {
+        targetConversationId: string;
+        targetConversationTitle: string;
+        content: string;
+      };
+
+      if (forwardData.targetConversationId === conversationId) {
+        setInput(forwardData.content);
+        inputRef.current?.focus();
+
+        setForwardSuccessToast(`已转发到 ${forwardData.targetConversationTitle}`);
+        if (forwardToastTimerRef.current) {
+          clearTimeout(forwardToastTimerRef.current);
+        }
+        forwardToastTimerRef.current = setTimeout(() => {
+          setForwardSuccessToast(null);
+          forwardToastTimerRef.current = null;
+        }, 1500);
+
+        localStorage.removeItem(FORWARD_STORAGE_KEY);
+      }
+    } catch (e) {
+      console.error('读取转发数据失败:', e);
+      try {
+        localStorage.removeItem(FORWARD_STORAGE_KEY);
+      } catch {}
+    }
+  }, [conversationId, setInput, FORWARD_STORAGE_KEY]);
 
   const handleSkillInsert = (text: string) => {
     append({ role: 'user', content: text });
@@ -1580,7 +1634,7 @@ export default function ChatSession({
                       <button
                         key={conv.id}
                         type="button"
-                        onClick={() => handleForwardConfirm(conv)}
+                        onClick={() => handleForwardSelectConversation(conv)}
                         className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors hover:bg-[#f5f5f5]"
                       >
                         <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#f4f4f5] text-[11px] font-semibold text-[#525252]">
@@ -1599,6 +1653,68 @@ export default function ChatSession({
                     ))}
                   </div>
                 )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 确认转发弹窗 */}
+      {showForwardConfirmModal && forwardingMessage && selectedTargetConversation && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={handleForwardClose}>
+          <div
+            className="w-full max-w-md rounded-2xl border border-black/[0.08] bg-white shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-black/[0.06] p-4">
+              <h3 className="text-lg font-semibold text-[#171717]">确认转发</h3>
+              <Button variant="ghost" size="icon" onClick={handleForwardClose} title="关闭">
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
+
+            <div className="p-4">
+              {/* 转发信息 */}
+              <div className="mb-4 rounded-xl bg-[#fafafa] p-3">
+                <div className="mb-2 flex items-center gap-2 text-xs text-[#a3a3a3]">
+                  <span>从</span>
+                  <span className="font-medium text-[#525252]">{currentConversationTitle || '新对话'}</span>
+                  <ArrowRight className="h-3 w-3" />
+                  <span className="font-medium text-[#525252]">{selectedTargetConversation.title || '新对话'}</span>
+                </div>
+                <div className="text-xs text-[#a3a3a3]">
+                  <span>消息来自：</span>
+                  <span className="font-medium text-[#525252]">
+                    {forwardingMessage.role === 'user' ? '我' : 'AI'}
+                  </span>
+                </div>
+              </div>
+
+              {/* 内容预览 */}
+              <div className="mb-4">
+                <p className="mb-2 text-xs font-medium text-[#737373]">消息内容：</p>
+                <div className="max-h-40 overflow-y-auto rounded-xl border border-black/[0.08] bg-[#fafafa] p-3">
+                  <p className="whitespace-pre-wrap text-sm text-[#171717]">
+                    {forwardingMessage.content.length > 500
+                      ? forwardingMessage.content.slice(0, 500) + '...'
+                      : forwardingMessage.content}
+                  </p>
+                </div>
+              </div>
+
+              {/* 提示 */}
+              <p className="mb-4 text-xs text-[#a3a3a3]">
+                转发后将自动跳转到目标对话，内容会填入输入框，您可以确认后再发送。
+              </p>
+
+              {/* 按钮 */}
+              <div className="flex gap-3">
+                <Button variant="outline" className="flex-1" onClick={handleForwardClose}>
+                  取消
+                </Button>
+                <Button className="flex-1" onClick={handleForwardConfirmFinal}>
+                  确认转发
+                </Button>
               </div>
             </div>
           </div>
