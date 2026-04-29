@@ -135,6 +135,8 @@ export default function ChatSession({
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const messageRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+  const currentInputRef = useRef<string>('');
+  const isBrowsingHistoryRef = useRef<boolean>(false);
   const statsTriggerRef = useRef<HTMLDivElement>(null);
   const menuTriggerRef = useRef<HTMLButtonElement>(null);
   const menuContainerRef = useRef<HTMLDivElement>(null);
@@ -442,12 +444,33 @@ export default function ChatSession({
   const handleCustomCommandSelect = useCallback((command: CustomCommand) => {
     append({ role: 'user', content: command.prompt });
     setInput('');
+    currentInputRef.current = '';
+    isBrowsingHistoryRef.current = false;
+    setHistoryIndex(-1);
     setMatchingSystemCommands([]);
     setMatchingCustomCommands([]);
     setSelectedCommandIndex(0);
     setReplyingTo(null);
     replyingToRef.current = null;
   }, [append, setInput]);
+
+  // 自定义输入处理，同步更新 ref
+  const handleCustomInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value;
+    currentInputRef.current = newValue;
+    handleInputChange(e);
+    
+    // 如果正在浏览历史且输入内容变化（不是通过历史导航），重置历史状态
+    if (isBrowsingHistoryRef.current && historyIndex !== -1) {
+      const prevHistoryValue = historyIndex >= 0 && historyIndex < messageHistory.length 
+        ? messageHistory[historyIndex] 
+        : '';
+      if (newValue !== prevHistoryValue) {
+        isBrowsingHistoryRef.current = false;
+        setHistoryIndex(-1);
+      }
+    }
+  }, [handleInputChange, historyIndex, messageHistory]);
 
   // 监听输入变化，更新匹配的快捷指令
   useEffect(() => {
@@ -568,7 +591,7 @@ export default function ChatSession({
     }
 
     // 历史消息切换（输入框为空时）
-    if (!showQuickCommands && !input.trim()) {
+    if (!showQuickCommands && !currentInputRef.current.trim()) {
       if (e.key === 'ArrowUp') {
         e.preventDefault();
         if (messageHistory.length > 0) {
@@ -576,6 +599,8 @@ export default function ChatSession({
             const newIndex = historyIndex + 1;
             setHistoryIndex(newIndex);
             setInput(messageHistory[newIndex]);
+            currentInputRef.current = messageHistory[newIndex];
+            isBrowsingHistoryRef.current = true;
           }
         }
         return;
@@ -586,10 +611,14 @@ export default function ChatSession({
           if (historyIndex === 0) {
             setHistoryIndex(-1);
             setInput('');
+            currentInputRef.current = '';
+            isBrowsingHistoryRef.current = false;
           } else {
             const newIndex = historyIndex - 1;
             setHistoryIndex(newIndex);
             setInput(messageHistory[newIndex]);
+            currentInputRef.current = messageHistory[newIndex];
+            isBrowsingHistoryRef.current = true;
           }
         }
         return;
@@ -600,11 +629,6 @@ export default function ChatSession({
         setInput('');
         return;
       }
-    }
-
-    // 输入内容时重置历史索引
-    if (input.trim() && historyIndex !== -1) {
-      setHistoryIndex(-1);
     }
 
     // 发送快捷键处理
@@ -1350,7 +1374,7 @@ export default function ChatSession({
             <input
               ref={inputRef}
               value={input}
-              onChange={handleInputChange}
+              onChange={handleCustomInputChange}
               onKeyDown={handleKeyDown}
               placeholder="有问题，尽管问… 输入 / 查看快捷指令"
               disabled={isLoading}
