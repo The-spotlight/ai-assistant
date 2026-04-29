@@ -71,23 +71,61 @@ export async function GET(request: Request) {
       conversationCount: count,
     }));
 
-    const totalConversations = await prisma.conversation.count({
-      where: { deviceId, isDeleted: false },
-    });
-
-    const allMessages = await prisma.message.findMany({
-      where: {
-        conversation: {
+    const [totalConversations, allMessages, conversationsLast30Days, conversationsWithModel, allConversations] = await Promise.all([
+      prisma.conversation.count({
+        where: { deviceId, isDeleted: false },
+      }),
+      prisma.message.findMany({
+        where: {
+          conversation: {
+            deviceId,
+            isDeleted: false,
+          },
+        },
+        include: {
+          conversation: {
+            select: { modelId: true },
+          },
+        },
+      }),
+      prisma.conversation.findMany({
+        where: {
+          deviceId,
+          isDeleted: false,
+          updatedAt: {
+            gte: thirtyDaysAgo,
+          },
+        },
+        select: {
+          id: true,
+          updatedAt: true,
+          modelId: true,
+          messages: {
+            select: {
+              promptTokens: true,
+              completionTokens: true,
+              totalTokens: true,
+              createdAt: true,
+            },
+          },
+        },
+      }),
+      prisma.conversation.findMany({
+        where: {
+          deviceId,
+          isDeleted: false,
+          modelId: { not: null },
+        },
+        select: { modelId: true },
+      }),
+      prisma.conversation.findMany({
+        where: {
           deviceId,
           isDeleted: false,
         },
-      },
-      include: {
-        conversation: {
-          select: { modelId: true },
-        },
-      },
-    });
+        select: { createdAt: true },
+      }),
+    ]);
 
     let totalTokens = 0;
     let totalCost = 0;
@@ -109,29 +147,6 @@ export async function GET(request: Request) {
       last30DaysData.set(dateStr, { date: dateStr, tokens: 0, conversations: 0 });
     }
 
-    const conversationsLast30Days = await prisma.conversation.findMany({
-      where: {
-        deviceId,
-        isDeleted: false,
-        updatedAt: {
-          gte: thirtyDaysAgo,
-        },
-      },
-      select: {
-        id: true,
-        updatedAt: true,
-        modelId: true,
-        messages: {
-          select: {
-            promptTokens: true,
-            completionTokens: true,
-            totalTokens: true,
-            createdAt: true,
-          },
-        },
-      },
-    });
-
     conversationsLast30Days.forEach((conv) => {
       const dateStr = conv.updatedAt.toISOString().split('T')[0];
       const dayData = last30DaysData.get(dateStr);
@@ -150,15 +165,6 @@ export async function GET(request: Request) {
     const last30DaysUsage = Array.from(last30DaysData.values());
 
     const modelUsage = new Map<string, number>();
-    const conversationsWithModel = await prisma.conversation.findMany({
-      where: {
-        deviceId,
-        isDeleted: false,
-        modelId: { not: null },
-      },
-      select: { modelId: true },
-    });
-
     conversationsWithModel.forEach((conv) => {
       if (conv.modelId) {
         modelUsage.set(conv.modelId, (modelUsage.get(conv.modelId) || 0) + 1);
@@ -175,14 +181,6 @@ export async function GET(request: Request) {
     });
 
     const hourlyDistribution = new Array(24).fill(0);
-    const allConversations = await prisma.conversation.findMany({
-      where: {
-        deviceId,
-        isDeleted: false,
-      },
-      select: { createdAt: true },
-    });
-
     allConversations.forEach((conv) => {
       const hour = conv.createdAt.getHours();
       hourlyDistribution[hour]++;
