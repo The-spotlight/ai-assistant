@@ -40,9 +40,12 @@ import {
   Reply,
   FolderOpen,
   Maximize2,
+  FileText,
+  Quote,
 } from 'lucide-react';
 import { useMessageFeedback, MessageFeedbackButton } from '@/components/MessageFeedback';
 import { saveDraft, loadDraft, clearDraft, addToHistory, getHistory } from '@/lib/draft-history';
+import { markdownToPlainText, toQuoteFormat, copyToClipboard } from '@/lib/utils';
 
 const SUGGESTIONS = [
   '搜索今日新闻',
@@ -143,6 +146,11 @@ export default function ChatSession({
   const [showSkills, setShowSkills] = useState(false);
   const [showTokenStats, setShowTokenStats] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+
+  // 复制功能相关状态
+  const [openCopyMenuMessageId, setOpenCopyMenuMessageId] = useState<string | null>(null);
+  const [copySuccessMessageId, setCopySuccessMessageId] = useState<string | null>(null);
+  const copyMenuRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
   // 分享相关状态
   const [showShareModal, setShowShareModal] = useState(false);
@@ -379,9 +387,38 @@ export default function ChatSession({
     }
   }, []);
 
+  // 处理复制消息
+  const handleCopyMessage = useCallback(async (
+    messageId: string,
+    content: string,
+    format: 'plaintext' | 'markdown' | 'quote'
+  ) => {
+    let textToCopy = '';
+    
+    switch (format) {
+      case 'plaintext':
+        textToCopy = markdownToPlainText(content);
+        break;
+      case 'markdown':
+        textToCopy = content;
+        break;
+      case 'quote':
+        const plainText = markdownToPlainText(content);
+        textToCopy = toQuoteFormat(plainText);
+        break;
+    }
+
+    const success = await copyToClipboard(textToCopy);
+    if (success) {
+      setCopySuccessMessageId(messageId);
+      setOpenCopyMenuMessageId(null);
+      setTimeout(() => setCopySuccessMessageId(null), 1500);
+    }
+  }, []);
+
   // 点击外部关闭菜单
   useEffect(() => {
-    if (!showMenu) return;
+    if (!showMenu && !openCopyMenuMessageId) return;
 
     const handleClickOutside = (e: MouseEvent) => {
       if (
@@ -390,11 +427,18 @@ export default function ChatSession({
       ) {
         setShowMenu(false);
       }
+
+      if (openCopyMenuMessageId) {
+        const menuEl = copyMenuRefs.current.get(openCopyMenuMessageId);
+        if (menuEl && !menuEl.contains(e.target as Node)) {
+          setOpenCopyMenuMessageId(null);
+        }
+      }
     };
 
     document.addEventListener('click', handleClickOutside);
     return () => document.removeEventListener('click', handleClickOutside);
-  }, [showMenu]);
+  }, [showMenu, openCopyMenuMessageId]);
 
   // 处理模板内容
   useEffect(() => {
@@ -1200,6 +1244,86 @@ export default function ChatSession({
                         <Reply className="h-3 w-3" />
                         引用
                       </button>
+                      {/* 复制按钮 - 悬停显示 */}
+                      <div
+                        ref={(el) => {
+                          if (el) {
+                            copyMenuRefs.current.set(m.id, el);
+                          } else {
+                            copyMenuRefs.current.delete(m.id);
+                          }
+                        }}
+                        className="relative"
+                      >
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (copySuccessMessageId === m.id) return;
+                            setOpenCopyMenuMessageId(openCopyMenuMessageId === m.id ? null : m.id);
+                          }}
+                          className={`inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] transition-colors ${
+                            copySuccessMessageId === m.id
+                              ? 'text-[#22c55e] bg-[#f0fdf4]'
+                              : isGlobalRegenerating
+                              ? 'text-[#a3a3a3] cursor-not-allowed opacity-0 group-hover:opacity-100'
+                              : 'text-[#737373] hover:bg-[#f5f5f5] hover:text-[#171717] opacity-0 group-hover:opacity-100'
+                          }`}
+                          title={copySuccessMessageId === m.id ? '已复制' : '复制此消息'}
+                          disabled={isGlobalRegenerating}
+                        >
+                          {copySuccessMessageId === m.id ? (
+                            <>
+                              <Check className="h-3 w-3" />
+                              已复制
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="h-3 w-3" />
+                              复制
+                            </>
+                          )}
+                        </button>
+                        {openCopyMenuMessageId === m.id && (
+                          <div className="absolute right-0 top-full z-50 mt-1 w-44 overflow-hidden rounded-xl border border-black/[0.08] bg-white shadow-[0_4px_24px_rgba(0,0,0,0.12)]">
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleCopyMessage(m.id, m.content, 'plaintext');
+                              }}
+                              className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-[#171717] transition-colors hover:bg-[#fafafa]"
+                            >
+                              <FileText className="h-4 w-4 text-[#737373]" />
+                              <span>复制为纯文本</span>
+                            </button>
+                            <div className="h-px bg-black/[0.06]" />
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleCopyMessage(m.id, m.content, 'markdown');
+                              }}
+                              className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-[#171717] transition-colors hover:bg-[#fafafa]"
+                            >
+                              <Copy className="h-4 w-4 text-[#737373]" />
+                              <span>复制为 Markdown</span>
+                            </button>
+                            <div className="h-px bg-black/[0.06]" />
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleCopyMessage(m.id, m.content, 'quote');
+                              }}
+                              className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-[#171717] transition-colors hover:bg-[#fafafa]"
+                            >
+                              <Quote className="h-4 w-4 text-[#737373]" />
+                              <span>复制为引用格式</span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
                       <MessageFeedbackButton
                         messageId={m.id}
                         conversationId={conversationId}
@@ -1266,6 +1390,85 @@ export default function ChatSession({
                           <Reply className="h-3 w-3" />
                           引用
                         </button>
+                      )}
+                      {/* 复制按钮 - 悬停显示 */}
+                      {!isLoading && regeneratePhase === 'idle' && (
+                        <div
+                          ref={(el) => {
+                            if (el) {
+                              copyMenuRefs.current.set(m.id, el);
+                            } else {
+                              copyMenuRefs.current.delete(m.id);
+                            }
+                          }}
+                          className="relative"
+                        >
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (copySuccessMessageId === m.id) return;
+                              setOpenCopyMenuMessageId(openCopyMenuMessageId === m.id ? null : m.id);
+                            }}
+                            className={`inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] transition-colors ${
+                              copySuccessMessageId === m.id
+                                ? 'text-[#22c55e] bg-[#f0fdf4]'
+                                : 'text-[#737373] hover:bg-[#f5f5f5] hover:text-[#171717] opacity-0 group-hover:opacity-100'
+                            }`}
+                            title={copySuccessMessageId === m.id ? '已复制' : '复制此消息'}
+                          >
+                            {copySuccessMessageId === m.id ? (
+                              <>
+                                <Check className="h-3 w-3" />
+                                已复制
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="h-3 w-3" />
+                                复制
+                              </>
+                            )}
+                          </button>
+                          {openCopyMenuMessageId === m.id && (
+                            <div className="absolute right-0 top-full z-50 mt-1 w-44 overflow-hidden rounded-xl border border-black/[0.08] bg-white shadow-[0_4px_24px_rgba(0,0,0,0.12)]">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleCopyMessage(m.id, m.content, 'plaintext');
+                                }}
+                                className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-[#171717] transition-colors hover:bg-[#fafafa]"
+                              >
+                                <FileText className="h-4 w-4 text-[#737373]" />
+                                <span>复制为纯文本</span>
+                              </button>
+                              <div className="h-px bg-black/[0.06]" />
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleCopyMessage(m.id, m.content, 'markdown');
+                                }}
+                                className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-[#171717] transition-colors hover:bg-[#fafafa]"
+                              >
+                                <Copy className="h-4 w-4 text-[#737373]" />
+                                <span>复制为 Markdown</span>
+                              </button>
+                              <div className="h-px bg-black/[0.06]" />
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleCopyMessage(m.id, m.content, 'quote');
+                                }}
+                                className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-[#171717] transition-colors hover:bg-[#fafafa]"
+                              >
+                                <Quote className="h-4 w-4 text-[#737373]" />
+                                <span>复制为引用格式</span>
+                              </button>
+                            </div>
+                          )}
+                        </div>
                       )}
                       {!isLoading && regeneratePhase === 'idle' && (
                         <button
