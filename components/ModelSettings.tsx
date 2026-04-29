@@ -2,7 +2,7 @@
 
 import { Modal, Select, message } from 'antd';
 import { useState, useEffect, useCallback } from 'react';
-import { Eye, EyeOff, Plus, Edit2, Trash2, Check, X, AlertTriangle } from 'lucide-react';
+import { Eye, EyeOff, Plus, Edit2, Trash2, Check, X, AlertTriangle, ChevronRight } from 'lucide-react';
 import { useSettings } from '@/lib/settings';
 import {
   OPENROUTER_MODEL_OPTIONS,
@@ -141,6 +141,7 @@ function CustomModelCard(props: {
 export default function ModelSettings({ open, onClose }: ModelSettingsProps) {
   const { model, updateModel } = useSettings();
   const [customModels, setCustomModels] = useState<CustomModel[]>([]);
+  const [customModelsCollapsed, setCustomModelsCollapsed] = useState(true);
   
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingModel, setEditingModel] = useState<CustomModel | null>(null);
@@ -350,30 +351,51 @@ export default function ModelSettings({ open, onClose }: ModelSettingsProps) {
       >
         <div className="flex flex-col gap-6">
           {customModels.length > 0 && (
-            <div className="flex flex-col gap-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-gray-900">自定义模型</span>
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => setCustomModelsCollapsed(!customModelsCollapsed)}
+                className="flex items-center justify-between w-full p-0 hover:bg-transparent"
+              >
+                <div className="flex items-center gap-2">
+                  <ChevronRight 
+                    className={`w-4 h-4 text-gray-500 transition-transform ${!customModelsCollapsed ? 'rotate-90' : ''}`} 
+                  />
+                  <span className="text-sm font-medium text-gray-900">自定义模型</span>
+                  <span className="text-xs text-gray-500">({customModels.length})</span>
+                  {customModelsCollapsed && isCustomModelSelected && (
+                    <span className="text-xs text-blue-600">
+                      已选: {customModels.find(m => m.id === model.defaultModel)?.name}
+                    </span>
+                  )}
+                </div>
                 <button
                   type="button"
-                  onClick={openAddModal}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openAddModal();
+                  }}
                   className="flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200 transition-colors"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   添加模型
                 </button>
-              </div>
-              <div className="flex flex-col gap-2">
-                {customModels.map((customModel) => (
-                  <CustomModelCard
-                    key={customModel.id}
-                    model={customModel}
-                    isSelected={model.defaultModel === customModel.id}
-                    onSelect={() => updateModel('defaultModel', customModel.id)}
-                    onEdit={() => openEditModal(customModel)}
-                    onDelete={() => setDeleteConfirm(customModel)}
-                  />
-                ))}
-              </div>
+              </button>
+              
+              {!customModelsCollapsed && (
+                <div className="flex flex-col gap-2 mt-2">
+                  {customModels.map((customModel) => (
+                    <CustomModelCard
+                      key={customModel.id}
+                      model={customModel}
+                      isSelected={model.defaultModel === customModel.id}
+                      onSelect={() => updateModel('defaultModel', customModel.id)}
+                      onEdit={() => openEditModal(customModel)}
+                      onDelete={() => setDeleteConfirm(customModel)}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
@@ -676,11 +698,13 @@ export default function ModelSettings({ open, onClose }: ModelSettingsProps) {
       </Modal>
 
       <Modal
-        title="确认删除"
+        title={null}
         open={!!deleteConfirm}
         onCancel={() => setDeleteConfirm(null)}
         footer={null}
         width={400}
+        centered
+        bodyStyle={{ padding: 24 }}
       >
         <div className="flex flex-col gap-4">
           <div className="flex items-center gap-3">
