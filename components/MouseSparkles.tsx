@@ -1,12 +1,11 @@
 'use client';
 
-import { useEffect, useMemo, useState, useRef } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Particles, { initParticlesEngine } from '@tsparticles/react';
 import { loadFull } from 'tsparticles';
 
 export default function MouseSparkles() {
   const [init, setInit] = useState(false);
-  const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     initParticlesEngine(async (engine) => {
@@ -24,13 +23,13 @@ export default function MouseSparkles() {
           value: 0,
         },
         color: {
-          value: ['#FFD700', '#FFA500', '#FF6347', '#FFFFFF', '#FFD700', '#FFFF00'],
+          value: ['#171717', '#3d3d3d', '#666666', '#999999', '#cccccc'],
         },
         shape: {
           type: 'circle' as const,
         },
         opacity: {
-          value: { min: 0.4, max: 1 },
+          value: { min: 0.3, max: 0.9 },
           anim: {
             enable: true,
             speed: 3,
@@ -39,12 +38,12 @@ export default function MouseSparkles() {
           },
         },
         size: {
-          value: { min: 2, max: 6 },
+          value: { min: 1, max: 4 },
           random: true,
         },
         move: {
           enable: true,
-          speed: { min: 8, max: 15 },
+          speed: { min: 6, max: 12 },
           direction: 'none' as const,
           random: true,
           straight: false,
@@ -55,13 +54,13 @@ export default function MouseSparkles() {
         },
         glow: {
           enable: true,
-          color: '#FFD700',
-          opacity: 0.8,
-          size: { min: 5, max: 15 },
+          color: '#3d3d3d',
+          opacity: 0.5,
+          size: { min: 3, max: 10 },
         },
         life: {
           duration: {
-            value: { min: 0.5, max: 1.5 },
+            value: { min: 0.4, max: 1.2 },
           },
           count: 1,
           delay: {
@@ -83,18 +82,18 @@ export default function MouseSparkles() {
           trail: {
             delay: 0.001,
             pauseOnStop: true,
-            quantity: 8,
+            quantity: 6,
             particles: {
               life: {
                 duration: {
-                  value: { min: 0.3, max: 0.8 },
+                  value: { min: 0.2, max: 0.6 },
                 },
               },
               move: {
-                speed: { min: 10, max: 25 },
+                speed: { min: 8, max: 20 },
               },
               size: {
-                value: { min: 1, max: 4 },
+                value: { min: 1, max: 3 },
               },
             },
           },
@@ -110,15 +109,7 @@ export default function MouseSparkles() {
   }
 
   return (
-    <div 
-      ref={containerRef}
-      className="fixed inset-0 pointer-events-none z-10"
-      style={{ 
-        background: 'transparent',
-        maskImage: 'radial-gradient(circle, black 60%, transparent 100%)',
-        WebkitMaskImage: 'radial-gradient(circle, black 60%, transparent 100%)',
-      }}
-    >
+    <div className="absolute inset-0 pointer-events-none">
       <Particles options={options} />
     </div>
   );
