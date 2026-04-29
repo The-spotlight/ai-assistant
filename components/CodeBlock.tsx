@@ -121,12 +121,12 @@ export default function CodeBlock({ language, code, highlightStyle }: CodeBlockP
   const style = CODE_HIGHLIGHT_STYLES[highlightStyle] || oneDark;
 
   return (
-    <div className="relative group !my-3">
-      <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-3 py-1.5 rounded-t-lg border-b border-[rgba(0,0,0,0.06)] bg-[rgba(0,0,0,0.02)]">
-        <span className="text-xs font-medium text-[#737373] uppercase tracking-wider">
+    <div className="my-4 rounded-lg border border-[rgba(0,0,0,0.08)] overflow-hidden">
+      <div className="flex items-center justify-between px-4 py-2 bg-neutral-50 border-b border-[rgba(0,0,0,0.06)]">
+        <span className="text-xs font-medium text-[#6b7280] uppercase tracking-wider">
           {detectedLanguage}
         </span>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           {shouldCollapse && (
             <button
               onClick={() => setIsExpanded(!isExpanded)}
@@ -140,12 +140,12 @@ export default function CodeBlock({ language, code, highlightStyle }: CodeBlockP
               <TooltipTrigger asChild>
                 <button
                   onClick={handleCopy}
-                  className={`p-1 rounded transition-all duration-200 ${
+                  className={`p-1.5 rounded transition-all duration-200 ${
                     error
                       ? 'text-red-500 hover:bg-red-50'
                       : copied
                       ? 'text-green-500 hover:bg-green-50'
-                      : 'text-[#737373] hover:text-[#171717] hover:bg-neutral-100'
+                      : 'text-[#6b7280] hover:text-[#171717] hover:bg-neutral-200'
                   }`}
                 >
                   {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
@@ -162,10 +162,9 @@ export default function CodeBlock({ language, code, highlightStyle }: CodeBlockP
         style={style as any}
         language={detectedLanguage}
         PreTag="div"
-        className="!my-0 !rounded-lg !border !rounded-t-none text-sm"
+        className="!m-0 !p-0 !border-0 text-sm"
         customStyle={{
-          borderColor: 'var(--theme-border, rgba(0,0,0,0.08))',
-          marginTop: '28px',
+          padding: '12px 16px',
         }}
       >
         {displayCode}
