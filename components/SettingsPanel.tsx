@@ -33,6 +33,12 @@ import {
   type ModelSettings,
   type SettingsPreset,
 } from '@/lib/settings';
+import {
+  useSpeech,
+  SPEECH_RATE_OPTIONS,
+  type SpeechRateKey,
+  type SpeechVoice,
+} from '@/lib/speech';
 import { OPENROUTER_MODEL_OPTIONS } from '@/lib/openrouter-models';
 import { getOrCreateDeviceId } from '@/lib/device';
 import { downloadBlob } from '@/lib/export';
@@ -61,9 +67,10 @@ import {
   X,
   Sparkles,
   ChevronDown,
+  Volume2,
 } from 'lucide-react';
 
-type SettingsTab = 'behavior' | 'keyboard' | 'presets' | 'data' | 'commands';
+type SettingsTab = 'behavior' | 'voice' | 'keyboard' | 'presets' | 'data' | 'commands';
 
 interface SettingsPanelProps {
   visible: boolean;
@@ -73,6 +80,7 @@ interface SettingsPanelProps {
 
 const TAB_CONFIG: { key: SettingsTab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
   { key: 'behavior', label: '行为', icon: MousePointerClick },
+  { key: 'voice', label: '语音', icon: Volume2 },
   { key: 'keyboard', label: '快捷键', icon: Keyboard },
   { key: 'presets', label: '配置方案', icon: Layers },
   { key: 'commands', label: '快捷指令', icon: Sparkles },
@@ -100,6 +108,11 @@ export default function SettingsPanel({ visible, onClose, onTrashEmptied }: Sett
     renamePreset,
     deletePreset,
   } = useSettings();
+  const {
+    speechSettings,
+    availableVoices,
+    updateSpeechSettings,
+  } = useSpeech();
 
   const [activeTab, setActiveTab] = useState<SettingsTab>('behavior');
   const [showResetConfirm, setShowResetConfirm] = useState(false);
@@ -293,6 +306,13 @@ export default function SettingsPanel({ visible, onClose, onTrashEmptied }: Sett
             <BehaviorTab
               behavior={behavior}
               updateBehavior={updateBehavior}
+            />
+          )}
+          {activeTab === 'voice' && (
+            <VoiceTab
+              speechSettings={speechSettings}
+              availableVoices={availableVoices}
+              updateSpeechSettings={updateSpeechSettings}
             />
           )}
           {activeTab === 'keyboard' && (
@@ -831,6 +851,86 @@ function BehaviorTab({
           </p>
         </div>
       )}
+    </div>
+  );
+}
+
+function VoiceTab({
+  speechSettings,
+  availableVoices,
+  updateSpeechSettings,
+}: {
+  speechSettings: {
+    voiceURI: string | null;
+    rate: SpeechRateKey;
+  };
+  availableVoices: SpeechVoice[];
+  updateSpeechSettings: <K extends keyof typeof speechSettings>(key: K, value: typeof speechSettings[K]) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium text-[#171717]">朗读语音</span>
+        </div>
+        {availableVoices.length > 0 ? (
+          <div className="flex flex-col gap-2">
+            {availableVoices.map((voice) => {
+              const isSelected = speechSettings.voiceURI === voice.voiceURI;
+              return (
+                <Button
+                  key={voice.voiceURI}
+                  variant={isSelected ? 'default' : 'outline'}
+                  className="w-full justify-start"
+                  onClick={() => updateSpeechSettings('voiceURI', voice.voiceURI)}
+                >
+                  {isSelected && <Check className="h-4 w-4" />}
+                  <div className="flex flex-col items-start">
+                    <span>{voice.name}</span>
+                    <span className="text-[10px] opacity-60">{voice.lang}</span>
+                  </div>
+                </Button>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2 p-4 border border-black/[0.08] rounded-lg bg-[#fafafa]">
+            <p className="text-sm text-[#737373]">正在加载可用语音列表...</p>
+            <p className="text-[11px] text-[#a3a3a3]">如果浏览器支持语音合成，系统将自动检测可用语音</p>
+          </div>
+        )}
+        <p className="text-[11px] text-[#a3a3a3]">
+          选择用于朗读消息的语音，不同语音可能支持不同语言
+        </p>
+      </div>
+
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium text-[#171717]">朗读速度</span>
+        </div>
+        <div className="flex gap-2">
+          {(Object.entries(SPEECH_RATE_OPTIONS) as unknown as [SpeechRateKey, typeof SPEECH_RATE_OPTIONS[SpeechRateKey]][]).map(
+            ([key, option]) => {
+              const numKey = typeof key === 'string' ? (Number(key) as SpeechRateKey) : key;
+              const isSelected = speechSettings.rate === numKey;
+              return (
+                <Button
+                  key={String(key)}
+                  variant={isSelected ? 'default' : 'outline'}
+                  className="flex-1"
+                  onClick={() => updateSpeechSettings('rate', numKey)}
+                >
+                  {isSelected && <Check className="h-4 w-4" />}
+                  <span>{option.name}</span>
+                </Button>
+              );
+            }
+          )}
+        </div>
+        <p className="text-[11px] text-[#a3a3a3]">
+          1.0 倍为正常速度，数值越大速度越快
+        </p>
+      </div>
     </div>
   );
 }

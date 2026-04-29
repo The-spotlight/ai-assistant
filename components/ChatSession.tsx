@@ -23,6 +23,7 @@ import {
 } from '@/lib/tools/quick-commands';
 import type { QuickCommand, CustomCommand } from '@/lib/tools/quick-commands';
 import { useSettings, FONT_SIZES, BUBBLE_STYLES, PRESET_GRADIENTS, IMAGE_DISPLAY_MODES, loadCustomCommands, type TimestampFormatKey, type SendShortcutKey, getCustomModelById, decryptApiKey } from '@/lib/settings';
+import { useSpeech } from '@/lib/speech';
 import {
   RefreshCw,
   Bookmark,
@@ -40,6 +41,10 @@ import {
   Reply,
   FolderOpen,
   Maximize2,
+  Volume2,
+  VolumeX,
+  Pause,
+  Play,
 } from 'lucide-react';
 import { useMessageFeedback, MessageFeedbackButton } from '@/components/MessageFeedback';
 import { saveDraft, loadDraft, clearDraft, addToHistory, getHistory } from '@/lib/draft-history';
@@ -98,6 +103,16 @@ export default function ChatSession({
   isImmersiveMode = false,
 }: ChatSessionProps) {
   const { settings, themeColors, behavior, model, keyboardShortcuts } = useSettings();
+  const {
+    isPlaying,
+    isPaused,
+    currentMessageId,
+    currentCharIndex,
+    speak,
+    pause,
+    resume,
+    stop,
+  } = useSpeech();
   const bubbleStyle = BUBBLE_STYLES[settings.bubbleStyle];
   const fontSizeConfig = FONT_SIZES[settings.fontSize];
 
@@ -1180,7 +1195,11 @@ export default function ChatSession({
                     (m.role === 'user' ? (
                       <span className="whitespace-pre-wrap">{m.content}</span>
                     ) : (
-                      <MarkdownRenderer content={m.content} />
+                      <MarkdownRenderer 
+                        content={m.content} 
+                        isHighlighted={currentMessageId === m.id}
+                        highlightCharIndex={currentMessageId === m.id ? currentCharIndex : -1}
+                      />
                     ))
                   )}
 
@@ -1230,6 +1249,62 @@ export default function ChatSession({
                       )}
                     </div>
                     <div className="flex items-center gap-1">
+                      {/* 朗读按钮 */}
+                      {(() => {
+                        const isThisMessagePlaying = currentMessageId === m.id;
+                        const isThisMessagePaused = isThisMessagePlaying && isPaused;
+                        const isThisMessageActive = isThisMessagePlaying;
+
+                        if (isThisMessageActive) {
+                          if (isThisMessagePaused) {
+                            return (
+                              <button
+                                type="button"
+                                onClick={() => resume()}
+                                className={`inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] transition-colors text-[#171717] bg-[#f5f5f5]`}
+                                title="继续朗读"
+                              >
+                                <Play className="h-3 w-3" />
+                                继续
+                              </button>
+                            );
+                          } else {
+                            return (
+                              <button
+                                type="button"
+                                onClick={() => pause()}
+                                className={`inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] transition-colors text-[#171717] bg-[#f5f5f5]`}
+                                title="暂停朗读"
+                              >
+                                <Pause className="h-3 w-3" />
+                                暂停
+                              </button>
+                            );
+                          }
+                        }
+
+                        return (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (isPlaying && !isThisMessagePlaying) {
+                                stop();
+                              }
+                              speak(m.id, m.content);
+                            }}
+                            disabled={isGlobalRegenerating}
+                            className={`inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] transition-colors ${
+                              isGlobalRegenerating
+                                ? 'text-[#a3a3a3] cursor-not-allowed opacity-0 group-hover:opacity-100'
+                                : 'text-[#737373] hover:bg-[#f5f5f5] hover:text-[#171717] opacity-0 group-hover:opacity-100'
+                            }`}
+                            title="朗读此消息"
+                          >
+                            <Volume2 className="h-3 w-3" />
+                            朗读
+                          </button>
+                        );
+                      })()}
                       {/* 引用按钮 - 悬停显示 */}
                       <button
                         type="button"
