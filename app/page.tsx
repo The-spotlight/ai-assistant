@@ -2090,6 +2090,32 @@ export default function Home() {
     [deviceId, loadTemplates]
   );
 
+  const handleBatchImportTemplate = useCallback(
+    async (templates: { title: string; content: string; category: string }[]) => {
+      if (!deviceId) return;
+      try {
+        const r = await fetch('/api/templates/batch-import', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-device-id': deviceId,
+          },
+          body: JSON.stringify({ templates }),
+        });
+        if (r.ok) {
+          await loadTemplates(deviceId);
+        } else {
+          const errorData = await r.json().catch(() => ({}));
+          throw new Error(errorData.error || '批量导入失败');
+        }
+      } catch (error) {
+        console.error('批量导入模板失败:', error);
+        throw error;
+      }
+    },
+    [deviceId, loadTemplates]
+  );
+
   const handleTemplateClick = useCallback(
     async (content: string) => {
       setPendingTemplateContent(content);
@@ -2497,6 +2523,7 @@ export default function Home() {
         onAddTemplate={handleAddTemplate}
         onUpdateTemplate={handleUpdateTemplate}
         onDeleteTemplate={handleDeleteTemplate}
+        onBatchImport={handleBatchImportTemplate}
         onImportComplete={async () => {
           if (deviceId) {
             await loadTemplates(deviceId);
