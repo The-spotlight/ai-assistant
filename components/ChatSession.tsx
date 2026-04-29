@@ -39,6 +39,7 @@ import {
   ChevronDown,
   Reply,
   FolderOpen,
+  Maximize2,
 } from 'lucide-react';
 import { useMessageFeedback, MessageFeedbackButton } from '@/components/MessageFeedback';
 
@@ -77,6 +78,7 @@ type ChatSessionProps = {
   onToggleFavorite?: (messageId: string, isFavorite: boolean) => void;
   templateContent?: string | null;
   onTemplateUsed?: () => void;
+  onToggleImmersiveMode?: () => void;
 };
 
 export default function ChatSession({
@@ -90,6 +92,7 @@ export default function ChatSession({
   onToggleFavorite,
   templateContent,
   onTemplateUsed,
+  onToggleImmersiveMode,
 }: ChatSessionProps) {
   const { settings, themeColors, behavior, model, keyboardShortcuts } = useSettings();
   const bubbleStyle = BUBBLE_STYLES[settings.bubbleStyle];
@@ -739,7 +742,17 @@ export default function ChatSession({
                   </svg>
                 </span>
               </div>
-              <div className="relative" ref={menuContainerRef}>
+              <div className="flex items-center gap-1" ref={menuContainerRef}>
+                {onToggleImmersiveMode && (
+                  <button
+                    type="button"
+                    onClick={onToggleImmersiveMode}
+                    title="沉浸模式"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg text-[#a3a3a3] hover:text-[#171717] hover:bg-[#f5f5f5] transition-colors"
+                  >
+                    <Maximize2 className="h-5 w-5" />
+                  </button>
+                )}
                 <div
                   onClick={() => setShowMenu(!showMenu)}
                   title="更多选项"
