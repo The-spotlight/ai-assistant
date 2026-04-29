@@ -140,18 +140,19 @@ export default function ChatSession({
   const [showShareModal, setShowShareModal] = useState(false);
   const [showShareHistory, setShowShareHistory] = useState(false);
 
-  // 自定义指令列表
-  const [customCommands, setCustomCommands] = useState<CustomCommand[]>([]);
+  // 自定义指令列表 - 使用初始化函数同步加载
+  const [customCommands, setCustomCommands] = useState<CustomCommand[]>(() => {
+    if (typeof window !== 'undefined') {
+      return loadCustomCommands();
+    }
+    return [];
+  });
 
   // 快捷指令相关状态
   const [matchingSystemCommands, setMatchingSystemCommands] = useState<QuickCommand[]>([]);
   const [matchingCustomCommands, setMatchingCustomCommands] = useState<CustomCommand[]>([]);
   const [selectedCommandIndex, setSelectedCommandIndex] = useState(0);
   const showQuickCommands = matchingSystemCommands.length > 0 || matchingCustomCommands.length > 0;
-
-  useEffect(() => {
-    setCustomCommands(loadCustomCommands());
-  }, []);
 
   // 编辑消息相关状态
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);

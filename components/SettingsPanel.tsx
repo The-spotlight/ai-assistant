@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { message } from 'antd';
 import {
   useSettings,
   THEME_PRESETS,
@@ -100,9 +101,6 @@ export default function SettingsPanel({ visible, onClose, onTrashEmptied }: Sett
     deletePreset,
   } = useSettings();
 
-  const showSuccessMessage = toast.success;
-  const errorMessage = toast.error;
-
   const [activeTab, setActiveTab] = useState<SettingsTab>('behavior');
   const [showResetConfirm, setShowResetConfirm] = useState(false);
 
@@ -117,6 +115,8 @@ export default function SettingsPanel({ visible, onClose, onTrashEmptied }: Sett
     icon: 'wand2',
   });
   const [showIconPicker, setShowIconPicker] = useState(false);
+  
+  const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; name: string } | null>(null);
 
   useEffect(() => {
     if (visible && activeTab === 'commands') {
@@ -150,32 +150,39 @@ export default function SettingsPanel({ visible, onClose, onTrashEmptied }: Sett
 
   const handleSaveCommand = () => {
     if (!commandForm.name.trim() || !commandForm.command.trim() || !commandForm.prompt.trim()) {
-      errorMessage('请填写必填字段');
+      message.error('请填写必填字段');
       return;
     }
 
     if (!editingCommand) {
       const updated = addCustomCommand(commandForm);
       setCustomCommands(updated);
-      showSuccessMessage('指令创建成功');
+      message.success('指令创建成功');
     } else {
       const updated = updateCustomCommand(editingCommand.id, commandForm);
       setCustomCommands(updated);
-      showSuccessMessage('指令更新成功');
+      message.success('指令更新成功');
     }
     setShowCommandDialog(false);
   };
 
-  const handleDeleteCommand = (id: string) => {
-    const updated = removeCustomCommand(id);
-    setCustomCommands(updated);
-    showSuccessMessage('指令已删除');
+  const handleDeleteCommand = (id: string, name: string) => {
+    setDeleteConfirm({ id, name });
+  };
+
+  const confirmDelete = () => {
+    if (deleteConfirm) {
+      const updated = removeCustomCommand(deleteConfirm.id);
+      setCustomCommands(updated);
+      message.success('指令已删除');
+      setDeleteConfirm(null);
+    }
   };
 
   const handleResetCommands = () => {
     saveCustomCommands([]);
     setCustomCommands([]);
-    showSuccessMessage('已清空所有自定义指令');
+    message.success('已清空所有自定义指令');
   };
 
   useEffect(() => {
@@ -213,14 +220,14 @@ export default function SettingsPanel({ visible, onClose, onTrashEmptied }: Sett
     switch (activeTab) {
       case 'behavior':
         resetBehavior();
-        showSuccessMessage('已恢复默认行为设置');
+        message.success('已恢复默认行为设置');
         break;
       case 'keyboard':
         resetKeyboardShortcuts();
-        showSuccessMessage('已恢复默认快捷键设置');
+        message.success('已恢复默认快捷键设置');
         break;
       case 'data':
-        showSuccessMessage('已恢复默认数据管理设置');
+        message.success('已恢复默认数据管理设置');
         break;
     }
     setShowResetConfirm(false);
@@ -300,19 +307,19 @@ export default function SettingsPanel({ visible, onClose, onTrashEmptied }: Sett
               activePresetId={activePresetId}
               onCreatePreset={(name) => {
                 createPreset(name);
-                showSuccessMessage('配置方案已保存');
+                message.success('配置方案已保存');
               }}
               onApplyPreset={(id) => {
                 applyPreset(id);
-                showSuccessMessage('已切换到该配置方案');
+                message.success('已切换到该配置方案');
               }}
               onRenamePreset={(id, newName) => {
                 renamePreset(id, newName);
-                showSuccessMessage('配置方案已重命名');
+                message.success('配置方案已重命名');
               }}
               onDeletePreset={(id) => {
                 deletePreset(id);
-                showSuccessMessage('配置方案已删除');
+                message.success('配置方案已删除');
               }}
             />
           )}
@@ -472,6 +479,41 @@ export default function SettingsPanel({ visible, onClose, onTrashEmptied }: Sett
           </div>
         )}
 
+        {deleteConfirm && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50">
+            <div className="mx-4 w-full max-w-sm rounded-xl border border-black/[0.08] bg-white p-5 shadow-lg">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#fef2f2]">
+                  <AlertTriangle className="h-5 w-5 text-[#dc2626]" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-medium text-[#171717]">确认删除</h3>
+                  <p className="text-[11px] text-[#737373] mt-0.5">此操作不可恢复</p>
+                </div>
+              </div>
+              <p className="text-sm text-[#525252] mb-5">
+                确定要删除指令「<span className="font-medium">{deleteConfirm.name}</span>」吗？
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setDeleteConfirm(null)}
+                  className="flex-1 py-2.5 text-sm font-medium text-[#525252] bg-white border border-black/[0.08] rounded-lg hover:bg-[#fafafa] transition-colors"
+                >
+                  取消
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmDelete}
+                  className="flex-1 py-2.5 text-sm font-medium text-white bg-[#dc2626] rounded-lg hover:bg-[#b91c1c] transition-colors"
+                >
+                  删除
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="px-4 py-3 border-t border-black/[0.06] bg-[#fafafa] shrink-0">
           {showResetConfirm ? (
             <div className="flex flex-col gap-3">
@@ -499,7 +541,7 @@ export default function SettingsPanel({ visible, onClose, onTrashEmptied }: Sett
               </Button>
               <Button variant="outline" className="flex-1" onClick={() => {
                 resetAll();
-                showSuccessMessage('已恢复全部默认设置');
+                message.success('已恢复全部默认设置');
               }}>
                 <RefreshCw className="h-4 w-4" />
                 恢复全部
@@ -1866,7 +1908,7 @@ interface CommandsTabProps {
   commands: CustomCommand[];
   onCreateCommand: () => void;
   onEditCommand: (command: CustomCommand) => void;
-  onDeleteCommand: (id: string) => void;
+  onDeleteCommand: (id: string, name: string) => void;
   onReset: () => void;
 }
 
@@ -1944,7 +1986,7 @@ function CommandsTab({
                   </button>
                   <button
                     type="button"
-                    onClick={() => onDeleteCommand(command.id)}
+                    onClick={() => onDeleteCommand(command.id, command.name)}
                     className="p-2 text-[#525252] hover:text-[#dc2626] hover:bg-[#fef2f2] rounded-lg transition-colors"
                     aria-label="删除"
                     title="删除指令"
