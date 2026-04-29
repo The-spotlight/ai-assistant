@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button';
 import { login, refreshToken, type AuthError } from '@/lib/auth';
 import { saveRememberMeToken, getRememberMeToken, hasRememberMeToken } from '@/lib/auth-storage';
 import { Toast, ToastContainer } from '@/components/ui/Toast';
+import ParticleBackground from '@/components/ParticleBackground';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -95,7 +96,8 @@ export default function LoginPage() {
   if (autoLoginLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#f6f6f7]">
-        <div className="flex flex-col items-center gap-4">
+        <ParticleBackground />
+        <div className="relative z-10 flex flex-col items-center gap-4">
           <div className="w-12 h-12 border-4 border-gray-300 border-t-gray-800 rounded-full animate-spin"></div>
           <p className="text-gray-500 text-sm">正在检查登录状态...</p>
         </div>
@@ -104,11 +106,12 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-[#f6f6f7] p-4">
+    <div className="min-h-screen flex items-center justify-center bg-transparent p-4 relative">
+      <ParticleBackground />
       <ToastContainer toasts={toasts} onRemove={removeToast} />
       
-      <div className="w-full max-w-md">
-        <div className="bg-white rounded-2xl shadow-sm border border-black/[0.06] p-8">
+      <div className="relative z-10 w-full max-w-md">
+        <div className="bg-white/90 backdrop-blur-sm rounded-2xl shadow-sm border border-black/[0.06] p-8">
           <div className="text-center mb-8">
             <div className="inline-flex items-center justify-center w-14 h-14 rounded-xl bg-[#171717] text-white mb-4">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="w-7 h-7">
