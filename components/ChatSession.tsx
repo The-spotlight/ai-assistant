@@ -40,6 +40,8 @@ import {
   Reply,
   FolderOpen,
   Maximize2,
+  ArrowRight,
+  Search,
 } from 'lucide-react';
 import { useMessageFeedback, MessageFeedbackButton } from '@/components/MessageFeedback';
 import { saveDraft, loadDraft, clearDraft, addToHistory, getHistory } from '@/lib/draft-history';
@@ -68,6 +70,18 @@ type ReplyInfo = {
   role: string;
 };
 
+type ConversationItem = {
+  id: string;
+  title: string | null;
+  updatedAt: string;
+};
+
+type ForwardMessageInfo = {
+  id: string;
+  content: string;
+  role: string;
+};
+
 type ChatSessionProps = {
   deviceId: string;
   conversationId: string;
@@ -81,6 +95,9 @@ type ChatSessionProps = {
   onTemplateUsed?: () => void;
   onToggleImmersiveMode?: () => void;
   isImmersiveMode?: boolean;
+  conversations?: ConversationItem[];
+  currentConversationTitle?: string | null;
+  onForward?: (targetConversationId: string, forwardContent: string) => void;
 };
 
 export default function ChatSession({
@@ -96,6 +113,9 @@ export default function ChatSession({
   onTemplateUsed,
   onToggleImmersiveMode,
   isImmersiveMode = false,
+  conversations = [],
+  currentConversationTitle = null,
+  onForward,
 }: ChatSessionProps) {
   const { settings, themeColors, behavior, model, keyboardShortcuts } = useSettings();
   const bubbleStyle = BUBBLE_STYLES[settings.bubbleStyle];
@@ -143,6 +163,12 @@ export default function ChatSession({
   const [showSkills, setShowSkills] = useState(false);
   const [showTokenStats, setShowTokenStats] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+
+  const [showForwardModal, setShowForwardModal] = useState(false);
+  const [forwardingMessage, setForwardingMessage] = useState<ForwardMessageInfo | null>(null);
+  const [forwardSearchQuery, setForwardSearchQuery] = useState('');
+  const [forwardSuccessToast, setForwardSuccessToast] = useState<string | null>(null);
+  const forwardToastTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   // 分享相关状态
   const [showShareModal, setShowShareModal] = useState(false);
@@ -327,6 +353,69 @@ export default function ChatSession({
       onHighlightCleared();
     }
   }, [onHighlightCleared]);
+
+  const availableConversations = useMemo(() => {
+    return conversations.filter((c) => c.id !== conversationId);
+  }, [conversations, conversationId]);
+
+  const filteredConversations = useMemo(() => {
+    if (!forwardSearchQuery.trim()) {
+      return availableConversations;
+    }
+    const query = forwardSearchQuery.toLowerCase();
+    return availableConversations.filter((c) =>
+      (c.title || '新对话').toLowerCase().includes(query)
+    );
+  }, [availableConversations, forwardSearchQuery]);
+
+  const handleForwardClick = useCallback((message: Message) => {
+    setForwardingMessage({
+      id: message.id,
+      content: message.content,
+      role: message.role,
+    });
+    setForwardSearchQuery('');
+    setShowForwardModal(true);
+  }, []);
+
+  const handleForwardClose = useCallback(() => {
+    setShowForwardModal(false);
+    setForwardingMessage(null);
+    setForwardSearchQuery('');
+  }, []);
+
+  const handleForwardConfirm = useCallback((targetConversation: ConversationItem) => {
+    if (!forwardingMessage || !onForward) {
+      handleForwardClose();
+      return;
+    }
+
+    const sourceTitle = currentConversationTitle || '新对话';
+    const targetTitle = targetConversation.title || '新对话';
+    const roleLabel = forwardingMessage.role === 'user' ? '我' : 'AI';
+    const forwardContent = `--- 转发自：${sourceTitle} ---\n【${roleLabel}】${forwardingMessage.content}`;
+
+    onForward(targetConversation.id, forwardContent);
+
+    setForwardSuccessToast(`已转发到 ${targetTitle}`);
+    if (forwardToastTimerRef.current) {
+      clearTimeout(forwardToastTimerRef.current);
+    }
+    forwardToastTimerRef.current = setTimeout(() => {
+      setForwardSuccessToast(null);
+      forwardToastTimerRef.current = null;
+    }, 1500);
+
+    handleForwardClose();
+  }, [forwardingMessage, onForward, currentConversationTitle, handleForwardClose]);
+
+  useEffect(() => {
+    return () => {
+      if (forwardToastTimerRef.current) {
+        clearTimeout(forwardToastTimerRef.current);
+      }
+    };
+  }, []);
 
   // 导出当前对话
   const handleExport = useCallback(async () => {
@@ -1224,6 +1313,17 @@ export default function ChatSession({
                           {favoriteMessageIds.has(m.id) ? '已收藏' : '收藏'}
                         </button>
                       )}
+                      {!isGlobalRegenerating && (
+                        <button
+                          type="button"
+                          onClick={() => handleForwardClick(m)}
+                          className="inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] text-[#737373] transition-colors hover:bg-[#f5f5f5] hover:text-[#171717]"
+                          title="转发此消息"
+                        >
+                          <ArrowRight className="h-3 w-3" />
+                          转发
+                        </button>
+                      )}
                       {canRegenerate && (
                         <button
                           type="button"
@@ -1244,7 +1344,7 @@ export default function ChatSession({
                   </div>
                 )}
 
-                {/* 用户消息操作栏：编辑按钮 + 引用按钮 */}
+                {/* 用户消息操作栏：编辑按钮 + 引用按钮 + 转发按钮 */}
                 {m.role === 'user' && editingMessageId !== m.id && (
                   <div className="mt-1.5 flex items-center justify-between gap-1 px-1">
                     {msg.createdAt && (() => {
@@ -1265,6 +1365,17 @@ export default function ChatSession({
                         >
                           <Reply className="h-3 w-3" />
                           引用
+                        </button>
+                      )}
+                      {!isLoading && regeneratePhase === 'idle' && (
+                        <button
+                          type="button"
+                          onClick={() => handleForwardClick(m)}
+                          className="inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] text-[#737373] transition-colors hover:bg-[#f5f5f5] hover:text-[#171717]"
+                          title="转发此消息"
+                        >
+                          <ArrowRight className="h-3 w-3" />
+                          转发
                         </button>
                       )}
                       {!isLoading && regeneratePhase === 'idle' && (
@@ -1420,6 +1531,88 @@ export default function ChatSession({
         timestampFormat={behavior.timestampFormat}
         formatTime={formatTime}
       />
+
+      {/* 转发选择对话弹窗 */}
+      {showForwardModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={handleForwardClose}>
+          <div
+            className="w-full max-w-md rounded-2xl border border-black/[0.08] bg-white shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-black/[0.06] p-4">
+              <h3 className="text-lg font-semibold text-[#171717]">选择目标对话</h3>
+              <Button variant="ghost" size="icon" onClick={handleForwardClose} title="关闭">
+                <X className="h-5 w-5" />
+              </Button>
+            </div>
+
+            <div className="p-4">
+              <div className="relative mb-4">
+                <div className="absolute inset-y-0 left-0 flex items-center pl-3">
+                  <Search className="h-4 w-4 text-[#a3a3a3]" />
+                </div>
+                <input
+                  type="text"
+                  value={forwardSearchQuery}
+                  onChange={(e) => setForwardSearchQuery(e.target.value)}
+                  placeholder="搜索对话..."
+                  className="w-full rounded-xl border border-black/[0.08] bg-[#fafafa] py-2 pl-10 pr-4 text-sm focus:outline-none focus:ring-2 focus:ring-[#171717]/20 placeholder:text-[#a3a3a3]"
+                  autoFocus
+                />
+              </div>
+
+              <div className="max-h-80 overflow-y-auto">
+                {availableConversations.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-8">
+                    <Share2 className="h-8 w-8 text-[#d4d4d4] mb-3" />
+                    <p className="text-sm font-medium text-[#737373] mb-1">暂无其他对话</p>
+                    <p className="text-xs text-[#a3a3a3]">请先创建新对话</p>
+                  </div>
+                ) : filteredConversations.length === 0 ? (
+                  <div className="flex flex-col items-center justify-center py-8">
+                    <Search className="h-8 w-8 text-[#d4d4d4] mb-3" />
+                    <p className="text-sm font-medium text-[#737373] mb-1">未找到匹配的对话</p>
+                    <p className="text-xs text-[#a3a3a3]">尝试使用其他关键词</p>
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    {filteredConversations.map((conv) => (
+                      <button
+                        key={conv.id}
+                        type="button"
+                        onClick={() => handleForwardConfirm(conv)}
+                        className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left transition-colors hover:bg-[#f5f5f5]"
+                      >
+                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#f4f4f5] text-[11px] font-semibold text-[#525252]">
+                          💬
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-medium text-[#171717]">
+                            {conv.title?.trim() || '新对话'}
+                          </p>
+                          <p className="truncate text-xs text-[#a3a3a3]">
+                            {formatRelativeTime(conv.updatedAt)}
+                          </p>
+                        </div>
+                        <ArrowRight className="h-4 w-4 text-[#a3a3a3]" />
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 转发成功提示 */}
+      {forwardSuccessToast && (
+        <div className="fixed bottom-24 left-1/2 z-50 -translate-x-1/2 transform">
+          <div className="rounded-full bg-[#171717] px-6 py-3 text-sm font-medium text-white shadow-lg">
+            {forwardSuccessToast}
+          </div>
+        </div>
+      )}
 
     </div>
   );
