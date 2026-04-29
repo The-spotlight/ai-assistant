@@ -2,10 +2,95 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import mermaid from 'mermaid';
-import { ZoomIn, ZoomOut } from 'lucide-react';
+import { ZoomIn, ZoomOut, AlertCircle, CheckCircle } from 'lucide-react';
 
 interface MermaidRendererProps {
   code: string;
+}
+
+function sanitizeMermaidCode(code: string): string {
+  let sanitized = code.trim();
+  
+  sanitized = sanitized.replace(/&lt;/g, '<');
+  sanitized = sanitized.replace(/&gt;/g, '>');
+  sanitized = sanitized.replace(/&amp;/g, '&');
+  sanitized = sanitized.replace(/&quot;/g, '"');
+  sanitized = sanitized.replace(/&#39;/g, "'");
+  
+  sanitized = sanitized.replace(/\\n/g, '\n');
+  sanitized = sanitized.replace(/\\t/g, '\t');
+  sanitized = sanitized.replace(/\\r/g, '\r');
+  
+  sanitized = sanitized.replace(/`([^`]+)`/g, '$1');
+  
+  sanitized = sanitized.replace(/\[(\s*)\]/g, '[ ]');
+  
+  sanitized = sanitized.replace(/\(\s*\)/g, '()');
+  
+  sanitized = sanitized.replace(/\{\s*\}/g, '{}');
+  
+  sanitized = sanitized.replace(/\|\s*\|/g, '| |');
+  
+  sanitized = sanitized.replace(/;\s*$/gm, ';');
+  
+  sanitized = sanitized.replace(/\n{3,}/g, '\n\n');
+  
+  sanitized = sanitized.replace(/^\s*\n/gm, '');
+  
+  sanitized = sanitized.replace(/<br\s*\/?>/gi, '\n');
+  sanitized = sanitized.replace(/<p>/gi, '');
+  sanitized = sanitized.replace(/<\/p>/gi, '\n');
+  
+  sanitized = sanitized.replace(/<[^>]+>/g, '');
+  
+  sanitized = sanitized.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
+  
+  const lines = sanitized.split('\n');
+  const cleanedLines = lines.map((line, index) => {
+    let cleaned = line;
+    
+    if (!cleaned.includes('graph') && 
+        !cleaned.includes('flowchart') && 
+        !cleaned.includes('sequenceDiagram') && 
+        !cleaned.includes('classDiagram') &&
+        !cleaned.includes('stateDiagram') &&
+        !cleaned.includes('journey') &&
+        !cleaned.includes('gantt') &&
+        !cleaned.includes('pie') &&
+        index > 0) {
+      cleaned = cleaned.replace(/^\s+/, '');
+    }
+    
+    return cleaned;
+  });
+  
+  return cleanedLines.join('\n').trim();
+}
+
+function validateMermaidSyntax(code: string): { valid: boolean; errors: string[] } {
+  const errors: string[] = [];
+  
+  if (!code.includes('graph') && !code.includes('flowchart')) {
+    errors.push('缺少graph或flowchart声明');
+  }
+  
+  const nodePattern = /^[\w_-]+(\s*-->\s*[\w_-]+)?/gm;
+  const nodes = code.match(nodePattern);
+  
+  const arrowPattern = /-->/g;
+  const arrows = code.match(arrowPattern);
+  
+  if (!arrows || arrows.length === 0) {
+    errors.push('缺少箭头连接 -->');
+  }
+  
+  const quotesPattern = /"/g;
+  const quotes = code.match(quotesPattern);
+  if (quotes && quotes.length % 2 !== 0) {
+    errors.push('引号未正确配对');
+  }
+  
+  return { valid: errors.length === 0, errors };
 }
 
 export default function MermaidRenderer({ code }: MermaidRendererProps) {
@@ -15,6 +100,8 @@ export default function MermaidRenderer({ code }: MermaidRendererProps) {
   const [scale, setScale] = useState(1);
   const [isExpanded, setIsExpanded] = useState(false);
   const [hoveredElement, setHoveredElement] = useState<string | null>(null);
+  const [isValid, setIsValid] = useState<boolean | null>(null);
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
 
   useEffect(() => {
     mermaid.initialize({
@@ -35,8 +122,16 @@ export default function MermaidRenderer({ code }: MermaidRendererProps) {
         fontFamily: 'Inter, sans-serif',
         backgroundColor: '#ffffff',
       },
+      securityLevel: 'loose',
+      maxTextSize: 50000,
     });
   }, []);
+
+  useEffect(() => {
+    const validation = validateMermaidSyntax(code);
+    setIsValid(validation.valid);
+    setValidationErrors(validation.errors);
+  }, [code]);
 
   useEffect(() => {
     const renderMermaid = async () => {
@@ -44,12 +139,21 @@ export default function MermaidRenderer({ code }: MermaidRendererProps) {
       
       try {
         setError(null);
-        const { svg } = await mermaid.render('mermaid-chart', code);
+        
+        const sanitizedCode = sanitizeMermaidCode(code);
+        console.log('Sanitized Mermaid code:', sanitizedCode);
+        
+        const { svg } = await mermaid.render('mermaid-chart', sanitizedCode);
+        
         if (!containerRef.current) return;
+        
         containerRef.current.innerHTML = svg;
         setIsLoaded(true);
+        setIsValid(true);
       } catch (err) {
-        setError((err as Error).message);
+        const errorMsg = (err as Error).message;
+        setError(errorMsg);
+        setIsValid(false);
         console.error('Mermaid rendering error:', err);
       }
     };
@@ -74,31 +178,27 @@ export default function MermaidRenderer({ code }: MermaidRendererProps) {
       
       nodes.forEach((node) => {
         const nodeElement = node as HTMLElement;
-        const label = nodeElement.querySelector('.label text')?.textContent || '';
+        const labelElement = nodeElement.querySelector('.label text') || 
+                           nodeElement.querySelector('text');
+        const label = labelElement?.textContent || '';
         const rect = nodeElement.querySelector('rect');
         
         if (rect) {
           const rectElement = rect as SVGElement;
           
           if (label.includes('开始') || label.includes('结束') || 
-              label.includes('Start') || label.includes('End') ||
-              label.includes('开始') || label.includes('结束')) {
+              label.includes('Start') || label.includes('End')) {
             rectElement.setAttribute('fill', '#22c55e');
             rectElement.setAttribute('stroke', '#16a34a');
             rectElement.setAttribute('rx', '20');
             rectElement.setAttribute('ry', '20');
           } else if (label.includes('？') || label.includes('是否') || 
-                     label.includes('是否') || label.includes('判断') ||
-                     label.includes('if') || label.includes('else') ||
-                     label.includes('条件')) {
+                     label.includes('判断') || label.includes('if') || 
+                     label.includes('else') || label.includes('条件')) {
             rectElement.setAttribute('fill', '#f97316');
             rectElement.setAttribute('stroke', '#ea580c');
             rectElement.setAttribute('rx', '0');
             rectElement.setAttribute('ry', '0');
-            const width = parseFloat(rectElement.getAttribute('width') || '0');
-            const height = parseFloat(rectElement.getAttribute('height') || '0');
-            rectElement.setAttribute('width', String(height));
-            rectElement.setAttribute('height', String(width));
           } else {
             rectElement.setAttribute('fill', '#3b82f6');
             rectElement.setAttribute('stroke', '#2563eb');
@@ -107,7 +207,7 @@ export default function MermaidRenderer({ code }: MermaidRendererProps) {
           }
         }
         
-        const textElements = nodeElement.querySelectorAll('.label text');
+        const textElements = nodeElement.querySelectorAll('.label text, text');
         textElements.forEach((text) => {
           const textElement = text as SVGElement;
           textElement.setAttribute('fill', '#ffffff');
@@ -119,7 +219,9 @@ export default function MermaidRenderer({ code }: MermaidRendererProps) {
       edges.forEach((edge) => {
         const edgeElement = edge as SVGElement;
         edgeElement.setAttribute('stroke', '#6b7280');
-        edgeElement.setAttribute('fill', '#6b7280');
+        if (edgeElement.hasAttribute('fill')) {
+          edgeElement.setAttribute('fill', '#6b7280');
+        }
       });
     };
 
@@ -206,8 +308,35 @@ export default function MermaidRenderer({ code }: MermaidRendererProps) {
   if (error) {
     return (
       <div className="my-4 p-4 bg-red-50 border border-red-200 rounded-lg">
-        <p className="text-red-600 text-sm font-medium">Mermaid渲染错误:</p>
-        <p className="text-red-500 text-xs mt-1">{error}</p>
+        <div className="flex items-start gap-2">
+          <AlertCircle className="w-5 h-5 text-red-500 mt-0.5 flex-shrink-0" />
+          <div>
+            <p className="text-red-600 text-sm font-medium">Mermaid渲染错误</p>
+            <p className="text-red-500 text-xs mt-1 break-words">{error}</p>
+            <div className="mt-3 p-3 bg-white rounded border border-red-100">
+              <p className="text-xs text-red-600 font-medium mb-2">原始代码:</p>
+              <pre className="text-xs text-red-700 whitespace-pre-wrap break-all">{code}</pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (isValid === false && !error && validationErrors.length > 0) {
+    return (
+      <div className="my-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+        <div className="flex items-start gap-2">
+          <AlertCircle className="w-5 h-5 text-yellow-500 mt-0.5 flex-shrink-0" />
+          <div>
+            <p className="text-yellow-700 text-sm font-medium">Mermaid语法验证失败</p>
+            <ul className="text-yellow-600 text-xs mt-1 list-disc list-inside">
+              {validationErrors.map((err, index) => (
+                <li key={index}>{err}</li>
+              ))}
+            </ul>
+          </div>
+        </div>
       </div>
     );
   }
@@ -215,9 +344,14 @@ export default function MermaidRenderer({ code }: MermaidRendererProps) {
   return (
     <div className="my-4">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-medium text-[#6b7280] uppercase tracking-wider">
-          Mermaid 流程图
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium text-[#6b7280] uppercase tracking-wider">
+            Mermaid 流程图
+          </span>
+          {isValid === true && !error && (
+            <CheckCircle className="w-3.5 h-3.5 text-green-500" />
+          )}
+        </div>
         <div className="flex items-center gap-2">
           <button
             onClick={handleZoomOut}
@@ -245,7 +379,7 @@ export default function MermaidRenderer({ code }: MermaidRendererProps) {
       <div className="relative rounded-lg border border-[rgba(0,0,0,0.08)] overflow-hidden bg-white">
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className="w-full h-full p-4 flex items-center justify-center cursor-pointer"
+          className="w-full h-full p-4 flex items-center justify-center cursor-pointer min-h-[200px]"
         >
           <div
             className={`transition-all duration-300 ease-out ${isExpanded ? 'fixed inset-4 z-50 flex items-center justify-center bg-white/95 backdrop-blur-sm rounded-lg shadow-2xl' : ''}`}
