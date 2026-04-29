@@ -14,7 +14,7 @@ interface UserDropdownProps {
   onOpenUserStats: () => void;
 }
 
-type DrawerContent = 'appearance' | 'model' | null;
+type DrawerContent = 'appearance' | null;
 
 type ActivityStatus = 'active' | 'occasional' | 'rare';
 
@@ -126,6 +126,7 @@ function renderAvatar(avatar: string) {
 export default function UserDropdown({ onOpenSettings, onOpenUserStats }: UserDropdownProps) {
   const [drawerContent, setDrawerContent] = useState<DrawerContent>(null);
   const [showEditor, setShowEditor] = useState(false);
+  const [showModelModal, setShowModelModal] = useState(false);
   const [profile, setProfile] = useState<UserProfile>(loadUserProfile());
   const activityStatus = useUserActivity();
   const { appearance, updateAppearance } = useSettings();
@@ -148,7 +149,7 @@ export default function UserDropdown({ onOpenSettings, onOpenUserStats }: UserDr
   };
 
   const handleModelClick = () => {
-    setDrawerContent('model');
+    setShowModelModal(true);
   };
 
   const handleDrawerClose = () => {
@@ -332,27 +333,24 @@ export default function UserDropdown({ onOpenSettings, onOpenUserStats }: UserDr
       </Dropdown>
 
       <Drawer
-        title={
-          drawerContent === 'appearance' ? '外观设置' :
-          drawerContent === 'model' ? '模型设置' : ''
-        }
+        title="外观设置"
         placement="right"
         onClose={handleDrawerClose}
         open={drawerContent !== null}
         width={360}
       >
-        {drawerContent === 'appearance' && (
-          <AppearanceSettings onClose={handleDrawerClose} />
-        )}
-        {drawerContent === 'model' && (
-          <ModelSettings onClose={handleDrawerClose} />
-        )}
+        <AppearanceSettings onClose={handleDrawerClose} />
       </Drawer>
 
       <UserProfileEditor
         open={showEditor}
         onClose={() => setShowEditor(false)}
         onProfileChange={handleProfileChange}
+      />
+
+      <ModelSettings
+        open={showModelModal}
+        onClose={() => setShowModelModal(false)}
       />
     </>
   );
