@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { useLayoutContext } from '@/components/ResizablePanel';
-import { ExportFormat } from '@/lib/export';
+import { ExportFormat, CsvContentFormat } from '@/lib/export';
 
 type ConversationRow = {
   id: string;
@@ -141,6 +141,7 @@ export default function ExportPanel({
   
   // 新增状态
   const [exportFormat, setExportFormat] = useState<ExportFormat>('markdown');
+  const [csvContentFormat, setCsvContentFormat] = useState<CsvContentFormat>('markdown');
   const [customTitle, setCustomTitle] = useState<string>('');
   const [customNote, setCustomNote] = useState<string>('');
   const [includeMetadata, setIncludeMetadata] = useState<boolean>(true);
@@ -281,6 +282,7 @@ export default function ExportPanel({
       const exportData = {
         ids: Array.from(selectedIds),
         format: exportFormat,
+        csvContentFormat: exportFormat === 'csv' ? csvContentFormat : undefined,
         customTitle: customTitle.trim() || undefined,
         customNote: customNote.trim() || undefined,
         includeMetadata,
@@ -330,7 +332,7 @@ export default function ExportPanel({
     } finally {
       setIsExporting(false);
     }
-  }, [selectedIds, deviceId, isExporting, exportFormat, customTitle, customNote, includeMetadata, selectedMessageIds, expandedConversations]);
+  }, [selectedIds, deviceId, isExporting, exportFormat, csvContentFormat, customTitle, customNote, includeMetadata, selectedMessageIds, expandedConversations]);
 
   const handleExportAll = useCallback(async () => {
     if (isExporting) return;
@@ -339,6 +341,7 @@ export default function ExportPanel({
     try {
       const exportData = {
         format: exportFormat,
+        csvContentFormat: exportFormat === 'csv' ? csvContentFormat : undefined,
         customTitle: customTitle.trim() || undefined,
         customNote: customNote.trim() || undefined,
         includeMetadata
@@ -383,7 +386,7 @@ export default function ExportPanel({
     } finally {
       setIsExporting(false);
     }
-  }, [deviceId, isExporting, exportFormat, customTitle, customNote, includeMetadata]);
+  }, [deviceId, isExporting, exportFormat, csvContentFormat, customTitle, customNote, includeMetadata]);
 
   useEffect(() => {
     if (!visible) return;
@@ -414,6 +417,7 @@ export default function ExportPanel({
       setSelectedIds(new Set());
       setSearchQuery('');
       setExportFormat('markdown');
+      setCsvContentFormat('markdown');
       setCustomTitle('');
       setCustomNote('');
       setIncludeMetadata(true);
@@ -484,6 +488,33 @@ export default function ExportPanel({
               ))}
             </div>
           </div>
+
+          {/* CSV 内容格式（仅当选择 CSV 时显示） */}
+          {exportFormat === 'csv' && (
+            <div>
+              <label className="block text-xs font-medium text-[#737373] mb-1.5">消息内容格式</label>
+              <div className="flex gap-2">
+                {(['markdown', 'plaintext'] as CsvContentFormat[]).map((format) => (
+                  <button
+                    key={format}
+                    type="button"
+                    onClick={() => setCsvContentFormat(format)}
+                    className={`px-3 py-1.5 text-xs rounded-lg transition-colors ${csvContentFormat === format
+                      ? 'bg-[#171717] text-white'
+                      : 'bg-[#f5f5f5] text-[#737373] hover:bg-[#e5e5e5]'
+                      }`}
+                  >
+                    {format === 'markdown' ? '保留 Markdown' : '纯文本'}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-1.5 text-[10px] text-[#a3a3a3]">
+                {csvContentFormat === 'markdown' 
+                  ? '保留代码块、表格、粗体等格式，内容更完整但在 CSV 中显示较复杂' 
+                  : '去除 Markdown 格式，只保留纯文本内容，在 CSV 中更易阅读'}
+              </p>
+            </div>
+          )}
 
           {/* 自定义标题 */}
           <div>

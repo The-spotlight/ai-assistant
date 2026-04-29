@@ -21,6 +21,7 @@ interface ConversationExport {
 }
 
 export type ExportFormat = 'markdown' | 'plaintext' | 'json' | 'csv';
+export type CsvContentFormat = 'markdown' | 'plaintext';
 
 export interface ExportOptions {
   format: ExportFormat;
@@ -28,6 +29,7 @@ export interface ExportOptions {
   selectedMessageIds?: string[];
   customTitle?: string;
   customNote?: string;
+  csvContentFormat?: CsvContentFormat;
 }
 
 function sanitizeFilename(name: string): string {
@@ -188,11 +190,76 @@ function getRoleLabel(role: string): string {
   return role;
 }
 
+function markdownToPlainText(markdown: string): string {
+  if (!markdown) return '';
+  
+  let text = markdown;
+  
+  // 移除代码块 ```...``` 或 `\`\`\`lang ... \`\`\``
+  text = text.replace(/```[\s\S]*?```/g, '');
+  
+  // 移除行内代码 `...`
+  text = text.replace(/`([^`]+)`/g, '$1');
+  
+  // 移除标题 #
+  text = text.replace(/^#{1,6}\s+/gm, '');
+  
+  // 移除粗体 **...** 或 __...__
+  text = text.replace(/\*\*([^*]+)\*\*/g, '$1');
+  text = text.replace(/__([^_]+)__/g, '$1');
+  
+  // 移除斜体 *...* 或 _..._
+  text = text.replace(/\*([^*]+)\*/g, '$1');
+  text = text.replace(/_([^_]+)_/g, '$1');
+  
+  // 移除链接 [...](...)，保留链接文本
+  text = text.replace(/\[([^\]]+)\]\([^)]+\)/g, '$1');
+  
+  // 移除图片 ![]()
+  text = text.replace(/!\[[^\]]*\]\([^)]+\)/g, '');
+  
+  // 处理表格：简化为纯文本
+  text = text.replace(/\|.+\|/g, (match) => {
+    // 移除边框线 |---|---|
+    if (/^[-|\s]+$/.test(match)) return '';
+    // 用空格分隔单元格内容
+    return match.replace(/^\||\|$/g, '').split('|').map(cell => cell.trim()).filter(Boolean).join(' ');
+  });
+  
+  // 移除引用 >
+  text = text.replace(/^>\s*/gm, '');
+  
+  // 移除列表标记 - * + 1. 等
+  text = text.replace(/^[-*+]\s+/gm, '');
+  text = text.replace(/^\d+\.\s+/gm, '');
+  
+  // 移除分隔线 --- *** ___
+  text = text.replace(/^[-*_]{3,}$/gm, '');
+  
+  // 移除删除线 ~~...~~
+  text = text.replace(/~~([^~]+)~~/g, '$1');
+  
+  // 处理多余的空行：连续多个空行变成一个空行
+  text = text.replace(/\n{3,}/g, '\n\n');
+  
+  // 移除行首行尾的空白
+  text = text.trim();
+  
+  return text;
+}
+
+function getMessageContentForCsv(message: Message, contentFormat?: CsvContentFormat): string {
+  if (contentFormat === 'plaintext') {
+    return markdownToPlainText(message.content);
+  }
+  return message.content;
+}
+
 export function conversationToCsv(
   conversation: ConversationExport,
   options?: ExportOptions
 ): string {
-  const { selectedMessageIds, customTitle } = options || {};
+  const { selectedMessageIds, customTitle, csvContentFormat } = options || {};
   
   const title = customTitle?.trim() || conversation.title?.trim() || '未命名对话';
   const messages = getFilteredMessages(conversation, selectedMessageIds);
@@ -206,8 +273,9 @@ export function conversationToCsv(
     const roleLabel = getRoleLabel(message.role);
     const createdAt = formatCsvDate(message.createdAt);
     const tokenCount = message.totalTokens ?? '';
+    const content = getMessageContentForCsv(message, csvContentFormat);
     
-    csv += `${escapeCsvField(title)},${escapeCsvField(messageIndex)},${escapeCsvField(roleLabel)},${escapeCsvField(message.content)},${escapeCsvField(createdAt)},${escapeCsvField(tokenCount)}\n`;
+    csv += `${escapeCsvField(title)},${escapeCsvField(messageIndex)},${escapeCsvField(roleLabel)},${escapeCsvField(content)},${escapeCsvField(createdAt)},${escapeCsvField(tokenCount)}\n`;
   });
   
   return csv;
@@ -222,7 +290,7 @@ export function conversationsToCsv(
   csv += '对话标题,消息序号,发送者,消息内容,创建时间,Token数量\n';
   
   conversations.forEach((conversation, convIndex) => {
-    const { selectedMessageIds, customTitle } = options || {};
+    const { selectedMessageIds, customTitle, csvContentFormat } = options || {};
     
     const title = customTitle?.trim() || conversation.title?.trim() || '未命名对话';
     const messages = getFilteredMessages(conversation, selectedMessageIds);
@@ -234,8 +302,9 @@ export function conversationsToCsv(
       const roleLabel = getRoleLabel(message.role);
       const createdAt = formatCsvDate(message.createdAt);
       const tokenCount = message.totalTokens ?? '';
+      const content = getMessageContentForCsv(message, csvContentFormat);
       
-      csv += `${escapeCsvField(title)},${escapeCsvField(messageIndex)},${escapeCsvField(roleLabel)},${escapeCsvField(message.content)},${escapeCsvField(createdAt)},${escapeCsvField(tokenCount)}\n`;
+      csv += `${escapeCsvField(title)},${escapeCsvField(messageIndex)},${escapeCsvField(roleLabel)},${escapeCsvField(content)},${escapeCsvField(createdAt)},${escapeCsvField(tokenCount)}\n`;
     });
     
     if (convIndex < conversations.length - 1) {
