@@ -7,6 +7,15 @@ export interface QuickCommand {
   example: string;
 }
 
+export interface CustomCommand {
+  id: string;
+  name: string;
+  command: string;
+  description: string;
+  prompt: string;
+  icon: string;
+}
+
 export const QUICK_COMMANDS: QuickCommand[] = [
   {
     name: '搜索',
@@ -54,22 +63,23 @@ export const QUICK_COMMANDS: QuickCommand[] = [
     description: '执行 Python 代码',
     toolName: 'code_execution',
     parameterName: 'code',
-    example: '/执行 print(\"Hello World\")',
+    example: '/执行 print("Hello World")',
   },
 ];
 
-export function parseQuickCommand(input: string): { 
-  command: QuickCommand | null; 
+export function parseQuickCommand(input: string, customCommands: CustomCommand[] = []): { 
+  systemCommand: QuickCommand | null; 
+  customCommand: CustomCommand | null;
   argument: string | null;
   isCommand: boolean;
 } {
   if (!input.startsWith('/')) {
-    return { command: null, argument: null, isCommand: false };
+    return { systemCommand: null, customCommand: null, argument: null, isCommand: false };
   }
 
   const commandPart = input.slice(1);
   if (!commandPart) {
-    return { command: null, argument: null, isCommand: true };
+    return { systemCommand: null, customCommand: null, argument: null, isCommand: true };
   }
 
   const firstSpaceIndex = commandPart.indexOf(' ');
@@ -80,30 +90,55 @@ export function parseQuickCommand(input: string): {
     ? null 
     : commandPart.slice(firstSpaceIndex + 1);
 
-  const matchedCommand = QUICK_COMMANDS.find(
+  const matchedSystemCommand = QUICK_COMMANDS.find(
+    (cmd) => cmd.command === commandName || cmd.name === commandName
+  );
+
+  if (matchedSystemCommand) {
+    return { 
+      systemCommand: matchedSystemCommand, 
+      customCommand: null,
+      argument: argument,
+      isCommand: true
+    };
+  }
+
+  const matchedCustomCommand = customCommands.find(
     (cmd) => cmd.command === commandName || cmd.name === commandName
   );
 
   return { 
-    command: matchedCommand || null, 
+    systemCommand: null, 
+    customCommand: matchedCustomCommand || null,
     argument: argument,
     isCommand: true
   };
 }
 
-export function getMatchingCommands(input: string): QuickCommand[] {
+export function getMatchingCommands(input: string, customCommands: CustomCommand[] = []): {
+  systemCommands: QuickCommand[];
+  customCommands: CustomCommand[];
+} {
   if (!input.startsWith('/')) {
-    return [];
+    return { systemCommands: [], customCommands: [] };
   }
 
   const commandPart = input.slice(1).trim().toLowerCase();
   if (!commandPart) {
-    return QUICK_COMMANDS;
+    return { systemCommands: QUICK_COMMANDS, customCommands };
   }
 
-  return QUICK_COMMANDS.filter(
+  const matchedSystemCommands = QUICK_COMMANDS.filter(
     (cmd) => 
       cmd.command.toLowerCase().startsWith(commandPart) ||
       cmd.name.toLowerCase().startsWith(commandPart)
   );
+
+  const matchedCustomCommands = customCommands.filter(
+    (cmd) => 
+      cmd.command.toLowerCase().startsWith(commandPart) ||
+      cmd.name.toLowerCase().startsWith(commandPart)
+  );
+
+  return { systemCommands: matchedSystemCommands, customCommands: matchedCustomCommands };
 }

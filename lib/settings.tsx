@@ -783,6 +783,15 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   );
 }
 
+export interface CustomCommand {
+  id: string;
+  name: string;
+  command: string;
+  description: string;
+  prompt: string;
+  icon: string;
+}
+
 export interface UserProfile {
   nickname: string;
   avatar: string;
@@ -802,9 +811,110 @@ export const PRESET_AVATARS = {
   avatar6: { name: '头像6', emoji: '👨‍💼' },
 } as const;
 
+export const COMMAND_ICONS = {
+  wand2: { name: '魔法棒', emoji: '🪄' },
+  pencil: { name: '铅笔', emoji: '✏️' },
+  sparkles: { name: '闪光', emoji: '✨' },
+  rocket: { name: '火箭', emoji: '🚀' },
+  lightbulb: { name: '灯泡', emoji: '💡' },
+  brain: { name: '大脑', emoji: '🧠' },
+  book: { name: '书本', emoji: '📚' },
+  messageSquare: { name: '对话', emoji: '💬' },
+  clipboard: { name: '剪贴板', emoji: '📋' },
+  star: { name: '星星', emoji: '⭐' },
+  heart: { name: '爱心', emoji: '❤️' },
+  thumbsUp: { name: '点赞', emoji: '👍' },
+  refreshCw: { name: '刷新', emoji: '🔄' },
+  settings: { name: '设置', emoji: '⚙️' },
+  zap: { name: '闪电', emoji: '⚡' },
+  target: { name: '目标', emoji: '🎯' },
+} as const;
+
+export type CommandIconKey = keyof typeof COMMAND_ICONS;
+
 export type PresetAvatarKey = keyof typeof PRESET_AVATARS;
 
 const USER_PROFILE_STORAGE_KEY = 'ai-assistant-user-profile';
+
+const CUSTOM_COMMANDS_STORAGE_KEY = 'ai-assistant-custom-commands';
+
+export function loadCustomCommands(): CustomCommand[] {
+  if (typeof window === 'undefined') {
+    return [];
+  }
+
+  try {
+    const stored = localStorage.getItem(CUSTOM_COMMANDS_STORAGE_KEY);
+    if (!stored) {
+      return [];
+    }
+
+    const parsed = JSON.parse(stored) as CustomCommand[];
+    return parsed.filter(validateCustomCommand);
+  } catch {
+    return [];
+  }
+}
+
+export function saveCustomCommands(commands: CustomCommand[]): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(CUSTOM_COMMANDS_STORAGE_KEY, JSON.stringify(commands));
+  } catch {
+    console.warn('Failed to save custom commands');
+  }
+}
+
+export function validateCustomCommand(command: unknown): command is CustomCommand {
+  if (typeof command !== 'object' || command === null) {
+    return false;
+  }
+
+  const c = command as any;
+
+  if (typeof c.id !== 'string' || !c.id) return false;
+  if (typeof c.name !== 'string' || !c.name.trim()) return false;
+  if (typeof c.command !== 'string' || !c.command.trim()) return false;
+  if (typeof c.description !== 'string') return false;
+  if (typeof c.prompt !== 'string' || !c.prompt.trim()) return false;
+  if (typeof c.icon !== 'string') return false;
+
+  return true;
+}
+
+export function generateCommandId(): string {
+  return `cmd_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+}
+
+export function addCustomCommand(command: Omit<CustomCommand, 'id'>): CustomCommand[] {
+  const commands = loadCustomCommands();
+  const newCommand: CustomCommand = {
+    ...command,
+    id: generateCommandId(),
+  };
+  const updated = [...commands, newCommand];
+  saveCustomCommands(updated);
+  return updated;
+}
+
+export function updateCustomCommand(id: string, updates: Partial<CustomCommand>): CustomCommand[] {
+  const commands = loadCustomCommands();
+  const updated = commands.map((c) => {
+    if (c.id === id) {
+      return { ...c, ...updates };
+    }
+    return c;
+  });
+  saveCustomCommands(updated);
+  return updated;
+}
+
+export function removeCustomCommand(id: string): CustomCommand[] {
+  const commands = loadCustomCommands();
+  const updated = commands.filter((c) => c.id !== id);
+  saveCustomCommands(updated);
+  return updated;
+}
 
 export function loadUserProfile(): UserProfile {
   if (typeof window === 'undefined') {

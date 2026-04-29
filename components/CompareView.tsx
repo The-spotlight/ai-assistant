@@ -18,8 +18,9 @@ import {
   parseQuickCommand,
   getMatchingCommands,
 } from '@/lib/tools/quick-commands';
-import type { QuickCommand } from '@/lib/tools/quick-commands';
+import type { QuickCommand, CustomCommand } from '@/lib/tools/quick-commands';
 import { DEFAULT_OPENROUTER_MODEL_ID } from '@/lib/openrouter-models';
+import { loadCustomCommands } from '@/lib/settings';
 
 type MessageWithTokens = Message & {
   promptTokens?: number;
@@ -369,33 +370,41 @@ function InputArea({
   placeholder: string;
 }) {
   const [showSkills, setShowSkills] = useState(false);
-  const [matchingCommands, setMatchingCommands] = useState<QuickCommand[]>([]);
+  const [customCommands] = useState<CustomCommand[]>(() => loadCustomCommands());
+  const [matchingSystemCommands, setMatchingSystemCommands] = useState<QuickCommand[]>([]);
+  const [matchingCustomCommands, setMatchingCustomCommands] = useState<CustomCommand[]>([]);
   const [selectedCommandIndex, setSelectedCommandIndex] = useState(0);
 
-  const showQuickCommands = matchingCommands.length > 0;
+  const showQuickCommands = matchingSystemCommands.length > 0 || matchingCustomCommands.length > 0;
 
   useEffect(() => {
-    const matching = getMatchingCommands(input);
-    setMatchingCommands(matching);
-    if (matching.length > 0 && selectedCommandIndex >= matching.length) {
+    const { systemCommands, customCommands: matchedCustomCommands } = getMatchingCommands(input, customCommands);
+    setMatchingSystemCommands(systemCommands);
+    setMatchingCustomCommands(matchedCustomCommands);
+    const totalCommands = systemCommands.length + matchedCustomCommands.length;
+    if (totalCommands > 0 && selectedCommandIndex >= totalCommands) {
       setSelectedCommandIndex(0);
     }
-  }, [input, selectedCommandIndex]);
+  }, [input, customCommands, selectedCommandIndex]);
 
-  const handleQuickCommandSelect = useCallback((command: QuickCommand) => {
+  const handleSystemCommandSelect = useCallback((command: QuickCommand) => {
     // 这里简化处理，直接设置输入框
+  }, []);
+
+  const handleCustomCommandSelect = useCallback((command: CustomCommand) => {
+    // 这里简化处理
   }, []);
 
   const handleFormSubmit = useCallback(
     (e: React.FormEvent) => {
       e.preventDefault();
-      const { command, argument } = parseQuickCommand(input);
-      if (command && argument !== null) {
+      const { systemCommand, argument } = parseQuickCommand(input, customCommands);
+      if (systemCommand && argument !== null) {
         // 简化处理，直接提交
       }
       handleSubmit(e);
     },
-    [input, handleSubmit]
+    [input, customCommands, handleSubmit]
   );
 
   return (
@@ -408,10 +417,15 @@ function InputArea({
         />
         <QuickCommandPanel
           visible={showQuickCommands}
-          commands={matchingCommands}
-          onSelectCommand={handleQuickCommandSelect}
+          systemCommands={matchingSystemCommands}
+          customCommands={matchingCustomCommands}
+          onSelectSystemCommand={handleSystemCommandSelect}
+          onSelectCustomCommand={handleCustomCommandSelect}
           selectedIndex={selectedCommandIndex}
-          onClose={() => setMatchingCommands([])}
+          onClose={() => {
+            setMatchingSystemCommands([]);
+            setMatchingCustomCommands([]);
+          }}
         />
 
         <form
