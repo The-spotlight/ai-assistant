@@ -22,7 +22,7 @@ import {
   getMatchingCommands,
 } from '@/lib/tools/quick-commands';
 import type { QuickCommand, CustomCommand } from '@/lib/tools/quick-commands';
-import { useSettings, FONT_SIZES, BUBBLE_STYLES, loadCustomCommands, type TimestampFormatKey, type SendShortcutKey } from '@/lib/settings';
+import { useSettings, FONT_SIZES, BUBBLE_STYLES, loadCustomCommands, type TimestampFormatKey, type SendShortcutKey, getCustomModelById, decryptApiKey } from '@/lib/settings';
 import {
   RefreshCw,
   Bookmark,
@@ -103,14 +103,31 @@ export default function ChatSession({
 
   const replyingToRef = useRef<ReplyInfo | null>(null);
 
-  const chatBody = useMemo(() => ({ 
-    model: model.defaultModel || modelId, 
-    conversationId, 
-    deviceId,
-    temperature: model.temperature,
-    maxTokens: model.maxTokens,
-    streaming: model.streaming,
-  }), [model.defaultModel, modelId, conversationId, deviceId, model.temperature, model.maxTokens, model.streaming]);
+  const chatBody = useMemo(() => {
+    const currentModelId = model.defaultModel || modelId;
+    const body: Record<string, unknown> = {
+      model: currentModelId,
+      conversationId,
+      deviceId,
+      temperature: model.temperature,
+      maxTokens: model.maxTokens,
+      streaming: model.streaming,
+    };
+
+    if (currentModelId.startsWith('custom_')) {
+      const customModel = getCustomModelById(currentModelId);
+      if (customModel) {
+        body.customModelConfig = {
+          baseUrl: customModel.baseUrl,
+          apiKey: decryptApiKey(customModel.encryptedApiKey),
+          modelId: customModel.modelId,
+          provider: customModel.provider,
+        };
+      }
+    }
+
+    return body;
+  }, [model.defaultModel, modelId, conversationId, deviceId, model.temperature, model.maxTokens, model.streaming]);
 
   const {
     messages,

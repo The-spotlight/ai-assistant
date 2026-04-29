@@ -8,6 +8,13 @@ import { prisma } from '@/lib/db';
 
 export const runtime = 'nodejs';
 
+interface CustomModelConfig {
+  baseUrl: string;
+  apiKey: string;
+  modelId: string;
+  provider?: string;
+}
+
 const openrouter = createOpenAI({
   baseURL: 'https://openrouter.ai/api/v1',
   apiKey: process.env.OPENROUTER_API_KEY,
@@ -17,6 +24,22 @@ const openrouter = createOpenAI({
     'X-Title': 'AI Assistant',
   },
 });
+
+function createCustomModelClient(config: CustomModelConfig) {
+  const baseUrl = config.baseUrl.endsWith('/')
+    ? config.baseUrl.slice(0, -1)
+    : config.baseUrl;
+
+  return createOpenAI({
+    baseURL: baseUrl,
+    apiKey: config.apiKey,
+    compatibility: 'compatible',
+    headers: {
+      'HTTP-Referer': process.env.OPENROUTER_SITE_URL ?? 'http://localhost:3000',
+      'X-Title': 'AI Assistant',
+    },
+  });
+}
 
 const SYSTEM_PROMPT = `你是一个强大的 AI 助手，具备以下能力：
 
@@ -271,7 +294,7 @@ export async function GET() {
 
 export async function POST(req: Request) {
   const body = await req.json();
-  const { messages, model: bodyModel, conversationId: bodyConversationId, deviceId: bodyDeviceId, replyTo, temperature, maxTokens, streaming, id } = body as {
+  const { messages, model: bodyModel, conversationId: bodyConversationId, deviceId: bodyDeviceId, replyTo, temperature, maxTokens, streaming, id, customModelConfig } = body as {
     messages?: CoreMessage[];
     model?: string;
     conversationId?: string;
@@ -281,6 +304,7 @@ export async function POST(req: Request) {
     maxTokens?: number;
     streaming?: boolean;
     id?: string;
+    customModelConfig?: CustomModelConfig;
   };
 
   const conversationId = bodyConversationId || id;
@@ -310,7 +334,11 @@ export async function POST(req: Request) {
     });
   }
 
-  const modelId = resolveOpenRouterModelId(bodyModel, process.env.OPENROUTER_MODEL);
+  const isCustomModel = !!customModelConfig;
+  const modelId = isCustomModel 
+    ? (bodyModel || `custom_${customModelConfig?.modelId}`)
+    : resolveOpenRouterModelId(bodyModel, process.env.OPENROUTER_MODEL);
+  
   await prisma.conversation.update({
     where: { id: conversationId },
     data: { modelId },
@@ -348,10 +376,18 @@ export async function POST(req: Request) {
     }
   }
 
-  const useTools = !isFreeTierOpenRouterModel(modelId);
+  const useTools = !isCustomModel && !isFreeTierOpenRouterModel(modelId);
+
+  const modelClient = isCustomModel && customModelConfig 
+    ? createCustomModelClient(customModelConfig)
+    : openrouter;
+  
+  const actualModelId = isCustomModel && customModelConfig 
+    ? customModelConfig.modelId 
+    : modelId;
 
   const result = streamText({
-    model: openrouter(modelId),
+    model: modelClient(actualModelId),
     system: useTools ? SYSTEM_PROMPT : SYSTEM_PROMPT_NO_TOOLS,
     messages: coreMessages,
     temperature: validTemperature,
