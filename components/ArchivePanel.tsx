@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { useLayoutContext } from '@/components/ResizablePanel';
+import { message } from 'antd';
 
 function IconX(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -59,6 +60,23 @@ function IconSearch(props: React.SVGProps<SVGSVGElement>) {
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden {...props}>
       <circle cx="11" cy="11" r="8" />
       <path d="m21 21-4.35-4.35" />
+    </svg>
+  );
+}
+
+function IconLoader(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      {...props}
+    >
+      <path d="M21 12a9 9 0 1 1-6.219-8.56" />
     </svg>
   );
 }
@@ -163,6 +181,10 @@ export default function ArchivePanel({
   const [showBatchDeleteConfirm, setShowBatchDeleteConfirm] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
 
+  const [isBatchRestoreLoading, setIsBatchRestoreLoading] = useState<boolean>(false);
+  const [isBatchDeleteLoading, setIsBatchDeleteLoading] = useState<boolean>(false);
+  const [isDeleteLoading, setIsDeleteLoading] = useState<boolean>(false);
+
   const filteredArchiveList = useMemo(() => {
     if (!searchQuery.trim()) return archiveList;
     const query = searchQuery.toLowerCase();
@@ -198,10 +220,20 @@ export default function ArchivePanel({
   }, []);
 
   const handleBatchRestore = useCallback(async () => {
-    if (selectedIds.size === 0) return;
-    await onBatchRestore(Array.from(selectedIds));
-    setSelectedIds(new Set());
-  }, [selectedIds, onBatchRestore]);
+    if (selectedIds.size === 0 || isBatchRestoreLoading) return;
+    
+    setIsBatchRestoreLoading(true);
+    try {
+      await onBatchRestore(Array.from(selectedIds));
+      message.success(`已成功恢复 ${selectedIds.size} 个会话`);
+      setSelectedIds(new Set());
+    } catch (error) {
+      console.error('批量恢复失败:', error);
+      message.error('恢复失败，请稍后重试');
+    } finally {
+      setIsBatchRestoreLoading(false);
+    }
+  }, [selectedIds, onBatchRestore, isBatchRestoreLoading]);
 
   const handleBatchDeleteClick = useCallback(() => {
     if (selectedIds.size === 0) return;
@@ -209,11 +241,21 @@ export default function ArchivePanel({
   }, [selectedIds]);
 
   const handleConfirmBatchDelete = useCallback(async () => {
-    if (selectedIds.size === 0) return;
-    await onBatchDeletePermanently(Array.from(selectedIds));
-    setSelectedIds(new Set());
-    setShowBatchDeleteConfirm(false);
-  }, [selectedIds, onBatchDeletePermanently]);
+    if (selectedIds.size === 0 || isBatchDeleteLoading) return;
+    
+    setIsBatchDeleteLoading(true);
+    try {
+      await onBatchDeletePermanently(Array.from(selectedIds));
+      message.success(`已成功删除 ${selectedIds.size} 个会话`);
+      setSelectedIds(new Set());
+      setShowBatchDeleteConfirm(false);
+    } catch (error) {
+      console.error('批量删除失败:', error);
+      message.error('删除失败，请稍后重试');
+    } finally {
+      setIsBatchDeleteLoading(false);
+    }
+  }, [selectedIds, onBatchDeletePermanently, isBatchDeleteLoading]);
 
   useEffect(() => {
     if (!visible) return;
@@ -263,12 +305,21 @@ export default function ArchivePanel({
   };
 
   const handleConfirmDelete = async () => {
-    if (deletingConversationId) {
+    if (!deletingConversationId || isDeleteLoading) return;
+    
+    setIsDeleteLoading(true);
+    try {
       await onDeletePermanently(deletingConversationId);
+      message.success('已成功删除会话');
+      setShowDeleteConfirm(false);
+      setDeletingConversationId(null);
+      setDeletingTitle('');
+    } catch (error) {
+      console.error('删除失败:', error);
+      message.error('删除失败，请稍后重试');
+    } finally {
+      setIsDeleteLoading(false);
     }
-    setShowDeleteConfirm(false);
-    setDeletingConversationId(null);
-    setDeletingTitle('');
   };
 
   if (!visible) return null;
@@ -372,10 +423,19 @@ export default function ArchivePanel({
                 <button
                   type="button"
                   onClick={handleBatchRestore}
-                  className="flex h-7 items-center gap-1 rounded-lg px-2.5 text-xs font-medium text-[#171717] transition-colors hover:bg-[#f5f5f5]"
+                  disabled={isBatchRestoreLoading}
+                  className={`flex h-7 items-center gap-1 rounded-lg px-2.5 text-xs font-medium transition-colors ${
+                    isBatchRestoreLoading
+                      ? 'cursor-not-allowed opacity-60'
+                      : 'text-[#171717] hover:bg-[#f5f5f5]'
+                  }`}
                 >
-                  <IconRotateCcw className="h-3.5 w-3.5" />
-                  恢复
+                  {isBatchRestoreLoading ? (
+                    <IconLoader className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <IconRotateCcw className="h-3.5 w-3.5" />
+                  )}
+                  {isBatchRestoreLoading ? '恢复中...' : '恢复'}
                 </button>
                 <button
                   type="button"
@@ -500,16 +560,29 @@ export default function ArchivePanel({
                   setDeletingConversationId(null);
                   setDeletingTitle('');
                 }}
-                className="rounded-lg px-4 py-2 text-sm text-[#737373] transition-colors hover:bg-[#f5f5f5] hover:text-[#171717]"
+                disabled={isDeleteLoading}
+                className={`rounded-lg px-4 py-2 text-sm transition-colors ${
+                  isDeleteLoading
+                    ? 'cursor-not-allowed opacity-60'
+                    : 'text-[#737373] hover:bg-[#f5f5f5] hover:text-[#171717]'
+                }`}
               >
                 取消
               </button>
               <button
                 type="button"
                 onClick={handleConfirmDelete}
-                className="rounded-lg bg-[#171717] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-black"
+                disabled={isDeleteLoading}
+                className={`rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors flex items-center gap-1.5 ${
+                  isDeleteLoading
+                    ? 'cursor-not-allowed opacity-60'
+                    : 'bg-[#171717] hover:bg-black'
+                }`}
               >
-                彻底删除
+                {isDeleteLoading && (
+                  <IconLoader className="h-4 w-4 animate-spin" />
+                )}
+                {isDeleteLoading ? '删除中...' : '彻底删除'}
               </button>
             </div>
           </div>
@@ -532,16 +605,29 @@ export default function ArchivePanel({
                 onClick={() => {
                   setShowBatchDeleteConfirm(false);
                 }}
-                className="rounded-lg px-4 py-2 text-sm text-[#737373] transition-colors hover:bg-[#f5f5f5] hover:text-[#171717]"
+                disabled={isBatchDeleteLoading}
+                className={`rounded-lg px-4 py-2 text-sm transition-colors ${
+                  isBatchDeleteLoading
+                    ? 'cursor-not-allowed opacity-60'
+                    : 'text-[#737373] hover:bg-[#f5f5f5] hover:text-[#171717]'
+                }`}
               >
                 取消
               </button>
               <button
                 type="button"
                 onClick={handleConfirmBatchDelete}
-                className="rounded-lg bg-[#171717] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-black"
+                disabled={isBatchDeleteLoading}
+                className={`rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors flex items-center gap-1.5 ${
+                  isBatchDeleteLoading
+                    ? 'cursor-not-allowed opacity-60'
+                    : 'bg-[#171717] hover:bg-black'
+                }`}
               >
-                彻底删除
+                {isBatchDeleteLoading && (
+                  <IconLoader className="h-4 w-4 animate-spin" />
+                )}
+                {isBatchDeleteLoading ? '删除中...' : '彻底删除'}
               </button>
             </div>
           </div>

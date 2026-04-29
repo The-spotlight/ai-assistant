@@ -2,6 +2,7 @@
 
 import type { Message } from 'ai';
 import { useCallback, useEffect, useState, useRef, useMemo } from 'react';
+import { message } from 'antd';
 import {
   DndContext,
   closestCenter,
@@ -1472,14 +1473,24 @@ export default function Home() {
     e.stopPropagation();
     if (!deviceId) return;
 
-    const r = await fetch(`/api/archive/${id}/archive`, {
-      method: 'PATCH',
-      headers: { 'x-device-id': deviceId },
-    });
+    try {
+      const r = await fetch(`/api/archive/${id}/archive`, {
+        method: 'PATCH',
+        headers: { 'x-device-id': deviceId },
+      });
 
-    if (r.ok) {
-      await loadArchive(deviceId);
-      await loadConversations(deviceId);
+      if (r.ok) {
+        await loadArchive(deviceId);
+        await loadConversations(deviceId);
+        message.success('会话已存档');
+      } else {
+        const err = await r.json().catch(() => ({}));
+        throw new Error((err as { error?: string }).error ?? '存档失败');
+      }
+    } catch (error) {
+      console.error('存档失败:', error);
+      message.error(error instanceof Error ? error.message : '存档失败，请稍后重试');
+      throw error;
     }
   }, [deviceId, loadArchive, loadConversations]);
 
@@ -1496,6 +1507,9 @@ export default function Home() {
     if (r.ok) {
       await loadArchive(deviceId);
       await loadConversations(deviceId);
+    } else {
+      const err = await r.json().catch(() => ({}));
+      throw new Error((err as { error?: string }).error ?? '恢复失败');
     }
   }, [deviceId, loadArchive, loadConversations]);
 
@@ -1510,6 +1524,9 @@ export default function Home() {
 
     if (r.ok) {
       await loadArchive(deviceId);
+    } else {
+      const err = await r.json().catch(() => ({}));
+      throw new Error((err as { error?: string }).error ?? '删除失败');
     }
   }, [deviceId, loadArchive]);
 
@@ -1529,6 +1546,9 @@ export default function Home() {
     if (r.ok) {
       await loadArchive(deviceId);
       await loadConversations(deviceId);
+    } else {
+      const err = await r.json().catch(() => ({}));
+      throw new Error((err as { error?: string }).error ?? '批量恢复失败');
     }
   }, [deviceId, loadArchive, loadConversations]);
 
@@ -1547,6 +1567,9 @@ export default function Home() {
 
     if (r.ok) {
       await loadArchive(deviceId);
+    } else {
+      const err = await r.json().catch(() => ({}));
+      throw new Error((err as { error?: string }).error ?? '批量删除失败');
     }
   }, [deviceId, loadArchive]);
 
