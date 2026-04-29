@@ -1295,8 +1295,8 @@ export default function ChatSession({
                             disabled={isGlobalRegenerating}
                             className={`inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] transition-colors ${
                               isGlobalRegenerating
-                                ? 'text-[#a3a3a3] cursor-not-allowed opacity-0 group-hover:opacity-100'
-                                : 'text-[#737373] hover:bg-[#f5f5f5] hover:text-[#171717] opacity-0 group-hover:opacity-100'
+                                ? 'text-[#a3a3a3] cursor-not-allowed'
+                                : 'text-[#737373] hover:bg-[#f5f5f5] hover:text-[#171717]'
                             }`}
                             title="朗读此消息"
                           >

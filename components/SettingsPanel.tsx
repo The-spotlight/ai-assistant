@@ -45,6 +45,13 @@ import { downloadBlob } from '@/lib/export';
 import { Button } from '@/components/ui/Button';
 import { CloseButton } from '@/components/ui/Dialog';
 import { Switch } from '@/components/ui/Switch';
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/Select';
 import { toast } from 'react-toastify';
 import {
   Settings,
@@ -867,6 +874,8 @@ function VoiceTab({
   availableVoices: SpeechVoice[];
   updateSpeechSettings: <K extends keyof typeof speechSettings>(key: K, value: typeof speechSettings[K]) => void;
 }) {
+  const selectedVoice = availableVoices.find(v => v.voiceURI === speechSettings.voiceURI);
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-3">
@@ -874,25 +883,31 @@ function VoiceTab({
           <span className="text-sm font-medium text-[#171717]">朗读语音</span>
         </div>
         {availableVoices.length > 0 ? (
-          <div className="flex flex-col gap-2">
-            {availableVoices.map((voice) => {
-              const isSelected = speechSettings.voiceURI === voice.voiceURI;
-              return (
-                <Button
-                  key={voice.voiceURI}
-                  variant={isSelected ? 'default' : 'outline'}
-                  className="w-full justify-start"
-                  onClick={() => updateSpeechSettings('voiceURI', voice.voiceURI)}
-                >
-                  {isSelected && <Check className="h-4 w-4" />}
-                  <div className="flex flex-col items-start">
-                    <span>{voice.name}</span>
-                    <span className="text-[10px] opacity-60">{voice.lang}</span>
+          <Select
+            value={speechSettings.voiceURI || undefined}
+            onValueChange={(value) => updateSpeechSettings('voiceURI', value)}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="请选择语音">
+                {selectedVoice ? (
+                  <div className="flex items-center gap-2">
+                    <span>{selectedVoice.name}</span>
+                    <span className="text-[10px] text-[#a3a3a3]">({selectedVoice.lang})</span>
                   </div>
-                </Button>
-              );
-            })}
-          </div>
+                ) : null}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent>
+              {availableVoices.map((voice) => (
+                <SelectItem key={voice.voiceURI} value={voice.voiceURI}>
+                  <div className="flex items-center justify-between w-full">
+                    <span>{voice.name}</span>
+                    <span className="text-[10px] text-[#a3a3a3] ml-2">{voice.lang}</span>
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         ) : (
           <div className="flex flex-col gap-2 p-4 border border-black/[0.08] rounded-lg bg-[#fafafa]">
             <p className="text-sm text-[#737373]">正在加载可用语音列表...</p>
@@ -908,25 +923,28 @@ function VoiceTab({
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-[#171717]">朗读速度</span>
         </div>
-        <div className="flex gap-2">
-          {(Object.entries(SPEECH_RATE_OPTIONS) as unknown as [SpeechRateKey, typeof SPEECH_RATE_OPTIONS[SpeechRateKey]][]).map(
-            ([key, option]) => {
-              const numKey = typeof key === 'string' ? (Number(key) as SpeechRateKey) : key;
-              const isSelected = speechSettings.rate === numKey;
-              return (
-                <Button
-                  key={String(key)}
-                  variant={isSelected ? 'default' : 'outline'}
-                  className="flex-1"
-                  onClick={() => updateSpeechSettings('rate', numKey)}
-                >
-                  {isSelected && <Check className="h-4 w-4" />}
-                  <span>{option.name}</span>
-                </Button>
-              );
-            }
-          )}
-        </div>
+        <Select
+          value={String(speechSettings.rate)}
+          onValueChange={(value) => {
+            const numKey = Number(value) as SpeechRateKey;
+            updateSpeechSettings('rate', numKey);
+          }}
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="请选择语速">
+              {SPEECH_RATE_OPTIONS[speechSettings.rate]?.name}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {(Object.entries(SPEECH_RATE_OPTIONS) as [string, typeof SPEECH_RATE_OPTIONS[SpeechRateKey]][]).map(
+              ([key, option]) => (
+                <SelectItem key={key} value={key}>
+                  {option.name}
+                </SelectItem>
+              )
+            )}
+          </SelectContent>
+        </Select>
         <p className="text-[11px] text-[#a3a3a3]">
           1.0 倍为正常速度，数值越大速度越快
         </p>
