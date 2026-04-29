@@ -13,6 +13,13 @@ import {
   DEFAULT_SETTINGS,
   DEFAULT_BEHAVIOR_SETTINGS,
   DEFAULT_MODEL_SETTINGS,
+  COMMAND_ICONS,
+  loadCustomCommands,
+  saveCustomCommands,
+  addCustomCommand,
+  updateCustomCommand,
+  removeCustomCommand,
+  type CustomCommand,
   type ThemeKey,
   type CodeHighlightKey,
   type FontSizeKey,
@@ -49,9 +56,13 @@ import {
   Save,
   Edit3,
   Keyboard,
+  Plus,
+  X,
+  Sparkles,
+  ChevronDown,
 } from 'lucide-react';
 
-type SettingsTab = 'behavior' | 'keyboard' | 'presets' | 'data';
+type SettingsTab = 'behavior' | 'keyboard' | 'presets' | 'data' | 'commands';
 
 interface SettingsPanelProps {
   visible: boolean;
@@ -63,6 +74,7 @@ const TAB_CONFIG: { key: SettingsTab; label: string; icon: React.ComponentType<{
   { key: 'behavior', label: '行为', icon: MousePointerClick },
   { key: 'keyboard', label: '快捷键', icon: Keyboard },
   { key: 'presets', label: '配置方案', icon: Layers },
+  { key: 'commands', label: '快捷指令', icon: Sparkles },
   { key: 'data', label: '数据管理', icon: Database },
 ];
 
@@ -89,9 +101,82 @@ export default function SettingsPanel({ visible, onClose, onTrashEmptied }: Sett
   } = useSettings();
 
   const showSuccessMessage = toast.success;
+  const errorMessage = toast.error;
 
   const [activeTab, setActiveTab] = useState<SettingsTab>('behavior');
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+
+  const [customCommands, setCustomCommands] = useState<CustomCommand[]>([]);
+  const [showCommandDialog, setShowCommandDialog] = useState(false);
+  const [editingCommand, setEditingCommand] = useState<CustomCommand | null>(null);
+  const [commandForm, setCommandForm] = useState({
+    name: '',
+    command: '',
+    description: '',
+    prompt: '',
+    icon: 'wand2',
+  });
+  const [showIconPicker, setShowIconPicker] = useState(false);
+
+  useEffect(() => {
+    if (visible && activeTab === 'commands') {
+      setCustomCommands(loadCustomCommands());
+    }
+  }, [visible, activeTab]);
+
+  const handleOpenCreateDialog = () => {
+    setEditingCommand(null);
+    setCommandForm({
+      name: '',
+      command: '',
+      description: '',
+      prompt: '',
+      icon: 'wand2',
+    });
+    setShowCommandDialog(true);
+  };
+
+  const handleOpenEditDialog = (command: CustomCommand) => {
+    setEditingCommand(command);
+    setCommandForm({
+      name: command.name,
+      command: command.command,
+      description: command.description,
+      prompt: command.prompt,
+      icon: command.icon,
+    });
+    setShowCommandDialog(true);
+  };
+
+  const handleSaveCommand = () => {
+    if (!commandForm.name.trim() || !commandForm.command.trim() || !commandForm.prompt.trim()) {
+      errorMessage('请填写必填字段');
+      return;
+    }
+
+    if (!editingCommand) {
+      const updated = addCustomCommand(commandForm);
+      setCustomCommands(updated);
+      showSuccessMessage('指令创建成功');
+    } else {
+      const updated = updateCustomCommand(editingCommand.id, commandForm);
+      setCustomCommands(updated);
+      showSuccessMessage('指令更新成功');
+    }
+    setShowCommandDialog(false);
+  };
+
+  const handleDeleteCommand = (id: string) => {
+    const updated = removeCustomCommand(id);
+    setCustomCommands(updated);
+    showSuccessMessage('指令已删除');
+  };
+
+  const handleResetCommands = () => {
+    saveCustomCommands([]);
+    setCustomCommands([]);
+    showSuccessMessage('已清空所有自定义指令');
+  };
 
   useEffect(() => {
     if (!visible) {
@@ -231,6 +316,15 @@ export default function SettingsPanel({ visible, onClose, onTrashEmptied }: Sett
               }}
             />
           )}
+          {activeTab === 'commands' && (
+            <CommandsTab
+              commands={customCommands}
+              onCreateCommand={handleOpenCreateDialog}
+              onEditCommand={handleOpenEditDialog}
+              onDeleteCommand={handleDeleteCommand}
+              onReset={handleResetCommands}
+            />
+          )}
           {activeTab === 'data' && (
             <DataTab
               appearance={appearance}
@@ -243,6 +337,140 @@ export default function SettingsPanel({ visible, onClose, onTrashEmptied }: Sett
             />
           )}
         </div>
+
+        {showCommandDialog && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50">
+            <div className="mx-4 w-full max-w-md rounded-2xl border border-black/[0.08] bg-white p-5 shadow-lg">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-sm font-medium text-[#171717]">
+                  {editingCommand ? '编辑指令' : '新增指令'}
+                </h3>
+                <button
+                  type="button"
+                  onClick={() => setShowCommandDialog(false)}
+                  className="flex h-8 w-8 items-center justify-center rounded-md text-[#808080] transition-colors hover:bg-[#ebebeb] hover:text-[#171717]"
+                  aria-label="关闭"
+                >
+                  ×
+                </button>
+              </div>
+
+              <div className="flex flex-col gap-4">
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm text-[#525252]">图标</label>
+                  <div className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setShowIconPicker(!showIconPicker)}
+                      className="flex items-center gap-3 w-full p-3 border border-black/[0.08] rounded-lg hover:bg-[#fafafa] transition-colors"
+                    >
+                      <span className="text-2xl">
+                        {COMMAND_ICONS[commandForm.icon as keyof typeof COMMAND_ICONS]?.emoji || '✨'}
+                      </span>
+                      <span className="text-sm text-[#737373]">
+                        {COMMAND_ICONS[commandForm.icon as keyof typeof COMMAND_ICONS]?.name || '选择图标'}
+                      </span>
+                      <ChevronDown className="h-4 w-4 ml-auto text-[#a3a3a3]" />
+                    </button>
+
+                    {showIconPicker && (
+                      <div className="absolute z-10 top-full left-0 right-0 mt-2 max-h-48 overflow-y-auto p-2 border border-black/[0.08] bg-white rounded-lg shadow-lg">
+                        <div className="grid grid-cols-4 gap-2">
+                          {(Object.entries(COMMAND_ICONS) as [string, { name: string; emoji: string }][]).map(
+                            ([key, icon]) => (
+                              <button
+                                key={key}
+                                type="button"
+                                onClick={() => {
+                                  setCommandForm((prev) => ({ ...prev, icon: key }));
+                                  setShowIconPicker(false);
+                                }}
+                                className={`flex flex-col items-center gap-1 p-2 rounded-lg transition-colors ${
+                                  commandForm.icon === key
+                                    ? 'bg-[#f0f0f0] ring-2 ring-[#171717]'
+                                    : 'hover:bg-[#fafafa]'
+                                }`}
+                                title={icon.name}
+                              >
+                                <span className="text-xl">{icon.emoji}</span>
+                                <span className="text-[10px] text-[#737373]">{icon.name}</span>
+                              </button>
+                            )
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm text-[#525252]">指令名称 <span className="text-[#dc2626]">*</span></label>
+                  <input
+                    type="text"
+                    value={commandForm.name}
+                    onChange={(e) => setCommandForm((prev) => ({ ...prev, name: e.target.value }))}
+                    placeholder="例如：润色"
+                    className="w-full px-3 py-2 border border-black/[0.08] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#171717]/20"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm text-[#525252]">触发词 <span className="text-[#dc2626]">*</span></label>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-[#737373]">/</span>
+                    <input
+                      type="text"
+                      value={commandForm.command}
+                      onChange={(e) => setCommandForm((prev) => ({ ...prev, command: e.target.value }))}
+                      placeholder="runse"
+                      className="flex-1 px-3 py-2 border border-black/[0.08] rounded-lg text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#171717]/20"
+                    />
+                  </div>
+                  <p className="text-[10px] text-[#a3a3a3]">输入 /触发词 即可唤起此指令</p>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm text-[#525252]">描述</label>
+                  <input
+                    type="text"
+                    value={commandForm.description}
+                    onChange={(e) => setCommandForm((prev) => ({ ...prev, description: e.target.value }))}
+                    placeholder="简短描述此指令的作用"
+                    className="w-full px-3 py-2 border border-black/[0.08] rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#171717]/20"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <label className="text-sm text-[#525252]">预设提示词 <span className="text-[#dc2626]">*</span></label>
+                  <textarea
+                    value={commandForm.prompt}
+                    onChange={(e) => setCommandForm((prev) => ({ ...prev, prompt: e.target.value }))}
+                    placeholder="当用户触发此指令时，发送给 AI 的预设提示词"
+                    rows={4}
+                    className="w-full px-3 py-2 border border-black/[0.08] rounded-lg text-sm resize-none focus:outline-none focus:ring-2 focus:ring-[#171717]/20"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-2 mt-5">
+                <button
+                  type="button"
+                  onClick={() => setShowCommandDialog(false)}
+                  className="flex-1 py-2.5 text-sm font-medium text-[#525252] bg-white border border-black/[0.08] rounded-lg hover:bg-[#fafafa] transition-colors"
+                >
+                  取消
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSaveCommand}
+                  className="flex-1 py-2.5 text-sm font-medium text-white bg-[#171717] rounded-lg hover:bg-black transition-colors"
+                >
+                  {editingCommand ? '保存修改' : '创建指令'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div className="px-4 py-3 border-t border-black/[0.06] bg-[#fafafa] shrink-0">
           {showResetConfirm ? (
@@ -1630,6 +1858,105 @@ function PresetsTab({
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+interface CommandsTabProps {
+  commands: CustomCommand[];
+  onCreateCommand: () => void;
+  onEditCommand: (command: CustomCommand) => void;
+  onDeleteCommand: (id: string) => void;
+  onReset: () => void;
+}
+
+function CommandsTab({
+  commands,
+  onCreateCommand,
+  onEditCommand,
+  onDeleteCommand,
+}: CommandsTabProps) {
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-medium text-[#171717]">自定义快捷指令</span>
+          <span className="text-[11px] text-[#a3a3a3]">
+            聊天时输入 / 快速唤起
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={onCreateCommand}
+          className="flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-sm font-medium text-white bg-[#171717] hover:bg-black transition-colors"
+        >
+          <Plus className="h-4 w-4" />
+          <span>新增指令</span>
+        </button>
+      </div>
+
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-medium text-[#171717]">指令列表</span>
+          {commands.length > 0 && (
+            <span className="text-[11px] text-[#a3a3a3]">
+              共 {commands.length} 个指令
+            </span>
+          )}
+        </div>
+
+        {commands.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-8 px-4 border border-dashed border-black/[0.08] rounded-lg">
+            <Sparkles className="h-8 w-8 text-[#d4d4d4] mb-2" />
+            <p className="text-sm text-[#737373]">暂无自定义指令</p>
+            <p className="text-[11px] text-[#a3a3a3] mt-1">
+              点击上方按钮创建你的第一个指令
+            </p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {commands.map((command) => (
+              <div
+                key={command.id}
+                className="flex items-center gap-3 p-3 rounded-lg border border-black/[0.08] bg-white hover:bg-[#fafafa] transition-colors"
+              >
+                <span className="text-xl">{COMMAND_ICONS[command.icon as keyof typeof COMMAND_ICONS]?.emoji || '✨'}</span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-[#171717]">{command.name}</span>
+                    <kbd className="rounded border border-[rgba(0,0,0,0.08)] bg-[#fafafa] px-1.5 py-0.5 font-mono text-[10px] text-[#525252]">
+                      /{command.command}
+                    </kbd>
+                  </div>
+                  <p className="text-[11px] text-[#737373] mt-0.5 truncate">
+                    {command.description || command.prompt.slice(0, 50) + (command.prompt.length > 50 ? '...' : '')}
+                  </p>
+                </div>
+                <div className="flex items-center gap-1 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => onEditCommand(command)}
+                    className="p-2 text-[#525252] hover:text-[#171717] hover:bg-[#f5f5f5] rounded-lg transition-colors"
+                    aria-label="编辑"
+                    title="编辑指令"
+                  >
+                    <Edit3 className="h-4 w-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onDeleteCommand(command.id)}
+                    className="p-2 text-[#525252] hover:text-[#dc2626] hover:bg-[#fef2f2] rounded-lg transition-colors"
+                    aria-label="删除"
+                    title="删除指令"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

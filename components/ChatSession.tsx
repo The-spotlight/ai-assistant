@@ -21,8 +21,8 @@ import {
   parseQuickCommand,
   getMatchingCommands,
 } from '@/lib/tools/quick-commands';
-import type { QuickCommand } from '@/lib/tools/quick-commands';
-import { useSettings, FONT_SIZES, BUBBLE_STYLES, type TimestampFormatKey, type SendShortcutKey } from '@/lib/settings';
+import type { QuickCommand, CustomCommand } from '@/lib/tools/quick-commands';
+import { useSettings, FONT_SIZES, BUBBLE_STYLES, loadCustomCommands, type TimestampFormatKey, type SendShortcutKey } from '@/lib/settings';
 import {
   RefreshCw,
   Bookmark,
@@ -140,10 +140,18 @@ export default function ChatSession({
   const [showShareModal, setShowShareModal] = useState(false);
   const [showShareHistory, setShowShareHistory] = useState(false);
 
+  // 自定义指令列表
+  const [customCommands, setCustomCommands] = useState<CustomCommand[]>([]);
+
   // 快捷指令相关状态
-  const [matchingCommands, setMatchingCommands] = useState<QuickCommand[]>([]);
+  const [matchingSystemCommands, setMatchingSystemCommands] = useState<QuickCommand[]>([]);
+  const [matchingCustomCommands, setMatchingCustomCommands] = useState<CustomCommand[]>([]);
   const [selectedCommandIndex, setSelectedCommandIndex] = useState(0);
-  const showQuickCommands = matchingCommands.length > 0;
+  const showQuickCommands = matchingSystemCommands.length > 0 || matchingCustomCommands.length > 0;
+
+  useEffect(() => {
+    setCustomCommands(loadCustomCommands());
+  }, []);
 
   // 编辑消息相关状态
   const [editingMessageId, setEditingMessageId] = useState<string | null>(null);
@@ -409,44 +417,64 @@ export default function ChatSession({
     }
   }, []);
 
-  // 处理快捷指令选择
-  const handleQuickCommandSelect = useCallback((command: QuickCommand) => {
+  // 处理系统快捷指令选择
+  const handleSystemCommandSelect = useCallback((command: QuickCommand) => {
     setInput(`/${command.command} `);
-    setMatchingCommands([]);
+    setMatchingSystemCommands([]);
+    setMatchingCustomCommands([]);
     setSelectedCommandIndex(0);
     inputRef.current?.focus();
   }, [setInput]);
 
+  // 处理自定义指令选择
+  const handleCustomCommandSelect = useCallback((command: CustomCommand) => {
+    append({ role: 'user', content: command.prompt });
+    setInput('');
+    setMatchingSystemCommands([]);
+    setMatchingCustomCommands([]);
+    setSelectedCommandIndex(0);
+    setReplyingTo(null);
+    replyingToRef.current = null;
+  }, [append, setInput]);
+
   // 监听输入变化，更新匹配的快捷指令
   useEffect(() => {
-    const matching = getMatchingCommands(input);
-    setMatchingCommands(matching);
-    if (matching.length > 0 && selectedCommandIndex >= matching.length) {
+    const { systemCommands, customCommands: matchedCustomCommands } = getMatchingCommands(input, customCommands);
+    setMatchingSystemCommands(systemCommands);
+    setMatchingCustomCommands(matchedCustomCommands);
+    const totalCommands = systemCommands.length + matchedCustomCommands.length;
+    if (totalCommands > 0 && selectedCommandIndex >= totalCommands) {
       setSelectedCommandIndex(0);
     }
-  }, [input, selectedCommandIndex]);
+  }, [input, customCommands, selectedCommandIndex]);
 
   // 自定义表单提交处理
   const handleFormSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
     
     // 解析快捷指令
-    const { command, argument } = parseQuickCommand(input);
+    const { systemCommand, customCommand, argument } = parseQuickCommand(input, customCommands);
     
     // 保存引用信息，然后清除 UI 状态
     const hasReply = !!replyingToRef.current;
     
-    if (command && argument !== null) {
-      // 如果是有效的快捷指令且有参数（有空格），即使参数为空字符串也允许提交
+    if (systemCommand && argument !== null) {
+      // 如果是有效的系统快捷指令且有参数（有空格），即使参数为空字符串也允许提交
       // 这样用户可以搜索空格或其他特殊字符
-      const prompt = generateQuickCommandPrompt(command, argument);
+      const prompt = generateQuickCommandPrompt(systemCommand, argument);
       append({ role: 'user', content: prompt });
       setInput('');
       // 提交后清除引用状态
       setReplyingTo(null);
       replyingToRef.current = null;
-    } else if (command && argument === null) {
-      // 如果有指令但没有参数（没有空格，如 /搜索），不提交，等待用户输入参数
+    } else if (customCommand) {
+      // 如果是自定义指令，直接发送预设提示词
+      append({ role: 'user', content: customCommand.prompt });
+      setInput('');
+      setReplyingTo(null);
+      replyingToRef.current = null;
+    } else if (systemCommand && argument === null) {
+      // 如果有系统指令但没有参数（没有空格，如 /搜索），不提交，等待用户输入参数
       return;
     } else {
       // 正常提交
@@ -458,36 +486,45 @@ export default function ChatSession({
         replyingToRef.current = null;
       }, 0);
     }
-  }, [input, append, setInput, handleSubmit, generateQuickCommandPrompt]);
+  }, [input, customCommands, append, setInput, handleSubmit, generateQuickCommandPrompt]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     // 快捷指令导航
     if (showQuickCommands) {
+      const totalCommands = matchingSystemCommands.length + matchingCustomCommands.length;
       if (e.key === 'ArrowDown') {
         e.preventDefault();
         setSelectedCommandIndex((prev) => 
-          prev < matchingCommands.length - 1 ? prev + 1 : 0
+          prev < totalCommands - 1 ? prev + 1 : 0
         );
         return;
       }
       if (e.key === 'ArrowUp') {
         e.preventDefault();
         setSelectedCommandIndex((prev) => 
-          prev > 0 ? prev - 1 : matchingCommands.length - 1
+          prev > 0 ? prev - 1 : totalCommands - 1
         );
         return;
       }
-      if (e.key === 'Enter' && matchingCommands.length > 0) {
+      if (e.key === 'Enter' && totalCommands > 0) {
         e.preventDefault();
-        const selectedCmd = matchingCommands[selectedCommandIndex];
-        if (selectedCmd) {
-          handleQuickCommandSelect(selectedCmd);
+        if (selectedCommandIndex < matchingSystemCommands.length) {
+          const selectedCmd = matchingSystemCommands[selectedCommandIndex];
+          if (selectedCmd) {
+            handleSystemCommandSelect(selectedCmd);
+          }
+        } else {
+          const selectedCmd = matchingCustomCommands[selectedCommandIndex - matchingSystemCommands.length];
+          if (selectedCmd) {
+            handleCustomCommandSelect(selectedCmd);
+          }
         }
         return;
       }
       if (e.key === 'Escape') {
         e.preventDefault();
-        setMatchingCommands([]);
+        setMatchingSystemCommands([]);
+        setMatchingCustomCommands([]);
         return;
       }
     }
@@ -1169,10 +1206,15 @@ export default function ChatSession({
           />
           <QuickCommandPanel
             visible={showQuickCommands}
-            commands={matchingCommands}
-            onSelectCommand={handleQuickCommandSelect}
+            systemCommands={matchingSystemCommands}
+            customCommands={matchingCustomCommands}
+            onSelectSystemCommand={handleSystemCommandSelect}
+            onSelectCustomCommand={handleCustomCommandSelect}
             selectedIndex={selectedCommandIndex}
-            onClose={() => setMatchingCommands([])}
+            onClose={() => {
+              setMatchingSystemCommands([]);
+              setMatchingCustomCommands([]);
+            }}
           />
 
           {/* 引用预览 */}
