@@ -83,7 +83,20 @@ export function getRecommendedVoices(): SpeechVoice[] {
   if (voices.length === 0) return [];
 
   const result: SpeechVoice[] = [];
-  
+  const addedVoiceURIs = new Set<string>();
+
+  const addVoice = (voice: SpeechSynthesisVoice, displayName: string) => {
+    if (!addedVoiceURIs.has(voice.voiceURI)) {
+      addedVoiceURIs.add(voice.voiceURI);
+      result.push({
+        name: displayName,
+        lang: voice.lang,
+        voiceURI: voice.voiceURI,
+        default: voice.default,
+      });
+    }
+  };
+
   const zhCNVoices = voices.filter(v => v.lang.startsWith('zh-CN'));
   const zhHKVoices = voices.filter(v => v.lang.startsWith('zh-HK') || v.lang.startsWith('zh-TW'));
   const enUSVoices = voices.filter(v => v.lang.startsWith('en-US'));
@@ -91,67 +104,57 @@ export function getRecommendedVoices(): SpeechVoice[] {
 
   const defaultVoice = voices.find(v => v.default);
 
-  if (zhCNVoices.length >= 2) {
-    result.push({
-      name: zhCNVoices[0].name.includes('Male') || zhCNVoices[0].name.includes('男') 
-        ? '中文男声' 
-        : '中文女声 1',
-      lang: zhCNVoices[0].lang,
-      voiceURI: zhCNVoices[0].voiceURI,
-      default: zhCNVoices[0].default,
-    });
-    result.push({
-      name: zhCNVoices[1].name.includes('Male') || zhCNVoices[1].name.includes('男') 
-        ? '中文男声' 
-        : '中文女声 2',
-      lang: zhCNVoices[1].lang,
-      voiceURI: zhCNVoices[1].voiceURI,
-      default: zhCNVoices[1].default,
-    });
-  } else if (zhCNVoices.length === 1) {
-    result.push({
-      name: '中文',
-      lang: zhCNVoices[0].lang,
-      voiceURI: zhCNVoices[0].voiceURI,
-      default: zhCNVoices[0].default,
-    });
+  if (zhCNVoices.length > 0) {
+    const maleVoice = zhCNVoices.find(v => 
+      v.name.toLowerCase().includes('male') || 
+      v.name.includes('男') ||
+      v.name.includes('Xiaoxiao') === false && (
+        v.name.includes('Yunxi') || 
+        v.name.includes('Yunyang') ||
+        v.name.includes('Xiaoyi') === false && v.name.includes('Xiao') === false
+      )
+    );
+
+    const femaleVoice = zhCNVoices.find(v => 
+      v.name.toLowerCase().includes('female') || 
+      v.name.includes('女') ||
+      v.name.includes('Xiaoxiao') ||
+      v.name.includes('Xiaoyi')
+    ) || zhCNVoices.find(v => !maleVoice || v.voiceURI !== maleVoice.voiceURI);
+
+    if (maleVoice) {
+      addVoice(maleVoice, '中文男声');
+    }
+    if (femaleVoice) {
+      addVoice(femaleVoice, '中文女声');
+    }
+
+    if (!maleVoice && !femaleVoice && zhCNVoices[0]) {
+      addVoice(zhCNVoices[0], '中文');
+    }
   }
 
   if (zhHKVoices.length > 0) {
-    result.push({
-      name: '粤语',
-      lang: zhHKVoices[0].lang,
-      voiceURI: zhHKVoices[0].voiceURI,
-      default: zhHKVoices[0].default,
-    });
+    addVoice(zhHKVoices[0], '粤语');
   }
 
   const englishVoices = [...enUSVoices, ...enGBVoices];
   if (englishVoices.length > 0) {
-    result.push({
-      name: '英文女声',
-      lang: englishVoices[0].lang,
-      voiceURI: englishVoices[0].voiceURI,
-      default: englishVoices[0].default,
-    });
+    const femaleEnglish = englishVoices.find(v => 
+      v.name.toLowerCase().includes('female') || 
+      v.name.includes('Samantha') ||
+      v.name.includes('Victoria') ||
+      v.name.includes('Tessa')
+    ) || englishVoices[0];
+    addVoice(femaleEnglish, '英文女声');
   }
 
   if (result.length === 0 && defaultVoice) {
-    result.push({
-      name: '默认语音',
-      lang: defaultVoice.lang,
-      voiceURI: defaultVoice.voiceURI,
-      default: true,
-    });
+    addVoice(defaultVoice, '默认语音');
   }
 
   if (result.length === 0 && voices.length > 0) {
-    result.push({
-      name: voices[0].name,
-      lang: voices[0].lang,
-      voiceURI: voices[0].voiceURI,
-      default: voices[0].default,
-    });
+    addVoice(voices[0], voices[0].name);
   }
 
   return result;
