@@ -947,6 +947,163 @@ export function saveUserProfile(profile: UserProfile): void {
   }
 }
 
+export interface CustomModel {
+  id: string;
+  name: string;
+  encryptedApiKey: string;
+  baseUrl: string;
+  modelId: string;
+  contextWindow: number;
+  provider: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+const CUSTOM_MODELS_STORAGE_KEY = 'ai-assistant-custom-models';
+
+const API_KEY_OBFUSCATION_KEY = 'ai-assistant-obfuscation-key-2024';
+
+function obfuscateApiKey(apiKey: string): string {
+  if (typeof window === 'undefined') return apiKey;
+  try {
+    const keyBytes = new TextEncoder().encode(API_KEY_OBFUSCATION_KEY);
+    const dataBytes = new TextEncoder().encode(apiKey);
+    const result = new Uint8Array(dataBytes.length);
+    for (let i = 0; i < dataBytes.length; i++) {
+      result[i] = dataBytes[i] ^ keyBytes[i % keyBytes.length];
+    }
+    return btoa(String.fromCharCode(...result));
+  } catch {
+    return btoa(apiKey);
+  }
+}
+
+function deobfuscateApiKey(encrypted: string): string {
+  if (typeof window === 'undefined') return '';
+  try {
+    const keyBytes = new TextEncoder().encode(API_KEY_OBFUSCATION_KEY);
+    const decoded = Uint8Array.from(atob(encrypted), (c) => c.charCodeAt(0));
+    const result = new Uint8Array(decoded.length);
+    for (let i = 0; i < decoded.length; i++) {
+      result[i] = decoded[i] ^ keyBytes[i % keyBytes.length];
+    }
+    return new TextDecoder().decode(result);
+  } catch {
+    try {
+      return atob(encrypted);
+    } catch {
+      return '';
+    }
+  }
+}
+
+export function encryptApiKey(apiKey: string): string {
+  return obfuscateApiKey(apiKey);
+}
+
+export function decryptApiKey(encrypted: string): string {
+  return deobfuscateApiKey(encrypted);
+}
+
+export function generateCustomModelId(): string {
+  return `custom_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+}
+
+export function loadCustomModels(): CustomModel[] {
+  if (typeof window === 'undefined') {
+    return [];
+  }
+
+  try {
+    const stored = localStorage.getItem(CUSTOM_MODELS_STORAGE_KEY);
+    if (!stored) {
+      return [];
+    }
+
+    const parsed = JSON.parse(stored) as CustomModel[];
+    return parsed.filter(validateCustomModel);
+  } catch {
+    return [];
+  }
+}
+
+export function saveCustomModels(models: CustomModel[]): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(CUSTOM_MODELS_STORAGE_KEY, JSON.stringify(models));
+  } catch {
+    console.warn('Failed to save custom models');
+  }
+}
+
+export function validateCustomModel(model: unknown): model is CustomModel {
+  if (typeof model !== 'object' || model === null) {
+    return false;
+  }
+
+  const m = model as any;
+
+  if (typeof m.id !== 'string' || !m.id) return false;
+  if (typeof m.name !== 'string' || !m.name.trim()) return false;
+  if (typeof m.encryptedApiKey !== 'string') return false;
+  if (typeof m.baseUrl !== 'string' || !m.baseUrl.trim()) return false;
+  if (typeof m.modelId !== 'string' || !m.modelId.trim()) return false;
+  if (typeof m.contextWindow !== 'number' || m.contextWindow < 1) return false;
+  if (typeof m.provider !== 'string') return false;
+
+  return true;
+}
+
+export function addCustomModel(model: Omit<CustomModel, 'id' | 'createdAt' | 'updatedAt' | 'encryptedApiKey'> & { apiKey: string }): CustomModel[] {
+  const models = loadCustomModels();
+  const now = new Date().toISOString();
+  const newModel: CustomModel = {
+    id: generateCustomModelId(),
+    name: model.name,
+    encryptedApiKey: encryptApiKey(model.apiKey),
+    baseUrl: model.baseUrl,
+    modelId: model.modelId,
+    contextWindow: model.contextWindow,
+    provider: model.provider,
+    createdAt: now,
+    updatedAt: now,
+  };
+  const updated = [...models, newModel];
+  saveCustomModels(updated);
+  return updated;
+}
+
+export function updateCustomModel(id: string, updates: Partial<Omit<CustomModel, 'id' | 'createdAt'>> & { apiKey?: string }): CustomModel[] {
+  const models = loadCustomModels();
+  const updated = models.map((m) => {
+    if (m.id === id) {
+      const { apiKey, ...otherUpdates } = updates;
+      const now = new Date().toISOString();
+      return {
+        ...m,
+        ...otherUpdates,
+        ...(apiKey ? { encryptedApiKey: encryptApiKey(apiKey) } : {}),
+        updatedAt: now,
+      };
+    }
+    return m;
+  });
+  saveCustomModels(updated);
+  return updated;
+}
+
+export function removeCustomModel(id: string): CustomModel[] {
+  const models = loadCustomModels();
+  const updated = models.filter((m) => m.id !== id);
+  saveCustomModels(updated);
+  return updated;
+}
+
+export function getCustomModelById(id: string): CustomModel | undefined {
+  const models = loadCustomModels();
+  return models.find((m) => m.id === id);
+}
+
 export function useSettings() {
   const context = useContext(SettingsContext);
   if (!context) {
