@@ -87,6 +87,8 @@ function IconUpload(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
+const TEMPLATE_EXPORT_VERSION = 1;
+
 interface TemplatePanelProps {
   visible: boolean;
   onClose: () => void;
@@ -95,6 +97,7 @@ interface TemplatePanelProps {
   onAddTemplate: (template: { title: string; content: string; category: string }) => Promise<void>;
   onUpdateTemplate: (id: string, template: { title?: string; content?: string; category?: string }) => Promise<void>;
   onDeleteTemplate: (id: string) => Promise<void>;
+  onBatchImport?: (templates: ExportTemplate[]) => Promise<void>;
   onImportComplete?: () => void;
 }
 
@@ -104,6 +107,12 @@ type ExportTemplate = {
   title: string;
   content: string;
   category: string;
+};
+
+type TemplateExportData = {
+  version: number;
+  exportedAt: string;
+  templates: ExportTemplate[];
 };
 
 interface FormModalProps {
@@ -547,8 +556,19 @@ export function ImportModal({ visible, onClose, existingTemplates, onImport }: I
         const data = JSON.parse(content);
 
         let templates: ExportTemplate[] = [];
+        
         if (Array.isArray(data)) {
           templates = data;
+        } else if (data.version !== undefined) {
+          if (data.version > TEMPLATE_EXPORT_VERSION) {
+            throw new Error(`模板文件版本过高（v${data.version}），当前版本为 v${TEMPLATE_EXPORT_VERSION}。请更新应用后再尝试导入。`);
+          }
+          
+          if (data.templates && Array.isArray(data.templates)) {
+            templates = data.templates;
+          } else {
+            throw new Error('无效的模板文件格式：缺少 templates 数组');
+          }
         } else if (data.templates && Array.isArray(data.templates)) {
           templates = data.templates;
         } else {
@@ -784,6 +804,7 @@ export default function TemplatePanel({
   onAddTemplate,
   onUpdateTemplate,
   onDeleteTemplate,
+  onBatchImport,
   onImportComplete,
 }: TemplatePanelProps) {
   const panelRef = useRef<HTMLDivElement>(null);
@@ -838,11 +859,17 @@ export default function TemplatePanel({
 
   const handleExport = useCallback((selectedIds: string[]) => {
     const selectedTemplates = templates.filter((t) => selectedIds.includes(t.id));
-    const exportData: ExportTemplate[] = selectedTemplates.map((t) => ({
+    const templatesData: ExportTemplate[] = selectedTemplates.map((t) => ({
       title: t.title,
       content: t.content,
       category: t.category,
     }));
+
+    const exportData: TemplateExportData = {
+      version: TEMPLATE_EXPORT_VERSION,
+      exportedAt: new Date().toISOString(),
+      templates: templatesData,
+    };
 
     const jsonContent = JSON.stringify(exportData, null, 2);
     const blob = new Blob([jsonContent], { type: 'application/json' });
@@ -875,20 +902,24 @@ export default function TemplatePanel({
   }, []);
 
   const handleImport = useCallback(async (importTemplates: ExportTemplate[]) => {
-    const existingTitles = templates.map((t) => t.title);
+    if (onBatchImport) {
+      await onBatchImport(importTemplates);
+    } else {
+      const existingTitles = templates.map((t) => t.title);
 
-    for (const template of importTemplates) {
-      const uniqueTitle = getUniqueTitle(template.title, existingTitles);
-      await onAddTemplate({
-        title: uniqueTitle,
-        content: template.content,
-        category: template.category || '其他',
-      });
-      existingTitles.push(uniqueTitle);
+      for (const template of importTemplates) {
+        const uniqueTitle = getUniqueTitle(template.title, existingTitles);
+        await onAddTemplate({
+          title: uniqueTitle,
+          content: template.content,
+          category: template.category || '其他',
+        });
+        existingTitles.push(uniqueTitle);
+      }
     }
 
     onImportComplete?.();
-  }, [templates, onAddTemplate, getUniqueTitle, onImportComplete]);
+  }, [templates, onAddTemplate, getUniqueTitle, onBatchImport, onImportComplete]);
 
   const getCategoryColor = (category: string) => {
     switch (category) {
