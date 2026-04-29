@@ -468,8 +468,8 @@ export default function ExportPanel({
           {/* 导出格式 */}
           <div>
             <label className="block text-xs font-medium text-[#737373] mb-1.5">导出格式</label>
-            <div className="flex gap-2">
-              {(['markdown', 'plaintext', 'json'] as ExportFormat[]).map((format) => (
+            <div className="flex gap-2 flex-wrap">
+              {(['markdown', 'plaintext', 'json', 'csv'] as ExportFormat[]).map((format) => (
                 <button
                   key={format}
                   type="button"
@@ -479,7 +479,7 @@ export default function ExportPanel({
                     : 'bg-[#f5f5f5] text-[#737373] hover:bg-[#e5e5e5]'
                     }`}
                 >
-                  {format === 'markdown' ? 'Markdown' : format === 'plaintext' ? '纯文本' : 'JSON'}
+                  {format === 'markdown' ? 'Markdown' : format === 'plaintext' ? '纯文本' : format === 'json' ? 'JSON' : 'CSV 表格'}
                 </button>
               ))}
             </div>
