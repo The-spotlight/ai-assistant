@@ -32,7 +32,7 @@ export async function GET(req: Request) {
   }
 
   const conversations = await prisma.conversation.findMany({
-    where: { userId, deviceId, isDeleted: false },
+    where: { userId, deviceId, isDeleted: false, isArchived: false },
     orderBy: [
       { isPinned: 'desc' },
       { pinnedAt: 'desc' },

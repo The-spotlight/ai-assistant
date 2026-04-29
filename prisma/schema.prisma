@@ -17,23 +17,26 @@ model Conversation {
   deviceId  String
   title     String?
   modelId   String?
-  isPinned  Boolean   @default(false)
-  pinnedAt  DateTime?
-  isDeleted Boolean   @default(false)
-  deletedAt DateTime?
+  isPinned   Boolean   @default(false)
+  pinnedAt   DateTime?
+  isArchived Boolean   @default(false)
+  archivedAt DateTime?
+  isDeleted  Boolean   @default(false)
+  deletedAt  DateTime?
   orderIndex Int      @default(0)
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-  messages  Message[]
-  favorites Favorite[]
-  shares    Share[]
-  feedbacks MessageFeedback[]
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  messages   Message[]
+  favorites  Favorite[]
+  shares     Share[]
+  feedbacks  MessageFeedback[]
 
   @@index([userId, updatedAt(sort: Desc)])
   @@index([updatedAt(sort: Desc)])
   @@index([userId, deviceId, isPinned(sort: Desc), pinnedAt(sort: Desc), orderIndex(sort: Asc), updatedAt(sort: Desc)])
-  @@index([userId, deviceId, isDeleted(sort: Asc), updatedAt(sort: Desc)])
-  @@index([userId, deviceId, isDeleted(sort: Asc), isPinned(sort: Desc), pinnedAt(sort: Desc), orderIndex(sort: Asc), updatedAt(sort: Desc)])
+  @@index([userId, deviceId, isDeleted(sort: Asc), isArchived(sort: Asc), updatedAt(sort: Desc)])
+  @@index([userId, deviceId, isDeleted(sort: Asc), isArchived(sort: Asc), isPinned(sort: Desc), pinnedAt(sort: Desc), orderIndex(sort: Asc), updatedAt(sort: Desc)])
+  @@index([userId, deviceId, isDeleted(sort: Asc), isArchived(sort: Desc), archivedAt(sort: Desc)])
   @@index([userId, deviceId, isDeleted(sort: Desc), deletedAt(sort: Desc)])
 }
 
