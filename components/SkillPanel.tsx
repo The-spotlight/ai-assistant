@@ -1,67 +1,109 @@
 'use client';
 
-interface Skill {
-  name: string;
-  emoji: string;
-  label: string;
-  description: string;
-  example: string;
-}
-
-const SKILLS: Skill[] = [
-  {
-    name: 'web_search',
-    emoji: '🔍',
-    label: '网络搜索',
-    description: '搜索互联网获取实时新闻和事件',
-    example: '今天有什么重要新闻？',
-  },
-  {
-    name: 'weather',
-    emoji: '🌤️',
-    label: '天气查询',
-    description: '查询实时天气和天气预报',
-    example: '北京明天的天气怎么样？',
-  },
-  {
-    name: 'code_execution',
-    emoji: '💻',
-    label: '代码执行',
-    description: '执行 Python 代码，计算、处理数据',
-    example: '用 Python 计算斐波那契数列前20项',
-  },
-  {
-    name: 'calculator',
-    emoji: '🧮',
-    label: '数学计算',
-    description: '精确数学计算，支持复杂表达式',
-    example: '计算 (sqrt(2) + pi) * 100',
-  },
-  {
-    name: 'text_analyzer',
-    emoji: '📝',
-    label: '文本分析',
-    description: '摘要、关键词、情感分析',
-    example: '分析这段文字的情感：今天天气真好，心情愉快！',
-  },
-  {
-    name: 'translator',
-    emoji: '🌐',
-    label: '智能翻译',
-    description: '多语言智能翻译',
-    example: '把"人工智能正在改变世界"翻译成英文',
-  },
-];
+import { useState, useEffect, useCallback } from 'react';
+import {
+  type SkillInfo,
+  SKILLS,
+  getSkillHistory,
+  formatRelativeTime,
+  type SkillHistoryItem,
+} from '@/lib/skill-history';
 
 interface SkillPanelProps {
   visible: boolean;
   onClose: () => void;
-  onInsertPrompt: (text: string) => void;
+  onInsertPrompt: (text: string, skillName?: string) => void;
 }
 
-/** 浅色弹层，与输入区 / 顶栏 Vercel 风格一致 */
+interface RecentSkillItemProps {
+  skill: SkillInfo;
+  historyItem: SkillHistoryItem;
+  onClick: (skill: SkillInfo) => void;
+}
+
+function RecentSkillItem({ skill, historyItem, onClick }: RecentSkillItemProps) {
+  return (
+    <button
+      type="button"
+      onClick={() => onClick(skill)}
+      className="group flex w-full items-center gap-3 rounded-md px-3 py-2 text-left transition-colors hover:bg-[#fafafa]"
+    >
+      <span className="text-lg leading-none">{skill.emoji}</span>
+      <div className="min-w-0 flex-1">
+        <div className="text-sm font-medium text-[#171717]">{skill.label}</div>
+        <div className="mt-0.5 text-xs text-[#737373]">
+          {formatRelativeTime(historyItem.usedAt)}
+        </div>
+      </div>
+      <span className="shrink-0 text-xs text-neutral-500 opacity-0 transition-opacity group-hover:opacity-100">
+        试试
+      </span>
+    </button>
+  );
+}
+
+interface AllSkillItemProps {
+  skill: SkillInfo;
+  onClick: (skill: SkillInfo) => void;
+}
+
+function AllSkillItem({ skill, onClick }: AllSkillItemProps) {
+  return (
+    <button
+      key={skill.name}
+      type="button"
+      onClick={() => onClick(skill)}
+      className="group w-full rounded-md px-3 py-2.5 text-left transition-colors hover:bg-[#fafafa]"
+    >
+      <div className="flex items-start gap-3">
+        <span className="text-lg leading-none">{skill.emoji}</span>
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-medium text-[#171717]">{skill.label}</div>
+          <div className="mt-0.5 text-xs leading-snug text-[#4d4d4d]">{skill.description}</div>
+        </div>
+        <span className="shrink-0 text-xs text-neutral-500 opacity-0 transition-opacity group-hover:opacity-100">
+          试试
+        </span>
+      </div>
+    </button>
+  );
+}
+
+function SectionHeader({ title }: { title: string }) {
+  return (
+    <div className="flex items-center gap-2 px-3 py-2">
+      <div className="flex-1 h-px bg-black/[0.06]" />
+      <span className="text-xs font-medium text-[#737373] whitespace-nowrap">{title}</span>
+      <div className="flex-1 h-px bg-black/[0.06]" />
+    </div>
+  );
+}
+
 export default function SkillPanel({ visible, onClose, onInsertPrompt }: SkillPanelProps) {
+  const [history, setHistory] = useState<SkillHistoryItem[]>([]);
+
+  useEffect(() => {
+    if (visible) {
+      setHistory(getSkillHistory());
+    }
+  }, [visible]);
+
+  const handleSkillClick = useCallback(
+    (skill: SkillInfo) => {
+      onInsertPrompt(skill.example, skill.name);
+      onClose();
+    },
+    [onInsertPrompt, onClose]
+  );
+
   if (!visible) return null;
+
+  const recentSkills = history
+    .map((item) => {
+      const skill = SKILLS.find((s) => s.name === item.skillName);
+      return skill ? { skill, historyItem: item } : null;
+    })
+    .filter((item): item is { skill: SkillInfo; historyItem: SkillHistoryItem } => item !== null);
 
   return (
     <div
@@ -80,28 +122,24 @@ export default function SkillPanel({ visible, onClose, onInsertPrompt }: SkillPa
           ×
         </button>
       </div>
-      <div className="max-h-64 overflow-y-auto bg-white p-2">
+      <div className="max-h-80 overflow-y-auto bg-white p-2">
+        {recentSkills.length > 0 && (
+          <>
+            <SectionHeader title="最近使用" />
+            {recentSkills.map(({ skill, historyItem }) => (
+              <RecentSkillItem
+                key={`recent-${skill.name}`}
+                skill={skill}
+                historyItem={historyItem}
+                onClick={handleSkillClick}
+              />
+            ))}
+          </>
+        )}
+
+        <SectionHeader title="全部技能" />
         {SKILLS.map((skill) => (
-          <button
-            key={skill.name}
-            type="button"
-            onClick={() => {
-              onInsertPrompt(skill.example);
-              onClose();
-            }}
-            className="group w-full rounded-md px-3 py-2.5 text-left transition-colors hover:bg-[#fafafa]"
-          >
-            <div className="flex items-start gap-3">
-              <span className="text-lg leading-none">{skill.emoji}</span>
-              <div className="min-w-0 flex-1">
-                <div className="text-sm font-medium text-[#171717]">{skill.label}</div>
-                <div className="mt-0.5 text-xs leading-snug text-[#4d4d4d]">{skill.description}</div>
-              </div>
-              <span className="shrink-0 text-xs text-neutral-500 opacity-0 transition-opacity group-hover:opacity-100">
-                试试
-              </span>
-            </div>
-          </button>
+          <AllSkillItem key={skill.name} skill={skill} onClick={handleSkillClick} />
         ))}
       </div>
     </div>

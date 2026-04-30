@@ -49,6 +49,7 @@ import {
 import { useMessageFeedback, MessageFeedbackButton } from '@/components/MessageFeedback';
 import DateSeparator, { isSameDay } from '@/components/DateSeparator';
 import { saveDraft, loadDraft, clearDraft, addToHistory, getHistory } from '@/lib/draft-history';
+import { addSkillToHistory } from '@/lib/skill-history';
 
 const SUGGESTIONS = [
   '搜索今日新闻',
@@ -465,8 +466,11 @@ export default function ChatSession({
     }
   }, [templateContent, setInput, onTemplateUsed]);
 
-  const handleSkillInsert = (text: string) => {
+  const handleSkillInsert = (text: string, skillName?: string) => {
     append({ role: 'user', content: text });
+    if (skillName) {
+      addSkillToHistory(skillName);
+    }
   };
 
   // 生成快捷指令的提示文本
