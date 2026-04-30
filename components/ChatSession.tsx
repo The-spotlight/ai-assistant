@@ -466,10 +466,10 @@ export default function ChatSession({
     }
   }, [templateContent, setInput, onTemplateUsed]);
 
-  const handleSkillInsert = (text: string, skillName?: string) => {
+  const handleSkillInsert = (text: string, skillId?: string) => {
     append({ role: 'user', content: text });
-    if (skillName) {
-      addSkillToHistory(skillName);
+    if (skillId) {
+      addSkillToHistory(skillId);
     }
   };
 

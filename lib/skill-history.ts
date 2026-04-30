@@ -3,11 +3,12 @@ const MAX_HISTORY_SIZE = 30;
 const DISPLAY_HISTORY_SIZE = 5;
 
 export interface SkillHistoryItem {
-  skillName: string;
+  skillId: string;
   usedAt: string;
 }
 
 export interface SkillInfo {
+  id: string;
   name: string;
   emoji: string;
   label: string;
@@ -17,6 +18,7 @@ export interface SkillInfo {
 
 export const SKILLS: SkillInfo[] = [
   {
+    id: 'skill_web_search_v1',
     name: 'web_search',
     emoji: '🔍',
     label: '网络搜索',
@@ -24,6 +26,7 @@ export const SKILLS: SkillInfo[] = [
     example: '今天有什么重要新闻？',
   },
   {
+    id: 'skill_weather_v1',
     name: 'weather',
     emoji: '🌤️',
     label: '天气查询',
@@ -31,6 +34,7 @@ export const SKILLS: SkillInfo[] = [
     example: '北京明天的天气怎么样？',
   },
   {
+    id: 'skill_code_execution_v1',
     name: 'code_execution',
     emoji: '💻',
     label: '代码执行',
@@ -38,6 +42,7 @@ export const SKILLS: SkillInfo[] = [
     example: '用 Python 计算斐波那契数列前20项',
   },
   {
+    id: 'skill_calculator_v1',
     name: 'calculator',
     emoji: '🧮',
     label: '数学计算',
@@ -45,6 +50,7 @@ export const SKILLS: SkillInfo[] = [
     example: '计算 (sqrt(2) + pi) * 100',
   },
   {
+    id: 'skill_text_analyzer_v1',
     name: 'text_analyzer',
     emoji: '📝',
     label: '文本分析',
@@ -52,6 +58,7 @@ export const SKILLS: SkillInfo[] = [
     example: '分析这段文字的情感：今天天气真好，心情愉快！',
   },
   {
+    id: 'skill_translator_v1',
     name: 'translator',
     emoji: '🌐',
     label: '智能翻译',
@@ -60,19 +67,23 @@ export const SKILLS: SkillInfo[] = [
   },
 ];
 
+export function getSkillById(id: string): SkillInfo | undefined {
+  return SKILLS.find((s) => s.id === id);
+}
+
 export function getSkillByName(name: string): SkillInfo | undefined {
   return SKILLS.find((s) => s.name === name);
 }
 
-export function addSkillToHistory(skillName: string): void {
+export function addSkillToHistory(skillId: string): void {
   try {
     const existing = localStorage.getItem(SKILL_HISTORY_KEY);
     const history: SkillHistoryItem[] = existing ? JSON.parse(existing) : [];
 
-    const filtered = history.filter((item) => item.skillName !== skillName);
+    const filtered = history.filter((item) => item.skillId !== skillId);
 
     const newItem: SkillHistoryItem = {
-      skillName,
+      skillId,
       usedAt: new Date().toISOString(),
     };
 
@@ -86,11 +97,60 @@ export function addSkillToHistory(skillName: string): void {
   }
 }
 
+interface LegacySkillHistoryItem {
+  skillName: string;
+  usedAt: string;
+}
+
+function isLegacyItem(
+  item: SkillHistoryItem | LegacySkillHistoryItem
+): item is LegacySkillHistoryItem {
+  return 'skillName' in item && !('skillId' in item);
+}
+
+function convertLegacyItem(item: LegacySkillHistoryItem): SkillHistoryItem | null {
+  const skill = getSkillByName(item.skillName);
+  if (skill) {
+    return {
+      skillId: skill.id,
+      usedAt: item.usedAt,
+    };
+  }
+  return null;
+}
+
 export function getSkillHistory(): SkillHistoryItem[] {
   try {
     const existing = localStorage.getItem(SKILL_HISTORY_KEY);
-    const history: SkillHistoryItem[] = existing ? JSON.parse(existing) : [];
-    return history.slice(0, DISPLAY_HISTORY_SIZE);
+    if (!existing) return [];
+
+    const rawHistory: Array<SkillHistoryItem | LegacySkillHistoryItem> = JSON.parse(existing);
+    
+    const convertedHistory: SkillHistoryItem[] = [];
+    const seenIds = new Set<string>();
+    let hasLegacyItems = false;
+
+    for (const item of rawHistory) {
+      if (isLegacyItem(item)) {
+        hasLegacyItems = true;
+        const converted = convertLegacyItem(item);
+        if (converted && !seenIds.has(converted.skillId)) {
+          seenIds.add(converted.skillId);
+          convertedHistory.push(converted);
+        }
+      } else {
+        if (!seenIds.has(item.skillId)) {
+          seenIds.add(item.skillId);
+          convertedHistory.push(item);
+        }
+      }
+    }
+
+    if (hasLegacyItems && convertedHistory.length > 0) {
+      localStorage.setItem(SKILL_HISTORY_KEY, JSON.stringify(convertedHistory));
+    }
+
+    return convertedHistory.slice(0, DISPLAY_HISTORY_SIZE);
   } catch (e) {
     console.error('Failed to get skill history:', e);
     return [];
