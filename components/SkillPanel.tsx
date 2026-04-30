@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   type SkillInfo,
   SKILLS,
+  getSkillById,
   getSkillHistory,
   formatRelativeTime,
   type SkillHistoryItem,
@@ -12,7 +13,7 @@ import {
 interface SkillPanelProps {
   visible: boolean;
   onClose: () => void;
-  onInsertPrompt: (text: string, skillName?: string) => void;
+  onInsertPrompt: (text: string, skillId?: string) => void;
 }
 
 interface RecentSkillItemProps {
@@ -50,7 +51,7 @@ interface AllSkillItemProps {
 function AllSkillItem({ skill, onClick }: AllSkillItemProps) {
   return (
     <button
-      key={skill.name}
+      key={skill.id}
       type="button"
       onClick={() => onClick(skill)}
       className="group w-full rounded-md px-3 py-2.5 text-left transition-colors hover:bg-[#fafafa]"
@@ -90,7 +91,7 @@ export default function SkillPanel({ visible, onClose, onInsertPrompt }: SkillPa
 
   const handleSkillClick = useCallback(
     (skill: SkillInfo) => {
-      onInsertPrompt(skill.example, skill.name);
+      onInsertPrompt(skill.example, skill.id);
       onClose();
     },
     [onInsertPrompt, onClose]
@@ -100,7 +101,7 @@ export default function SkillPanel({ visible, onClose, onInsertPrompt }: SkillPa
 
   const recentSkills = history
     .map((item) => {
-      const skill = SKILLS.find((s) => s.name === item.skillName);
+      const skill = getSkillById(item.skillId);
       return skill ? { skill, historyItem: item } : null;
     })
     .filter((item): item is { skill: SkillInfo; historyItem: SkillHistoryItem } => item !== null);
@@ -128,7 +129,7 @@ export default function SkillPanel({ visible, onClose, onInsertPrompt }: SkillPa
             <SectionHeader title="最近使用" />
             {recentSkills.map(({ skill, historyItem }) => (
               <RecentSkillItem
-                key={`recent-${skill.name}`}
+                key={`recent-${skill.id}`}
                 skill={skill}
                 historyItem={historyItem}
                 onClick={handleSkillClick}
@@ -139,7 +140,7 @@ export default function SkillPanel({ visible, onClose, onInsertPrompt }: SkillPa
 
         <SectionHeader title="全部技能" />
         {SKILLS.map((skill) => (
-          <AllSkillItem key={skill.name} skill={skill} onClick={handleSkillClick} />
+          <AllSkillItem key={skill.id} skill={skill} onClick={handleSkillClick} />
         ))}
       </div>
     </div>
