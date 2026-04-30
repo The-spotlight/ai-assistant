@@ -65,6 +65,7 @@ type MessageWithTokens = Message & {
   replyToId?: string | null;
   replyToSnapshot?: string | null;
   createdAt?: string;
+  showDateSeparator?: boolean;
 };
 
 type ReplyInfo = {
@@ -1028,7 +1029,13 @@ export default function ChatSession({
           const isGlobalRegenerating = isLoading || regeneratePhase !== 'idle';
 
           // 检查是否需要显示日期分割线
+          // 优先使用后端返回的 showDateSeparator 字段（处理分页场景）
+          // 前端判断作为回退（处理新发送的消息，还没从数据库加载的场景）
           const shouldShowDateSeparator = (() => {
+            if (typeof msg.showDateSeparator === 'boolean') {
+              return msg.showDateSeparator;
+            }
+            
             if (!msg.createdAt) return false;
             if (index === 0) return true;
             const prevMsg = messages[index - 1] as MessageWithTokens;

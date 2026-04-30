@@ -30,19 +30,38 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
     return NextResponse.json({ error: '对话不存在' }, { status: 404 });
   }
 
-  const messages = conversation.messages.map((m) => ({
-    id: m.clientMessageId ?? m.id,
-    role: m.role,
-    content: m.content,
-    createdAt: m.createdAt.toISOString(),
-    toolInvocations: m.toolInvocations,
-    promptTokens: m.promptTokens,
-    completionTokens: m.completionTokens,
-    totalTokens: m.totalTokens,
-    replyToId: m.replyToId,
-    replyToSnapshot: m.replyToSnapshot,
-  }));
-
+  const messages = conversation.messages.map((m, index) => {
+    let showDateSeparator = false;
+    
+    if (index === 0) {
+      showDateSeparator = true;
+    } else {
+      const prevMsg = conversation.messages[index - 1];
+      const currentDate = m.createdAt;
+      const prevDate = prevMsg.createdAt;
+      
+      const isSameDay = 
+        currentDate.getFullYear() === prevDate.getFullYear() &&
+        currentDate.getMonth() === prevDate.getMonth() &&
+        currentDate.getDate() === prevDate.getDate();
+      
+      showDateSeparator = !isSameDay;
+    }
+    
+    return {
+      id: m.clientMessageId ?? m.id,
+      role: m.role,
+      content: m.content,
+      createdAt: m.createdAt.toISOString(),
+      toolInvocations: m.toolInvocations,
+      promptTokens: m.promptTokens,
+      completionTokens: m.completionTokens,
+      totalTokens: m.totalTokens,
+      replyToId: m.replyToId,
+      replyToSnapshot: m.replyToSnapshot,
+      showDateSeparator,
+    };
+  });
 
   return NextResponse.json({ messages });
 }
