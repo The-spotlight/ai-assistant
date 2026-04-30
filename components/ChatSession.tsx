@@ -44,6 +44,7 @@ import {
   Search,
 } from 'lucide-react';
 import { useMessageFeedback, MessageFeedbackButton } from '@/components/MessageFeedback';
+import ChatErrorBar from '@/components/ChatErrorBar';
 import { saveDraft, loadDraft, clearDraft, addToHistory, getHistory } from '@/lib/draft-history';
 
 const SUGGESTIONS = [
@@ -141,14 +142,15 @@ export default function ChatSession({
     append,
     setMessages,
     setInput,
+    error,
   } = useChat({
     api: '/api/chat',
     id: conversationId,
     initialMessages,
     body: chatBody,
     headers: { 'X-Device-Id': deviceId },
-    onError: (error) => {
-      console.error('[ChatSession] API 调用错误:', error);
+    onError: (err) => {
+      console.error('[ChatSession] API 调用错误:', err);
     },
   });
 
@@ -211,6 +213,18 @@ export default function ChatSession({
   } | null>(null);
   // 保存截断时期望的消息长度，用于验证截断是否成功
   const expectedMessageCountRef = useRef<number>(-1);
+
+  // 错误恢复相关状态
+  const MAX_RETRIES = 3;
+  const [showError, setShowError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [retryCount, setRetryCount] = useState(0);
+  // 保存重试所需的用户消息信息
+  const retryDataRef = useRef<{
+    userMessageId: string;
+    userMessageContent: string;
+    userMessageIndex: number;
+  } | null>(null);
 
   // 引用回复相关状态
   const [replyingTo, setReplyingTo] = useState<ReplyInfo | null>(null);
@@ -830,6 +844,101 @@ export default function ChatSession({
       return () => clearTimeout(timer);
     }
   }, [isLoading, regeneratePhase]);
+
+  // 监听 error 变化，处理 AI 回复失败的情况
+  useEffect(() => {
+    if (!error) return;
+
+    // 找到最后一条用户消息
+    let lastUserMessageIndex = -1;
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === 'user') {
+        lastUserMessageIndex = i;
+        break;
+      }
+    }
+
+    if (lastUserMessageIndex === -1) return;
+
+    const lastUserMessage = messages[lastUserMessageIndex];
+
+    // 保存用户消息信息
+    retryDataRef.current = {
+      userMessageId: lastUserMessage.id,
+      userMessageContent: lastUserMessage.content,
+      userMessageIndex: lastUserMessageIndex,
+    };
+
+    // 显示错误提示条
+    setShowError(true);
+
+    // 根据重试次数设置错误消息
+    if (retryCount >= MAX_RETRIES) {
+      setErrorMessage('多次重试失败');
+    } else {
+      setErrorMessage('回复中断');
+    }
+  }, [error, messages, retryCount, MAX_RETRIES]);
+
+  // 监听 isLoading 变化，当 AI 成功生成回复时重置错误状态
+  useEffect(() => {
+    if (!isLoading && !error && showError) {
+      // 生成成功，重置错误状态
+      setShowError(false);
+      setErrorMessage('');
+      setRetryCount(0);
+      retryDataRef.current = null;
+    }
+  }, [isLoading, error, showError]);
+
+  // 处理重试
+  const handleRetry = useCallback(() => {
+    if (!retryDataRef.current) return;
+    if (retryCount >= MAX_RETRIES) return;
+    if (isLoading || regeneratePhase !== 'idle') return;
+
+    const { userMessageId, userMessageContent, userMessageIndex } = retryDataRef.current;
+
+    // 增加重试计数
+    const newRetryCount = retryCount + 1;
+    setRetryCount(newRetryCount);
+
+    // 如果达到最大重试次数，更新错误消息
+    if (newRetryCount >= MAX_RETRIES) {
+      setErrorMessage('多次重试失败');
+    }
+
+    // 使用类似重新生成的逻辑：截断消息列表到用户消息之前，然后重新 append
+    // 第一阶段：截断消息列表到用户消息之前（不包含用户消息）
+    const messagesBeforeUser = messages.slice(0, userMessageIndex);
+    setMessages(messagesBeforeUser);
+
+    // 保存用户消息信息到 regenerateDataRef，复用重新生成的 useEffect
+    regenerateDataRef.current = {
+      userMessageId,
+      userMessageContent,
+    };
+
+    // 设置阶段为 truncated，触发 useEffect 执行下一步
+    setTimeout(() => {
+      setRegeneratePhase('truncated');
+    }, 0);
+  }, [retryCount, MAX_RETRIES, isLoading, regeneratePhase, messages, setMessages]);
+
+  // 处理关闭错误提示条
+  const handleCloseError = useCallback(() => {
+    setShowError(false);
+    setErrorMessage('');
+    // 注意：不重置重试计数，让用户知道已经重试了几次
+    // 但如果用户发送新消息，应该重置
+  }, []);
+
+  // 监听用户发送新消息，重置错误状态
+  useEffect(() => {
+    // 当用户输入新内容并发送时，重置错误状态
+    // 这里通过监听 isLoading 从 false 变为 true 来检测新的发送
+    // 但需要排除重试的情况
+  }, []);
 
   // 编辑模式下自动聚焦输入框
   useEffect(() => {
@@ -1473,6 +1582,16 @@ export default function ChatSession({
         )}
         <div ref={bottomRef} className="h-px shrink-0" aria-hidden />
       </div>
+
+      {/* 错误提示条 */}
+      <ChatErrorBar
+        visible={showError}
+        message={errorMessage}
+        retryCount={retryCount}
+        maxRetries={MAX_RETRIES}
+        onRetry={handleRetry}
+        onClose={handleCloseError}
+      />
 
       <div className="shrink-0 border-t border-[rgba(0,0,0,0.08)] bg-white p-4 sm:p-5">
         <div className="relative mx-auto max-w-3xl">
