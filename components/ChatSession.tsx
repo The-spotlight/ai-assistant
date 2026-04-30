@@ -47,6 +47,7 @@ import {
   Play,
 } from 'lucide-react';
 import { useMessageFeedback, MessageFeedbackButton } from '@/components/MessageFeedback';
+import DateSeparator, { isSameDay } from '@/components/DateSeparator';
 import { saveDraft, loadDraft, clearDraft, addToHistory, getHistory } from '@/lib/draft-history';
 
 const SUGGESTIONS = [
@@ -1026,6 +1027,15 @@ export default function ChatSession({
           // 但是不显示加载状态，只有正在重新生成的那条消息显示加载状态
           const isGlobalRegenerating = isLoading || regeneratePhase !== 'idle';
 
+          // 检查是否需要显示日期分割线
+          const shouldShowDateSeparator = (() => {
+            if (!msg.createdAt) return false;
+            if (index === 0) return true;
+            const prevMsg = messages[index - 1] as MessageWithTokens;
+            if (!prevMsg.createdAt) return false;
+            return !isSameDay(msg.createdAt, prevMsg.createdAt);
+          })();
+
           // 计算单条消息的费用（如果有 token 数据）
           const messageCost =
             msg.promptTokens != null && msg.completionTokens != null
@@ -1066,23 +1076,29 @@ export default function ChatSession({
           };
 
           return (
-            <div
-              key={m.id}
-              ref={(el) => {
-                if (el) {
-                  messageRefs.current.set(m.id, el);
-                } else {
-                  messageRefs.current.delete(m.id);
-                }
-              }}
-              className={`flex w-full gap-3 transition-all duration-300 group ${
-                m.role === 'user' ? 'flex-row-reverse' : 'flex-row'
-              } ${
-                isHighlighted
-                  ? 'ring-2 ring-[#f59e0b] ring-offset-2 rounded-xl p-1 -mx-1 animate-pulse'
-                  : ''
-              } ${bubbleStyle.spacing}`}
-            >
+            <div key={m.id}>
+              {shouldShowDateSeparator && !isImmersiveMode && msg.createdAt && (
+                <DateSeparator 
+                  date={msg.createdAt} 
+                  isHighlighted={isHighlighted}
+                />
+              )}
+              <div
+                ref={(el) => {
+                  if (el) {
+                    messageRefs.current.set(m.id, el);
+                  } else {
+                    messageRefs.current.delete(m.id);
+                  }
+                }}
+                className={`flex w-full gap-3 transition-all duration-300 group ${
+                  m.role === 'user' ? 'flex-row-reverse' : 'flex-row'
+                } ${
+                  isHighlighted
+                    ? 'ring-2 ring-[#f59e0b] ring-offset-2 rounded-xl p-1 -mx-1 animate-pulse'
+                    : ''
+                } ${bubbleStyle.spacing}`}
+              >
               <div
                 className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold ${
                   m.role === 'user'
@@ -1402,6 +1418,7 @@ export default function ChatSession({
                   </div>
                 )}
               </div>
+            </div>
             </div>
           );
         })}
