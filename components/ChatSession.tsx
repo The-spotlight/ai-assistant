@@ -1098,7 +1098,6 @@ export default function ChatSession({
       <div className="min-h-0 flex-1 relative overflow-hidden">
         <Timeline
           messages={messages as MessageWithTokens[]}
-          messageRefs={messageRefs}
           onJumpToMessage={handleJumpToMessage}
           isImmersiveMode={isImmersiveMode}
         />
