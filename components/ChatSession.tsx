@@ -255,7 +255,17 @@ export default function ChatSession({
   // 状态：'sending' | 'sent' | 'read'
   const [messageStatuses, setMessageStatuses] = useState<Map<string, MessageStatusType>>(new Map());
   const wasLoadingRef = useRef<boolean>(false);
-  const lastSentMessagesRef = useRef<Set<string>>(new Set());
+  const initialMessageIdsRef = useRef<Set<string>>(new Set());
+  const isInitializedRef = useRef<boolean>(false);
+
+  // 初始化时记录历史消息 ID，这些消息不显示状态
+  useEffect(() => {
+    if (!isInitializedRef.current && messages.length > 0) {
+      const initialIds = messages.map(m => m.id);
+      initialMessageIdsRef.current = new Set(initialIds);
+      isInitializedRef.current = true;
+    }
+  }, [messages]);
 
   // 标记消息状态为已发送
   const markMessageSent = useCallback((messageId: string) => {
@@ -291,6 +301,11 @@ export default function ChatSession({
     }
   }, [conversationId, deviceId]);
 
+  // 判断是否是历史消息（不显示状态）
+  const isHistoricalMessage = useCallback((messageId: string) => {
+    return initialMessageIdsRef.current.has(messageId);
+  }, []);
+
   // 监听 isLoading 变化，处理 sending → sent 转换
   useEffect(() => {
     if (wasLoadingRef.current === false && isLoading === true) {
@@ -298,31 +313,30 @@ export default function ChatSession({
     } else if (wasLoadingRef.current === true && isLoading === false) {
       wasLoadingRef.current = false;
       const currentUserMessageIds = messages
-        .filter(m => m.role === 'user')
+        .filter(m => m.role === 'user' && !isHistoricalMessage(m.id))
         .map(m => m.id);
 
       currentUserMessageIds.forEach(msgId => {
         const currentStatus = messageStatuses.get(msgId);
-        if (currentStatus === 'sending' || currentStatus === undefined) {
+        if (currentStatus === 'sending') {
           markMessageSent(msgId);
         }
       });
     }
-  }, [isLoading, messages, messageStatuses, markMessageSent]);
+  }, [isLoading, messages, messageStatuses, markMessageSent, isHistoricalMessage]);
 
   // 监听消息变化，初始化新消息为 sending 状态
   useEffect(() => {
+    if (!isInitializedRef.current) return;
+
     const currentUserMessageIds = messages
-      .filter(m => m.role === 'user')
+      .filter(m => m.role === 'user' && !isHistoricalMessage(m.id))
       .map(m => m.id);
 
     const newMessages: string[] = [];
     currentUserMessageIds.forEach(msgId => {
-      if (!lastSentMessagesRef.current.has(msgId)) {
-        const currentStatus = messageStatuses.get(msgId);
-        if (currentStatus === undefined) {
-          newMessages.push(msgId);
-        }
+      if (!messageStatuses.has(msgId)) {
+        newMessages.push(msgId);
       }
     });
 
@@ -335,9 +349,7 @@ export default function ChatSession({
         return newMap;
       });
     }
-
-    lastSentMessagesRef.current = new Set(currentUserMessageIds);
-  }, [messages, isLoading, messageStatuses]);
+  }, [messages, isLoading, messageStatuses, isHistoricalMessage]);
 
   // 当 AI 回复时，标记用户消息为已读
   useEffect(() => {
@@ -346,7 +358,7 @@ export default function ChatSession({
     const lastMessage = messages[messages.length - 1];
     if (lastMessage?.role === 'assistant') {
       messages.forEach(msg => {
-        if (msg.role === 'user') {
+        if (msg.role === 'user' && !isHistoricalMessage(msg.id)) {
           const status = messageStatuses.get(msg.id);
           if (status === 'sent') {
             markMessageRead(msg.id);
@@ -354,7 +366,7 @@ export default function ChatSession({
         }
       });
     }
-  }, [isLoading, messages, messageStatuses, markMessageRead]);
+  }, [isLoading, messages, messageStatuses, markMessageRead, isHistoricalMessage]);
 
   // 历史消息相关状态
   const [messageHistory, setMessageHistory] = useState<string[]>([]);
@@ -1502,7 +1514,12 @@ export default function ChatSession({
                 {m.role === 'user' && editingMessageId !== m.id && (
                   <div className="mt-1.5 flex items-center justify-between gap-1 px-1">
                     <div className="flex items-center gap-2">
-                      <MessageStatus status={messageStatuses.get(m.id) || 'sending'} readAt={msg.readAt ? new Date(msg.readAt) : null} />
+                      {!isHistoricalMessage(m.id) && messageStatuses.has(m.id) && (
+                        <MessageStatus 
+                          status={messageStatuses.get(m.id)!} 
+                          readAt={msg.readAt ? new Date(msg.readAt) : null} 
+                        />
+                      )}
                       {msg.createdAt && (() => {
                         const formattedTime = formatTime(msg.createdAt, behavior.timestampFormat);
                         if (formattedTime) {
