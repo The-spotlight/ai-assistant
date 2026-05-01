@@ -24,6 +24,7 @@ import {
 import type { QuickCommand, CustomCommand } from '@/lib/tools/quick-commands';
 import { useSettings, FONT_SIZES, BUBBLE_STYLES, PRESET_GRADIENTS, IMAGE_DISPLAY_MODES, loadCustomCommands, type TimestampFormatKey, type SendShortcutKey, getCustomModelById, decryptApiKey } from '@/lib/settings';
 import { useSpeech } from '@/lib/speech';
+import { useSpeechRecognition } from '@/lib/speech-recognition';
 import {
   MoreVertical,
   Download,
@@ -39,6 +40,7 @@ import {
   Volume2,
   Pause,
   Play,
+  Mic,
 } from 'lucide-react';
 import { useMessageFeedback, MessageFeedbackButton } from '@/components/MessageFeedback';
 import MessageStatus, { type MessageStatus as MessageStatusType } from '@/components/MessageStatus';
@@ -115,6 +117,7 @@ export default function ChatSession({
     resume,
     stop,
   } = useSpeech();
+
   const bubbleStyle = BUBBLE_STYLES[settings.bubbleStyle];
   const fontSizeConfig = FONT_SIZES[settings.fontSize];
 
@@ -189,6 +192,47 @@ export default function ChatSession({
       console.error('[ChatSession] API 调用错误:', error);
     },
   });
+
+  const {
+    isSupported: isSpeechRecognitionSupported,
+    isListening,
+    isRecognizing,
+    transcript,
+    interimTranscript,
+    error: speechRecognitionError,
+    startListening,
+    stopListening,
+    reset: resetSpeechRecognition,
+  } = useSpeechRecognition({
+    lang: 'zh-CN',
+    continuous: true,
+    interimResults: true,
+    maxDuration: 60000,
+  });
+
+  useEffect(() => {
+    if (transcript && !isListening && !isRecognizing) {
+      setInput(transcript);
+      inputRef.current?.focus();
+    }
+  }, [transcript, isListening, isRecognizing, setInput]);
+
+  useEffect(() => {
+    if (speechRecognitionError) {
+      console.error('语音识别错误:', speechRecognitionError);
+    }
+  }, [speechRecognitionError]);
+
+  const handleMicClick = () => {
+    if (isListening) {
+      stopListening();
+    } else if (isRecognizing) {
+      return;
+    } else {
+      resetSpeechRecognition();
+      startListening();
+    }
+  };
 
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -1687,15 +1731,50 @@ export default function ChatSession({
             className="flex flex-col gap-3 rounded-lg bg-white/80 backdrop-blur-sm p-2 sm:flex-row sm:items-center sm:gap-2 sm:p-2"
             style={{ boxShadow: 'rgba(0,0,0,0.06) 0px 0px 0px 1px' }}
           >
-            <input
-              ref={inputRef}
-              value={input}
-              onChange={handleCustomInputChange}
-              onKeyDown={handleKeyDown}
-              placeholder="有问题，尽管问… 输入 / 查看快捷指令"
-              disabled={isLoading}
-              className="min-h-[44px] flex-1 border-0 bg-transparent px-3 text-[15px] text-[#171717] placeholder:text-[#808080] focus:outline-none focus:ring-0 disabled:opacity-60"
-            />
+            <div className="relative flex-1">
+              <input
+                ref={inputRef}
+                value={isListening || isRecognizing ? (transcript + interimTranscript) : input}
+                onChange={handleCustomInputChange}
+                onKeyDown={handleKeyDown}
+                placeholder={isRecognizing ? "正在识别…" : (isListening ? "正在聆听…" : "有问题，尽管问… 输入 / 查看快捷指令")}
+                disabled={isLoading || isRecognizing}
+                className={`min-h-[44px] w-full border-0 bg-transparent px-3 text-[15px] text-[#171717] placeholder:text-[#808080] focus:outline-none focus:ring-0 disabled:opacity-60 pr-12 ${
+                  isListening ? 'text-[#dc2626]' : ''
+                }`}
+              />
+              
+              {isSpeechRecognitionSupported && (
+                <button
+                  type="button"
+                  onClick={handleMicClick}
+                  disabled={isLoading || isRecognizing}
+                  className={`absolute right-1 top-1/2 -translate-y-1/2 flex h-9 w-9 items-center justify-center rounded-full transition-all duration-300 ${
+                    isListening
+                      ? 'bg-[#dc2626] text-white shadow-lg shadow-[#dc2626]/40'
+                      : isRecognizing
+                      ? 'bg-[#fef3c7] text-[#92400e]'
+                      : 'text-[#737373] hover:bg-white/40 hover:text-[#171717]'
+                  } disabled:cursor-not-allowed disabled:opacity-40`}
+                  title={isListening ? "点击停止录音" : isRecognizing ? "正在识别，请稍候" : "点击开始语音输入"}
+                >
+                  {isListening && (
+                    <>
+                      <span className="absolute inset-0 rounded-full bg-[#dc2626] animate-ping opacity-40" />
+                      <span className="absolute inset-1 rounded-full bg-[#dc2626] animate-pulse opacity-30" />
+                    </>
+                  )}
+                  {isRecognizing ? (
+                    <span className="relative flex h-4 w-4">
+                      <span className="absolute inline-flex h-full w-full animate-spin rounded-full border-2 border-[#92400e] border-t-transparent" />
+                    </span>
+                  ) : (
+                    <Mic className={`h-5 w-5 relative z-10 ${isListening ? 'animate-pulse' : ''}`} />
+                  )}
+                </button>
+              )}
+            </div>
+            
             <div className="flex items-center justify-end gap-1 sm:shrink-0">
               <button
                 type="button"
@@ -1707,7 +1786,7 @@ export default function ChatSession({
               </button>
               <button
                 type="submit"
-                disabled={isLoading || !input.trim()}
+                disabled={isLoading || !input.trim() || isListening || isRecognizing}
                 className="min-h-[40px] min-w-[88px] rounded-md bg-[#171717] px-5 text-sm font-medium text-white transition-colors hover:bg-[#000000] disabled:cursor-not-allowed disabled:opacity-40"
               >
                 发送
