@@ -4,19 +4,20 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg px-4 py-2.5 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#171717]/20 disabled:pointer-events-none disabled:opacity-40",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-lg px-4 py-2.5 text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-2 disabled:pointer-events-none disabled:opacity-40",
   {
     variants: {
       variant: {
         default:
-          "bg-[#171717] text-white hover:bg-black shadow-sm",
+          "bg-[#171717] text-white hover:bg-black shadow-sm [data-theme='dark']:bg-white [data-theme='dark']:text-[#171717] [data-theme='dark']:hover:bg-gray-200",
         secondary:
-          "bg-white text-[#171717] border border-black/[0.08] hover:bg-[#fafafa] shadow-sm",
+          "bg-white text-[#171717] border border-black/[0.08] hover:bg-[#fafafa] shadow-sm [data-theme='dark']:bg-[#262626] [data-theme='dark']:text-white [data-theme='dark']:border-white/10 [data-theme='dark']:hover:bg-[#2d2d2d]",
         outline:
-          "border border-[#d4d4d4] text-[#525252] hover:bg-[#fafafa] hover:border-[#171717] hover:text-[#171717]",
-        ghost: "hover:bg-[#fafafa] text-[#525252] hover:text-[#171717]",
+          "border border-[#d4d4d4] text-[#525252] hover:bg-[#fafafa] hover:border-[#171717] hover:text-[#171717] [data-theme='dark']:border-white/20 [data-theme='dark']:text-[#d4d4d4] [data-theme='dark']:hover:bg-[#2d2d2d] [data-theme='dark']:hover:border-white/30 [data-theme='dark']:hover:text-white",
+        ghost: 
+          "hover:bg-[#fafafa] text-[#525252] hover:text-[#171717] [data-theme='dark']:hover:bg-[#2d2d2d] [data-theme='dark']:text-[#d4d4d4] [data-theme='dark']:hover:text-white",
         destructive:
-          "bg-[#dc2626] text-white hover:bg-[#b91c1c] shadow-sm",
+          "bg-[#dc2626] text-white hover:bg-[#b91c1c] shadow-sm [data-theme='dark']:bg-[#dc2626] [data-theme='dark']:hover:bg-[#ef4444]",
       },
       size: {
         default: "h-9 px-4 py-2",
