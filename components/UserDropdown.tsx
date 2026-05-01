@@ -189,23 +189,23 @@ export default function UserDropdown({ onOpenSettings, onOpenUserStats }: UserDr
     {
       key: 'profile',
       label: (
-        <div className="px-2 pb-2 mb-2 border-b border-gray-100">
+        <div className="px-2 pb-2 mb-2 border-b border-gray-100 dark:border-white/10">
           <div className="flex items-center gap-3">
-            <div className={`flex h-10 w-10 items-center justify-center bg-[#f5f5f5] text-[#525252] ${avatarShapeClass} ${avatarBorderClass}`}>
+            <div className={`flex h-10 w-10 items-center justify-center bg-[#f5f5f5] dark:bg-[#262626] text-[#525252] dark:text-[#d4d4d4] ${avatarShapeClass} ${avatarBorderClass}`}>
               {renderAvatar(profile.avatar)}
             </div>
             <div className="flex-1 min-w-0">
               <div className="flex items-center justify-between">
-                <span className="text-sm font-medium text-gray-800 truncate">{profile.nickname}</span>
+                <span className="text-sm font-medium text-gray-800 dark:text-gray-200 truncate">{profile.nickname}</span>
                 <button
                   onClick={() => setShowEditor(true)}
-                  className="p-1 hover:bg-[#f5f5f5] rounded transition-colors"
+                  className="p-1 hover:bg-[#f5f5f5] dark:hover:bg-[#3d3d3d] rounded transition-colors"
                   title="编辑资料"
                 >
-                  <Edit3 className="h-3.5 w-3.5 text-gray-400 hover:text-gray-600" />
+                  <Edit3 className="h-3.5 w-3.5 text-gray-400 dark:text-gray-500 hover:text-gray-600 dark:hover:text-gray-300" />
                 </button>
               </div>
-              <p className="text-xs text-gray-500 leading-relaxed">
+              <p className="text-xs text-gray-500 dark:text-gray-400 leading-relaxed">
                 {generateWelcomeMessage(profile.nickname, activityStatus)}
               </p>
             </div>
@@ -219,11 +219,11 @@ export default function UserDropdown({ onOpenSettings, onOpenUserStats }: UserDr
       label: (
         <div className="flex items-center gap-2">
           {appearance.avatarShape === 'circle' ? (
-            <Circle className="h-4 w-4 text-[#525252]" />
+            <Circle className="h-4 w-4 text-[#525252] dark:text-[#d4d4d4]" />
           ) : (
-            <Square className="h-4 w-4 text-[#525252]" />
+            <Square className="h-4 w-4 text-[#525252] dark:text-[#d4d4d4]" />
           )}
-          <span className="text-sm">头像形状: {AVATAR_SHAPES[appearance.avatarShape].name}</span>
+          <span className="text-sm text-gray-700 dark:text-gray-200">头像形状: {AVATAR_SHAPES[appearance.avatarShape].name}</span>
         </div>
       ),
       onClick: toggleAvatarShape,
@@ -232,8 +232,8 @@ export default function UserDropdown({ onOpenSettings, onOpenUserStats }: UserDr
       key: 'avatar-border',
       label: (
         <div className="flex items-center gap-2">
-          <Frame className="h-4 w-4 text-[#525252]" />
-          <span className="text-sm">头像边框: {AVATAR_BORDERS[appearance.avatarBorder].name}</span>
+          <Frame className="h-4 w-4 text-[#525252] dark:text-[#d4d4d4]" />
+          <span className="text-sm text-gray-700 dark:text-gray-200">头像边框: {AVATAR_BORDERS[appearance.avatarBorder].name}</span>
         </div>
       ),
       onClick: toggleAvatarBorder,
@@ -245,8 +245,8 @@ export default function UserDropdown({ onOpenSettings, onOpenUserStats }: UserDr
       key: 'appearance',
       label: (
         <div className="flex items-center gap-2">
-          <Palette className="h-4 w-4 text-[#525252]" />
-          <span className="text-sm">外观</span>
+          <Palette className="h-4 w-4 text-[#525252] dark:text-[#d4d4d4]" />
+          <span className="text-sm text-gray-700 dark:text-gray-200">外观</span>
         </div>
       ),
       onClick: handleAppearanceClick,
@@ -255,8 +255,8 @@ export default function UserDropdown({ onOpenSettings, onOpenUserStats }: UserDr
       key: 'model',
       label: (
         <div className="flex items-center gap-2">
-          <Bot className="h-4 w-4 text-[#525252]" />
-          <span className="text-sm">模型</span>
+          <Bot className="h-4 w-4 text-[#525252] dark:text-[#d4d4d4]" />
+          <span className="text-sm text-gray-700 dark:text-gray-200">模型</span>
         </div>
       ),
       onClick: handleModelClick,
@@ -265,8 +265,8 @@ export default function UserDropdown({ onOpenSettings, onOpenUserStats }: UserDr
       key: 'stats',
       label: (
         <div className="flex items-center gap-2">
-          <BarChart3 className="h-4 w-4 text-[#525252]" />
-          <span className="text-sm">使用记录</span>
+          <BarChart3 className="h-4 w-4 text-[#525252] dark:text-[#d4d4d4]" />
+          <span className="text-sm text-gray-700 dark:text-gray-200">使用记录</span>
         </div>
       ),
       onClick: onOpenUserStats,
@@ -278,8 +278,8 @@ export default function UserDropdown({ onOpenSettings, onOpenUserStats }: UserDr
       key: 'settings',
       label: (
         <div className="flex items-center gap-2">
-          <Settings className="h-4 w-4 text-[#525252]" />
-          <span className="text-sm">更多设置</span>
+          <Settings className="h-4 w-4 text-[#525252] dark:text-[#d4d4d4]" />
+          <span className="text-sm text-gray-700 dark:text-gray-200">更多设置</span>
         </div>
       ),
       onClick: onOpenSettings,
@@ -310,25 +310,25 @@ export default function UserDropdown({ onOpenSettings, onOpenUserStats }: UserDr
       >
         <button
           type="button"
-          className="flex items-center gap-2 h-8 rounded-lg text-[#a3a3a3] hover:text-[#171717] hover:bg-[#f5f5f5] transition-colors px-2"
+          className="flex items-center gap-2 h-8 rounded-lg text-[#a3a3a3] hover:text-[#171717] hover:bg-[#f5f5f5] dark:hover:text-white dark:hover:bg-[#3d3d3d] transition-colors px-2"
           title="个人中心"
           aria-label="打开个人中心"
         >
           <div className="relative">
             <div
-              className={`flex h-6 w-6 items-center justify-center bg-[#f5f5f5] text-[#525252] ${avatarShapeClass} ${avatarBorderClass}`}
+              className={`flex h-6 w-6 items-center justify-center bg-[#f5f5f5] dark:bg-[#3d3d3d] text-[#525252] dark:text-[#d4d4d4] ${avatarShapeClass} ${avatarBorderClass}`}
             >
               {renderAvatar(profile.avatar)}
             </div>
             <span
-              className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white ${statusColors[activityStatus]} ${statusGlow[activityStatus]} shadow-md animate-pulse`}
+              className={`absolute -bottom-0.5 -right-0.5 h-2.5 w-2.5 rounded-full border-2 border-white dark:border-[#171717] ${statusColors[activityStatus]} ${statusGlow[activityStatus]} shadow-md animate-pulse`}
               title={
                 activityStatus === 'active' ? '活跃使用中' :
                 activityStatus === 'occasional' ? '偶尔使用' : '很少使用'
               }
             />
           </div>
-          <span className="text-xs font-medium">{profile.nickname}</span>
+          <span className="text-xs font-medium text-gray-700 dark:text-gray-200">{profile.nickname}</span>
         </button>
       </Dropdown>
 

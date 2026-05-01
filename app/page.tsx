@@ -2273,23 +2273,23 @@ export default function Home() {
 
   return (
     <div className="flex h-dvh max-h-dvh min-h-0 flex-col overflow-hidden">
-      <header className={`z-30 shrink-0 border-b border-[rgba(0,0,0,0.08)] bg-white/95 backdrop-blur-md transition-all duration-300 ease-in-out ${
+      <header className={`z-30 shrink-0 border-b border-[rgba(0,0,0,0.08)] dark:border-white/10 bg-white/95 dark:bg-[#171717]/95 backdrop-blur-md transition-all duration-300 ease-in-out ${
         isImmersiveMode ? 'opacity-0 pointer-events-none h-0 overflow-hidden' : 'opacity-100'
       }`}>
         <div className="mx-auto flex h-14 max-w-[1280px] items-center justify-between gap-3 px-4 sm:px-6">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#171717] text-[11px] font-medium text-white">
+            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#171717] dark:bg-white text-[11px] font-medium text-white dark:text-[#171717]">
               AI
             </div>
             <div className="min-w-0">
-              <h1 className="truncate text-[15px] font-semibold tracking-tight text-[#171717] sm:text-base" style={{ letterSpacing: '-0.32px' }}>
+              <h1 className="truncate text-[15px] font-semibold tracking-tight text-[#171717] dark:text-white sm:text-base" style={{ letterSpacing: '-0.32px' }}>
                 智能助手
               </h1>
-              <p className="hidden text-[11px] text-[#666666] sm:block">对话已同步到此浏览器</p>
+              <p className="hidden text-[11px] text-[#666666] dark:text-[#a3a3a3] sm:block">对话已同步到此浏览器</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <p className="shrink-0 max-w-[min(52vw,14rem)] truncate text-right text-[11px] text-[#666666] sm:max-w-none sm:text-xs" title="当前对话模型">
+            <p className="shrink-0 max-w-[min(52vw,14rem)] truncate text-right text-[11px] text-[#666666] dark:text-[#a3a3a3] sm:max-w-none sm:text-xs" title="当前对话模型">
               {DEFAULT_OPENROUTER_MODEL_LABEL}
             </p>
             <UserDropdown
@@ -2357,7 +2357,7 @@ export default function Home() {
                     if (v) void selectConversation(v);
                   }}
                   disabled={!!loadingMain}
-                  className="w-full appearance-none rounded-xl border border-black/[0.08] bg-white py-2.5 pl-3 pr-10 text-[13px] font-medium text-[#171717] shadow-sm"
+                  className="w-full appearance-none rounded-xl border border-black/[0.08] dark:border-white/10 bg-white dark:bg-[#262626] py-2.5 pl-3 pr-10 text-[13px] font-medium text-[#171717] dark:text-white shadow-sm"
                 >
                   {convList.map((c) => (
                     <option key={c.id} value={c.id}>
@@ -2371,7 +2371,7 @@ export default function Home() {
                 type="button"
                 onClick={() => newChat()}
                 disabled={!deviceId || !!loadingMain}
-                className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-xl border border-black/[0.08] bg-white text-[#171717] shadow-sm transition hover:bg-[#fafafa] disabled:opacity-40"
+                className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-xl border border-black/[0.08] dark:border-white/10 bg-white dark:bg-[#262626] text-[#171717] dark:text-white shadow-sm transition hover:bg-[#fafafa] dark:hover:bg-[#3d3d3d] disabled:opacity-40"
                 aria-label="新对话"
               >
                 <IconPlus className="h-4 w-4" />
