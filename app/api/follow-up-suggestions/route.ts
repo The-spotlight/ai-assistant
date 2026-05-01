@@ -1,5 +1,5 @@
 import { createOpenAI } from '@ai-sdk/openai';
-import { streamText } from 'ai';
+import { generateText } from 'ai';
 import { isFreeTierOpenRouterModel, resolveOpenRouterModelId } from '@/lib/openrouter-models';
 import { prisma } from '@/lib/db';
 
@@ -166,19 +166,32 @@ export async function POST(req: Request) {
       );
     }
 
+    console.log('[follow-up-suggestions] 数据库中的 modelId:', conv.modelId);
+
     // 准备 AI 客户端
     const isCustomModel = !!customModelConfig;
-    const modelId = isCustomModel
-      ? customModelConfig?.modelId
-      : resolveOpenRouterModelId(conv.modelId, process.env.OPENROUTER_MODEL);
+    console.log('[follow-up-suggestions] 是否自定义模型:', isCustomModel);
 
-    const modelClient = isCustomModel && customModelConfig
-      ? createCustomModelClient(customModelConfig)
-      : openrouter;
+    let actualModelId: string;
+    let modelClient: ReturnType<typeof createOpenAI>;
 
-    const actualModelId = isCustomModel && customModelConfig
-      ? customModelConfig.modelId
-      : modelId;
+    if (isCustomModel && customModelConfig) {
+      actualModelId = customModelConfig.modelId;
+      modelClient = createCustomModelClient(customModelConfig);
+      console.log('[follow-up-suggestions] 使用自定义模型:', actualModelId);
+    } else {
+      // 使用与 chat/route.ts 相同的模型解析逻辑
+      // 从数据库获取 modelId，如果不在允许列表中则使用默认模型
+      actualModelId = resolveOpenRouterModelId(conv.modelId, process.env.OPENROUTER_MODEL);
+      modelClient = openrouter;
+      console.log('[follow-up-suggestions] 解析后的模型 ID:', actualModelId);
+      
+      // 检查是否是免费模型
+      if (isFreeTierOpenRouterModel(actualModelId)) {
+        console.log('[follow-up-suggestions] 使用免费模型:', actualModelId);
+        console.log('[follow-up-suggestions] 注意：免费模型可能不支持 JSON 输出格式或响应较慢');
+      }
+    }
 
     // 构建对话上下文（只取最近的几条消息，避免 token 过多）
     // 优先取最后一次对话轮次（用户问题 + AI 回复）
@@ -218,8 +231,11 @@ ${conversationContent}
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 15000);
 
+    console.log('[follow-up-suggestions] 开始调用 AI，模型:', actualModelId);
+    console.log('[follow-up-suggestions] 超时时间: 15 秒');
+
     try {
-      const result = await streamText({
+      const result = await generateText({
         model: modelClient(actualModelId),
         system: SYSTEM_PROMPT,
         messages: [
@@ -233,11 +249,14 @@ ${conversationContent}
         abortSignal: controller.signal,
       });
 
-      const responseText = (await result.text).trim();
       clearTimeout(timeoutId);
+
+      const responseText = result.text.trim();
+      console.log('[follow-up-suggestions] AI 响应文本:', responseText);
 
       // 解析推荐追问
       const suggestions = parseSuggestions(responseText);
+      console.log('[follow-up-suggestions] 解析后的推荐追问:', suggestions);
 
       // 如果 AI 生成失败或返回空数组，返回空（前端可以降级到规则引擎）
       return new Response(
@@ -254,29 +273,31 @@ ${conversationContent}
       clearTimeout(timeoutId);
       
       if (error instanceof Error && error.name === 'AbortError') {
-        console.error('[follow-up-suggestions] 生成推荐追问超时');
+        console.error('[follow-up-suggestions] 生成推荐追问超时（15秒）');
+        console.log('[follow-up-suggestions] 返回空数组，让前端使用规则引擎兜底');
         return new Response(
           JSON.stringify({
-            success: false,
-            error: '生成超时',
+            success: true,
+            error: '生成超时，使用规则引擎',
             suggestions: [],
           }),
           {
-            status: 504,
+            status: 200,
             headers: { 'Content-Type': 'application/json' },
           }
         );
       }
 
       console.error('[follow-up-suggestions] 生成推荐追问失败:', error);
+      console.log('[follow-up-suggestions] 返回空数组，让前端使用规则引擎兜底');
       return new Response(
         JSON.stringify({
-          success: false,
+          success: true,
           error: error instanceof Error ? error.message : '未知错误',
           suggestions: [],
         }),
         {
-          status: 500,
+          status: 200,
           headers: { 'Content-Type': 'application/json' },
         }
       );
