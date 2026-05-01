@@ -257,6 +257,7 @@ export interface AppearanceSettings {
   avatarShape: AvatarShapeKey;
   avatarBorder: AvatarBorderKey;
   background: BackgroundSettings;
+  darkMode: boolean;
 }
 
 export const DEFAULT_SETTINGS: AppearanceSettings = {
@@ -267,4 +268,5 @@ export const DEFAULT_SETTINGS: AppearanceSettings = {
   avatarShape: 'circle',
   avatarBorder: 'none',
   background: DEFAULT_BACKGROUND_SETTINGS,
+  darkMode: false,
 };

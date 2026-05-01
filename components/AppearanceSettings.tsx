@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { Check, Upload, X } from 'lucide-react';
+import { Check, Upload, X, Moon, Sun } from 'lucide-react';
 import {
   useSettings,
   THEME_PRESETS,
@@ -22,6 +22,7 @@ import {
   type ImageDisplayModeKey,
 } from '@/lib/settings';
 import { Button } from '@/components/ui/Button';
+import { Switch } from '@/components/ui/Switch';
 
 export default function AppearanceSettings({ onClose }: { onClose: () => void }) {
   const { appearance, updateAppearance, updateBackground, themeColors } = useSettings();
@@ -266,6 +267,20 @@ export default function AppearanceSettings({ onClose }: { onClose: () => void })
               </div>
             </div>
           )}
+        </div>
+
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <span className="text-sm font-medium text-[#171717]">深色模式</span>
+            <div className="flex items-center gap-2">
+              <Sun className="h-4 w-4 text-[#a3a3a3]" />
+              <Switch
+                checked={appearance.darkMode}
+                onCheckedChange={(checked) => updateAppearance('darkMode', checked)}
+              />
+              <Moon className="h-4 w-4 text-[#a3a3a3]" />
+            </div>
+          </div>
         </div>
 
         <div className="flex flex-col gap-3">

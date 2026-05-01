@@ -493,6 +493,7 @@ export function loadSettings(): AppearanceSettings {
       avatarShape: (parsed.avatarShape && parsed.avatarShape in AVATAR_SHAPES) ? parsed.avatarShape as AvatarShapeKey : DEFAULT_SETTINGS.avatarShape,
       avatarBorder: (parsed.avatarBorder && parsed.avatarBorder in AVATAR_BORDERS) ? parsed.avatarBorder as AvatarBorderKey : DEFAULT_SETTINGS.avatarBorder,
       background: validateBackgroundSettings(parsed.background),
+      darkMode: typeof parsed.darkMode === 'boolean' ? parsed.darkMode : DEFAULT_SETTINGS.darkMode,
     };
   } catch {
     return DEFAULT_SETTINGS;
@@ -784,7 +785,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     resetKeyboardShortcuts();
   }, [resetAppearance, resetBehavior, resetModel, resetKeyboardShortcuts]);
 
-  const themeColors = THEME_PRESETS[appearance.theme];
+  // 深色模式使用 dark 主题，浅色模式使用选定的主题
+  const effectiveTheme = appearance.darkMode ? 'dark' : appearance.theme;
+  const themeColors = THEME_PRESETS[effectiveTheme];
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -809,6 +812,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     const fontSizeConfig = FONT_SIZES[appearance.fontSize];
     root.style.setProperty('--theme-font-size', fontSizeConfig.value);
     root.style.setProperty('--theme-line-height', fontSizeConfig.lineHeight);
+    
+    // 添加 data-theme 属性供 CSS 使用
+    root.setAttribute('data-theme', appearance.darkMode ? 'dark' : 'light');
   }, [appearance, themeColors]);
 
   return (
