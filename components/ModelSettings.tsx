@@ -542,7 +542,7 @@ export default function ModelSettings({ open, onClose }: ModelSettingsProps) {
         onCancel={() => setShowAddModal(false)}
         footer={null}
         width={480}
-        bodyStyle={{ padding: 24 }}
+        styles={{ body: { padding: 24 } }}
       >
         <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
@@ -704,7 +704,7 @@ export default function ModelSettings({ open, onClose }: ModelSettingsProps) {
         footer={null}
         width={400}
         centered
-        bodyStyle={{ padding: 24 }}
+        styles={{ body: { padding: 24 } }}
       >
         <div className="flex flex-col gap-4">
           <div className="flex items-center gap-3">

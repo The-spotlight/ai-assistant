@@ -25,24 +25,18 @@ import type { QuickCommand, CustomCommand } from '@/lib/tools/quick-commands';
 import { useSettings, FONT_SIZES, BUBBLE_STYLES, PRESET_GRADIENTS, IMAGE_DISPLAY_MODES, loadCustomCommands, type TimestampFormatKey, type SendShortcutKey, getCustomModelById, decryptApiKey } from '@/lib/settings';
 import { useSpeech } from '@/lib/speech';
 import {
-  RefreshCw,
+  MoreVertical,
+  Download,
+  Share2,
+  FolderOpen,
+  Maximize2,
   Bookmark,
   Edit3,
   Check,
   X,
-  Trash2,
-  MoreVertical,
-  Download,
-  Share2,
-  Copy,
-  Loader2,
-  Send,
-  ChevronDown,
   Reply,
-  FolderOpen,
-  Maximize2,
+  RefreshCw,
   Volume2,
-  VolumeX,
   Pause,
   Play,
 } from 'lucide-react';
@@ -51,7 +45,8 @@ import MessageStatus, { type MessageStatus as MessageStatusType } from '@/compon
 import DateSeparator, { isSameDay } from '@/components/DateSeparator';
 import { saveDraft, loadDraft, clearDraft, addToHistory, getHistory } from '@/lib/draft-history';
 import { addSkillToHistory } from '@/lib/skill-history';
-import { useMessageTranslator, TranslateButton, TranslationResult } from '@/components/MessageTranslator';
+import { TranslateButton, TranslationResult } from '@/components/MessageTranslator';
+import MessageTranslateProvider from '@/components/MessageTranslateProvider';
 
 const SUGGESTIONS = [
   '搜索今日新闻',
@@ -1147,7 +1142,6 @@ export default function ChatSession({
           const canRegenerate = m.role === 'assistant';
           const isThisMessageRegenerating = m.id === regeneratingMessageId;
           const isGlobalRegenerating = isLoading || regeneratePhase !== 'idle';
-          const translator = useMessageTranslator(m.content);
 
           const shouldShowDateSeparator = (() => {
             if (typeof msg.showDateSeparator === 'boolean') {
@@ -1201,7 +1195,7 @@ export default function ChatSession({
           };
 
           return (
-            <div key={m.id}>
+            <MessageTranslateProvider content={m.content} key={m.id}>
               {shouldShowDateSeparator && !isImmersiveMode && msg.createdAt && (
                 <DateSeparator 
                   date={msg.createdAt} 
@@ -1344,7 +1338,7 @@ export default function ChatSession({
                     ))
                   )}
 
-                  <TranslationResult translator={translator} />
+                  <TranslationResult />
 
                   {/* 编辑模式下的按钮 */}
                   {m.role === 'user' && editingMessageId === m.id && (
@@ -1392,7 +1386,7 @@ export default function ChatSession({
                       )}
                     </div>
                     <div className="flex items-center gap-1">
-                      <TranslateButton translator={translator} />
+                      <TranslateButton />
                       {/* 朗读按钮 */}
                       {(() => {
                         const isThisMessagePlaying = currentMessageId === m.id;
@@ -1527,7 +1521,7 @@ export default function ChatSession({
                       })()}
                     </div>
                     <div className="flex items-center gap-1">
-                      <TranslateButton translator={translator} />
+                      <TranslateButton />
                       {/* 引用按钮 - 悬停显示 */}
                       {!isLoading && regeneratePhase === 'idle' && (
                         <button
@@ -1555,8 +1549,8 @@ export default function ChatSession({
                   </div>
                 )}
               </div>
-            </div>
-            </div>
+              </div>
+            </MessageTranslateProvider>
           );
         })}
 

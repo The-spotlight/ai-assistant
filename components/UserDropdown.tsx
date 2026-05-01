@@ -337,7 +337,7 @@ export default function UserDropdown({ onOpenSettings, onOpenUserStats }: UserDr
         placement="right"
         onClose={handleDrawerClose}
         open={drawerContent !== null}
-        width={360}
+        size="large"
       >
         <AppearanceSettings onClose={handleDrawerClose} />
       </Drawer>

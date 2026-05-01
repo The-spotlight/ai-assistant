@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { Loader2, Copy, X, Languages, Check } from 'lucide-react';
+import { useMessageTranslateContext } from './MessageTranslateProvider';
 
 type TargetLanguage = 'zh' | 'en' | 'ko';
 
@@ -141,10 +142,13 @@ export function useMessageTranslator(content: string) {
 }
 
 interface TranslateButtonProps {
-  translator: ReturnType<typeof useMessageTranslator>;
+  translator?: ReturnType<typeof useMessageTranslator>;
 }
 
 export function TranslateButton({ translator }: TranslateButtonProps) {
+  const contextTranslator = useMessageTranslateContext();
+  const t = translator || contextTranslator;
+  
   const {
     isTranslating,
     showMenu,
@@ -152,7 +156,7 @@ export function TranslateButton({ translator }: TranslateButtonProps) {
     menuRef,
     buttonRef,
     handleTranslate,
-  } = translator;
+  } = t;
 
   return (
     <div className="relative inline-block">
@@ -195,10 +199,13 @@ export function TranslateButton({ translator }: TranslateButtonProps) {
 }
 
 interface TranslationResultProps {
-  translator: ReturnType<typeof useMessageTranslator>;
+  translator?: ReturnType<typeof useMessageTranslator>;
 }
 
 export function TranslationResult({ translator }: TranslationResultProps) {
+  const contextTranslator = useMessageTranslateContext();
+  const t = translator || contextTranslator;
+  
   const {
     showTranslation,
     translation,
@@ -206,7 +213,7 @@ export function TranslationResult({ translator }: TranslationResultProps) {
     isSameLanguage,
     error,
     handleClose,
-  } = translator;
+  } = t;
 
   const [copySuccess, setCopySuccess] = useState(false);
 
