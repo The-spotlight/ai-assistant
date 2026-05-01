@@ -254,7 +254,8 @@ export default function ChatSession({
   // 消息状态追踪：仅针对当前会话内的用户消息
   // 状态：'sending' | 'sent' | 'read'
   const [messageStatuses, setMessageStatuses] = useState<Map<string, MessageStatusType>>(new Map());
-  const pendingMessagesRef = useRef<Set<string>>(new Set());
+  const wasLoadingRef = useRef<boolean>(false);
+  const lastSentMessagesRef = useRef<Set<string>>(new Set());
 
   // 标记消息状态为已发送
   const markMessageSent = useCallback((messageId: string) => {
@@ -263,7 +264,6 @@ export default function ChatSession({
       newMap.set(messageId, 'sent');
       return newMap;
     });
-    pendingMessagesRef.current.delete(messageId);
   }, []);
 
   // 标记消息状态为已读
@@ -291,40 +291,53 @@ export default function ChatSession({
     }
   }, [conversationId, deviceId]);
 
-  // 监听消息变化，处理发送中和已读状态
+  // 监听 isLoading 变化，处理 sending → sent 转换
   useEffect(() => {
-    const currentPending = new Set(pendingMessagesRef.current);
+    if (wasLoadingRef.current === false && isLoading === true) {
+      wasLoadingRef.current = true;
+    } else if (wasLoadingRef.current === true && isLoading === false) {
+      wasLoadingRef.current = false;
+      const currentUserMessageIds = messages
+        .filter(m => m.role === 'user')
+        .map(m => m.id);
 
-    messages.forEach(msg => {
-      if (msg.role === 'user') {
-        const status = messageStatuses.get(msg.id);
-        if (status === 'sending' || status === undefined) {
-          if (!currentPending.has(msg.id) && !status) {
-            pendingMessagesRef.current.add(msg.id);
-            setMessageStatuses(prev => {
-              const newMap = new Map(prev);
-              newMap.set(msg.id, 'sending');
-              return newMap;
-            });
-          }
+      currentUserMessageIds.forEach(msgId => {
+        const currentStatus = messageStatuses.get(msgId);
+        if (currentStatus === 'sending' || currentStatus === undefined) {
+          markMessageSent(msgId);
+        }
+      });
+    }
+  }, [isLoading, messages, messageStatuses, markMessageSent]);
+
+  // 监听消息变化，初始化新消息为 sending 状态
+  useEffect(() => {
+    const currentUserMessageIds = messages
+      .filter(m => m.role === 'user')
+      .map(m => m.id);
+
+    const newMessages: string[] = [];
+    currentUserMessageIds.forEach(msgId => {
+      if (!lastSentMessagesRef.current.has(msgId)) {
+        const currentStatus = messageStatuses.get(msgId);
+        if (currentStatus === undefined) {
+          newMessages.push(msgId);
         }
       }
     });
 
-    // 移除不再存在的消息状态
-    const currentMessageIds = new Set(messages.map(m => m.id));
-    setMessageStatuses(prev => {
-      let changed = false;
-      const newMap = new Map(prev);
-      for (const id of newMap.keys()) {
-        if (!currentMessageIds.has(id)) {
-          newMap.delete(id);
-          changed = true;
-        }
-      }
-      return changed ? newMap : prev;
-    });
-  }, [messages, messageStatuses]);
+    if (newMessages.length > 0 && isLoading) {
+      setMessageStatuses(prev => {
+        const newMap = new Map(prev);
+        newMessages.forEach(msgId => {
+          newMap.set(msgId, 'sending');
+        });
+        return newMap;
+      });
+    }
+
+    lastSentMessagesRef.current = new Set(currentUserMessageIds);
+  }, [messages, isLoading, messageStatuses]);
 
   // 当 AI 回复时，标记用户消息为已读
   useEffect(() => {
@@ -335,7 +348,7 @@ export default function ChatSession({
       messages.forEach(msg => {
         if (msg.role === 'user') {
           const status = messageStatuses.get(msg.id);
-          if (status === 'sent' || status === undefined) {
+          if (status === 'sent') {
             markMessageRead(msg.id);
           }
         }
