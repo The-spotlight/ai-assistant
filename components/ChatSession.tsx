@@ -698,15 +698,23 @@ export default function ChatSession({
 
     const validImages = uploadedImages.filter((img) => !img.isOversized);
 
-    const imageMarkdown = validImages.length > 0
-      ? `\n\n${validImages.map((img) => `![${img.file.name}](${img.preview})`).join('\n')}\n\n`
-      : '';
-
-    const contentWithImages = input + imageMarkdown;
-
-    if (!contentWithImages.trim() && validImages.length === 0) {
+    if (!input.trim() && validImages.length === 0) {
       return;
     }
+
+    let imageUrls: string[] = [];
+    if (validImages.length > 0) {
+      try {
+        imageUrls = await uploadImages(validImages);
+      } catch (error) {
+        console.error('[ChatSession] 上传图片失败:', error);
+        return;
+      }
+    }
+
+    const imageMarkdown = imageUrls.length > 0
+      ? `\n\n${imageUrls.map((url, i) => `![图片${i + 1}](${url})`).join('\n')}\n\n`
+      : '';
 
     const { systemCommand, customCommand, argument } = parseQuickCommand(input, customCommands);
 
@@ -734,7 +742,7 @@ export default function ChatSession({
     } else if (systemCommand && argument === null) {
       return;
     } else {
-      append({ role: 'user', content: contentWithImages });
+      append({ role: 'user', content: input + imageMarkdown });
       setInput('');
       setUploadedImages([]);
       clearDraft(conversationId);
@@ -745,7 +753,7 @@ export default function ChatSession({
         replyingToRef.current = null;
       }, 0);
     }
-  }, [input, customCommands, append, setInput, handleSubmit, generateQuickCommandPrompt, conversationId, uploadedImages]);
+  }, [input, customCommands, append, setInput, handleSubmit, generateQuickCommandPrompt, conversationId, uploadedImages, uploadImages]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     // 快捷指令导航
