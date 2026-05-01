@@ -48,6 +48,7 @@ import { addSkillToHistory } from '@/lib/skill-history';
 import { TranslateButton, TranslationResult } from '@/components/MessageTranslator';
 import MessageTranslateProvider from '@/components/MessageTranslateProvider';
 import FollowUpSuggestions from '@/components/FollowUpSuggestions';
+import Timeline from '@/components/Timeline';
 
 const SUGGESTIONS = [
   '搜索今日新闻',
@@ -1094,7 +1095,14 @@ export default function ChatSession({
         </div>
       )}
 
-      <div className="min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain px-3 py-5 sm:px-6 sm:py-7">
+      <div className="min-h-0 flex-1 relative overflow-hidden">
+        <Timeline
+          messages={messages as MessageWithTokens[]}
+          messageRefs={messageRefs}
+          onJumpToMessage={handleJumpToMessage}
+          isImmersiveMode={isImmersiveMode}
+        />
+        <div data-scroll-container className="h-full space-y-6 overflow-y-auto overscroll-contain px-3 py-5 sm:px-6 sm:py-7 pr-10">
         {messages.length === 0 && (
           <div className="mx-auto max-w-lg px-2 pt-4 text-center sm:pt-14">
             <p className="text-2xl font-semibold tracking-tight text-[#171717] sm:text-3xl" style={{ letterSpacing: '-1.28px' }}>
@@ -1623,6 +1631,7 @@ export default function ChatSession({
           </div>
         )}
         <div ref={bottomRef} className="h-px shrink-0" aria-hidden />
+        </div>
       </div>
 
       <div className="shrink-0 border-t border-white/20 bg-white/60 backdrop-blur-xl p-4 sm:p-5">
