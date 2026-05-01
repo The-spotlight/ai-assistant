@@ -1095,13 +1095,13 @@ export default function ChatSession({
         </div>
       )}
 
-      <div className="min-h-0 flex-1 relative overflow-hidden">
+      <div className="min-h-0 flex-1 relative flex flex-col">
         <Timeline
           messages={messages as MessageWithTokens[]}
           onJumpToMessage={handleJumpToMessage}
           isImmersiveMode={isImmersiveMode}
         />
-        <div data-scroll-container className="h-full space-y-6 overflow-y-auto overscroll-contain px-3 py-5 sm:px-6 sm:py-7 pr-10">
+        <div data-scroll-container className="min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain px-3 py-5 sm:px-6 sm:py-7 pr-14">
         {messages.length === 0 && (
           <div className="mx-auto max-w-lg px-2 pt-4 text-center sm:pt-14">
             <p className="text-2xl font-semibold tracking-tight text-[#171717] sm:text-3xl" style={{ letterSpacing: '-1.28px' }}>
