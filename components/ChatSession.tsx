@@ -51,7 +51,7 @@ import MessageStatus, { type MessageStatus as MessageStatusType } from '@/compon
 import DateSeparator, { isSameDay } from '@/components/DateSeparator';
 import { saveDraft, loadDraft, clearDraft, addToHistory, getHistory } from '@/lib/draft-history';
 import { addSkillToHistory } from '@/lib/skill-history';
-import MessageTranslator from '@/components/MessageTranslator';
+import { useMessageTranslator, TranslateButton, TranslationResult } from '@/components/MessageTranslator';
 
 const SUGGESTIONS = [
   '搜索今日新闻',
@@ -1145,16 +1145,10 @@ export default function ChatSession({
           const msg = m as MessageWithTokens;
           const isLastAssistant = m.role === 'assistant' && index === messages.length - 1 && !isLoading;
           const canRegenerate = m.role === 'assistant';
-          // 只有当前消息是正在重新生成的消息时，才显示加载状态
-          // 这样用户可以明确知道是哪条消息在重新生成
           const isThisMessageRegenerating = m.id === regeneratingMessageId;
-          // 全局重新生成状态：当任何消息在重新生成时，其他消息的按钮应该被禁用
-          // 但是不显示加载状态，只有正在重新生成的那条消息显示加载状态
           const isGlobalRegenerating = isLoading || regeneratePhase !== 'idle';
+          const translator = useMessageTranslator(m.content);
 
-          // 检查是否需要显示日期分割线
-          // 优先使用后端返回的 showDateSeparator 字段（处理分页场景）
-          // 前端判断作为回退（处理新发送的消息，还没从数据库加载的场景）
           const shouldShowDateSeparator = (() => {
             if (typeof msg.showDateSeparator === 'boolean') {
               return msg.showDateSeparator;
@@ -1350,6 +1344,8 @@ export default function ChatSession({
                     ))
                   )}
 
+                  <TranslationResult translator={translator} />
+
                   {/* 编辑模式下的按钮 */}
                   {m.role === 'user' && editingMessageId === m.id && (
                     <div className="mt-2 flex items-center justify-end gap-2">
@@ -1396,8 +1392,7 @@ export default function ChatSession({
                       )}
                     </div>
                     <div className="flex items-center gap-1">
-                      {/* 翻译按钮 */}
-                      <MessageTranslator content={m.content} />
+                      <TranslateButton translator={translator} />
                       {/* 朗读按钮 */}
                       {(() => {
                         const isThisMessagePlaying = currentMessageId === m.id;
@@ -1532,8 +1527,7 @@ export default function ChatSession({
                       })()}
                     </div>
                     <div className="flex items-center gap-1">
-                      {/* 翻译按钮 */}
-                      <MessageTranslator content={m.content} />
+                      <TranslateButton translator={translator} />
                       {/* 引用按钮 - 悬停显示 */}
                       {!isLoading && regeneratePhase === 'idle' && (
                         <button
