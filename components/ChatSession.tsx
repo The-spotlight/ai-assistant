@@ -47,6 +47,7 @@ import {
   Play,
 } from 'lucide-react';
 import { useMessageFeedback, MessageFeedbackButton } from '@/components/MessageFeedback';
+import MessageStatus, { type MessageStatus as MessageStatusType } from '@/components/MessageStatus';
 import DateSeparator, { isSameDay } from '@/components/DateSeparator';
 import { saveDraft, loadDraft, clearDraft, addToHistory, getHistory } from '@/lib/draft-history';
 import { addSkillToHistory } from '@/lib/skill-history';
@@ -66,6 +67,7 @@ type MessageWithTokens = Message & {
   replyToId?: string | null;
   replyToSnapshot?: string | null;
   createdAt?: string;
+  readAt?: string | null;
   showDateSeparator?: boolean;
 };
 
@@ -248,6 +250,98 @@ export default function ChatSession({
 
   // 消息反馈相关状态（使用组件化的hook）
   const { feedbackMap, handleLike, handleDislike, handleUndoDislike } = useMessageFeedback(deviceId);
+
+  // 消息状态追踪：仅针对当前会话内的用户消息
+  // 状态：'sending' | 'sent' | 'read'
+  const [messageStatuses, setMessageStatuses] = useState<Map<string, MessageStatusType>>(new Map());
+  const pendingMessagesRef = useRef<Set<string>>(new Set());
+
+  // 标记消息状态为已发送
+  const markMessageSent = useCallback((messageId: string) => {
+    setMessageStatuses(prev => {
+      const newMap = new Map(prev);
+      newMap.set(messageId, 'sent');
+      return newMap;
+    });
+    pendingMessagesRef.current.delete(messageId);
+  }, []);
+
+  // 标记消息状态为已读
+  const markMessageRead = useCallback(async (messageId: string) => {
+    setMessageStatuses(prev => {
+      const newMap = new Map(prev);
+      const currentStatus = newMap.get(messageId);
+      if (currentStatus !== 'read') {
+        newMap.set(messageId, 'read');
+      }
+      return newMap;
+    });
+
+    try {
+      await fetch(`/api/conversations/${conversationId}/messages/read`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Device-Id': deviceId,
+        },
+        body: JSON.stringify({ messageId }),
+      });
+    } catch (error) {
+      console.error('[ChatSession] 标记已读失败:', error);
+    }
+  }, [conversationId, deviceId]);
+
+  // 监听消息变化，处理发送中和已读状态
+  useEffect(() => {
+    const currentPending = new Set(pendingMessagesRef.current);
+
+    messages.forEach(msg => {
+      if (msg.role === 'user') {
+        const status = messageStatuses.get(msg.id);
+        if (status === 'sending' || status === undefined) {
+          if (!currentPending.has(msg.id) && !status) {
+            pendingMessagesRef.current.add(msg.id);
+            setMessageStatuses(prev => {
+              const newMap = new Map(prev);
+              newMap.set(msg.id, 'sending');
+              return newMap;
+            });
+          }
+        }
+      }
+    });
+
+    // 移除不再存在的消息状态
+    const currentMessageIds = new Set(messages.map(m => m.id));
+    setMessageStatuses(prev => {
+      let changed = false;
+      const newMap = new Map(prev);
+      for (const id of newMap.keys()) {
+        if (!currentMessageIds.has(id)) {
+          newMap.delete(id);
+          changed = true;
+        }
+      }
+      return changed ? newMap : prev;
+    });
+  }, [messages, messageStatuses]);
+
+  // 当 AI 回复时，标记用户消息为已读
+  useEffect(() => {
+    if (isLoading) return;
+
+    const lastMessage = messages[messages.length - 1];
+    if (lastMessage?.role === 'assistant') {
+      messages.forEach(msg => {
+        if (msg.role === 'user') {
+          const status = messageStatuses.get(msg.id);
+          if (status === 'sent' || status === undefined) {
+            markMessageRead(msg.id);
+          }
+        }
+      });
+    }
+  }, [isLoading, messages, messageStatuses, markMessageRead]);
 
   // 历史消息相关状态
   const [messageHistory, setMessageHistory] = useState<string[]>([]);
@@ -1391,16 +1485,19 @@ export default function ChatSession({
                   </div>
                 )}
 
-                {/* 用户消息操作栏：编辑按钮 + 引用按钮 */}
+                {/* 用户消息操作栏：状态图标 + 编辑按钮 + 引用按钮 */}
                 {m.role === 'user' && editingMessageId !== m.id && (
                   <div className="mt-1.5 flex items-center justify-between gap-1 px-1">
-                    {msg.createdAt && (() => {
-                      const formattedTime = formatTime(msg.createdAt, behavior.timestampFormat);
-                      if (formattedTime) {
-                        return <span className="text-[10px] text-[#a3a3a3]">{formattedTime}</span>;
-                      }
-                      return null;
-                    })()}
+                    <div className="flex items-center gap-2">
+                      <MessageStatus status={messageStatuses.get(m.id) || 'sending'} readAt={msg.readAt ? new Date(msg.readAt) : null} />
+                      {msg.createdAt && (() => {
+                        const formattedTime = formatTime(msg.createdAt, behavior.timestampFormat);
+                        if (formattedTime) {
+                          return <span className="text-[10px] text-[#a3a3a3]">{formattedTime}</span>;
+                        }
+                        return null;
+                      })()}
+                    </div>
                     <div className="flex items-center gap-1">
                       {/* 引用按钮 - 悬停显示 */}
                       {!isLoading && regeneratePhase === 'idle' && (
