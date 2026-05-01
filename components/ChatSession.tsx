@@ -49,6 +49,7 @@ import { useMessageFeedback, MessageFeedbackButton } from '@/components/MessageF
 import ChatErrorBar from '@/components/ChatErrorBar';
 import { saveDraft, loadDraft, clearDraft, addToHistory, getHistory } from '@/lib/draft-history';
 import { ImageUpload, type ImageFile } from '@/components/ImageUpload';
+import { useRegisterCommandExecutor } from '@/lib/command-palette';
 
 const OUTLINE_MIN_LENGTH = 500;
 
@@ -613,6 +614,33 @@ export default function ChatSession({
   const handleSkillInsert = (text: string) => {
     append({ role: 'user', content: text });
   };
+
+  const commandExecutor = useMemo(() => ({
+    executeQuickCommand: (command: string) => {
+      setInput(`/${command} `);
+      setMatchingSystemCommands([]);
+      setMatchingCustomCommands([]);
+      setSelectedCommandIndex(0);
+      inputRef.current?.focus();
+    },
+    executeSkill: (example: string) => {
+      append({ role: 'user', content: example });
+    },
+    executeCustomCommand: (prompt: string) => {
+      append({ role: 'user', content: prompt });
+      setInput('');
+      currentInputRef.current = '';
+      isBrowsingHistoryRef.current = false;
+      setHistoryIndex(-1);
+      setMatchingSystemCommands([]);
+      setMatchingCustomCommands([]);
+      setSelectedCommandIndex(0);
+      setReplyingTo(null);
+      replyingToRef.current = null;
+    },
+  }), [append, setInput]);
+
+  useRegisterCommandExecutor(commandExecutor);
 
   // 生成快捷指令的提示文本
   const generateQuickCommandPrompt = useCallback((command: QuickCommand, argument: string): string => {
