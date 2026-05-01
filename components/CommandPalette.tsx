@@ -114,28 +114,30 @@ export default function CommandPalette() {
       />
       
       <div className="relative z-10 w-full max-w-xl mx-4 overflow-hidden rounded-2xl border border-black/[0.06] bg-white/90 backdrop-blur-xl shadow-[0_8px_32px_rgba(0,0,0,0.12)]">
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-black/[0.06] bg-white/50">
-          <Command className="h-5 w-5 text-[#737373]" />
-          <div className="relative flex-1">
-            <Search className="absolute left-0 top-1/2 h-4 w-4 -translate-y-1/2 text-[#a3a3a3]" />
-            <input
-              ref={searchInputRef}
-              type="text"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="搜索命令、技能..."
-              className="w-full bg-transparent pl-7 pr-4 py-1 text-sm text-[#171717] placeholder:text-[#a3a3a3] outline-none"
-              autoFocus
-            />
+        <div className="p-4 pb-3 border-b border-black/[0.06] bg-white/50">
+          <div className="flex items-center gap-2">
+            <Command className="h-4 w-4 text-[#737373] shrink-0" />
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#a3a3a3]" />
+              <input
+                ref={searchInputRef}
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="搜索命令、技能..."
+                className="w-full rounded-xl border border-black/[0.08] bg-[#fafafa] py-2.5 pl-10 pr-3 text-sm text-[#171717] placeholder:text-[#a3a3a3] outline-none focus:border-[#171717]/20 focus:ring-2 focus:ring-[#171717]/10 transition-all"
+                autoFocus
+              />
+            </div>
+            <kbd className="hidden sm:inline-flex items-center gap-1 rounded-md border border-black/[0.08] bg-[#fafafa] px-1.5 py-0.5 text-[10px] text-[#737373] font-medium">
+              <span className="text-xs">⌘</span>K
+            </kbd>
           </div>
-          <kbd className="hidden sm:inline-flex items-center gap-1 rounded-md border border-black/[0.08] bg-[#fafafa] px-1.5 py-0.5 text-[10px] text-[#737373] font-medium">
-            <span className="text-xs">⌘</span>K
-          </kbd>
         </div>
 
         <div
           ref={listRef}
-          className="max-h-[50vh] overflow-y-auto"
+          className="max-h-[50vh] overflow-y-auto bg-[#fcfcfc]"
         >
           {filteredCommands.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-[#737373]">
@@ -146,7 +148,7 @@ export default function CommandPalette() {
               </p>
             </div>
           ) : (
-            <div className="py-2">
+            <div className="py-2 px-3">
               {filteredCommands.map((command, index) => (
                 <button
                   key={command.id}
@@ -155,10 +157,10 @@ export default function CommandPalette() {
                   onClick={() => handleCommandClick(command)}
                   onMouseEnter={() => setSelectedIndex(index)}
                   className={cn(
-                    'w-full flex items-center gap-3 px-4 py-2.5 text-left transition-all duration-150',
+                    'w-full flex items-center gap-3 px-3 py-2.5 text-left transition-all duration-150 rounded-lg',
                     selectedIndex === index
-                      ? 'bg-[#f5f5f5]'
-                      : 'hover:bg-[#fafafa]'
+                      ? 'bg-[#f0f0f0]'
+                      : 'hover:bg-[#f5f5f5]'
                   )}
                 >
                   <div className="flex items-center justify-center h-10 w-10 rounded-xl bg-white/80 border border-black/[0.06] text-xl">
