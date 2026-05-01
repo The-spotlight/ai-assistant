@@ -12,6 +12,7 @@ import {
 } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { Copy, Check } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/Tooltip';
+import { useSettings } from '@/lib/settings';
 import type { CodeHighlightKey } from '@/lib/settings';
 
 const CODE_HIGHLIGHT_STYLES: Record<CodeHighlightKey, typeof oneDark> = {
@@ -74,6 +75,7 @@ export default function CodeBlock({ language, code, highlightStyle }: CodeBlockP
   const [error, setError] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const { appearance } = useSettings();
 
   const detectedLanguage = language === 'plaintext' || !language ? guessLanguage(code) : language;
   const lines = code.split('\n');
@@ -118,19 +120,29 @@ export default function CodeBlock({ language, code, highlightStyle }: CodeBlockP
     }
   }, [code]);
 
-  const style = CODE_HIGHLIGHT_STYLES[highlightStyle] || oneDark;
+  // 深色模式下自动使用暗色代码高亮主题
+  const effectiveHighlightStyle = appearance.darkMode
+    ? (highlightStyle === 'vs' || highlightStyle === 'prism' || highlightStyle === 'solarizedlight' || highlightStyle === 'tomorrow'
+      ? 'oneDark'
+      : highlightStyle)
+    : highlightStyle;
+  
+  const style = CODE_HIGHLIGHT_STYLES[effectiveHighlightStyle] || oneDark;
 
   return (
-    <div className="my-4 rounded-lg border border-[rgba(0,0,0,0.08)] overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-2 bg-neutral-50 border-b border-[rgba(0,0,0,0.06)]">
-        <span className="text-xs font-medium text-[#6b7280] uppercase tracking-wider">
+    <div className="my-4 rounded-lg border overflow-hidden" style={{ borderColor: 'var(--theme-border, rgba(0,0,0,0.08))' }}>
+      <div className="flex items-center justify-between px-4 py-2 border-b" style={{ backgroundColor: 'var(--theme-bg-tertiary, #fafafa)', borderColor: 'var(--theme-border, rgba(0,0,0,0.06))' }}>
+        <span className="text-xs font-medium uppercase tracking-wider" style={{ color: 'var(--theme-text-muted, #a3a3a3)' }}>
           {detectedLanguage}
         </span>
         <div className="flex items-center gap-3">
           {shouldCollapse && (
             <button
               onClick={() => setIsExpanded(!isExpanded)}
-              className="text-xs text-[#6b7280] hover:text-[#171717] transition-colors"
+              className="text-xs transition-colors"
+              style={{ color: 'var(--theme-text-muted, #a3a3a3)', hoverColor: 'var(--theme-text-primary, #171717)' }}
+              onMouseEnter={(e) => e.currentTarget.style.color = 'var(--theme-text-primary, #171717)'}
+              onMouseLeave={(e) => e.currentTarget.style.color = 'var(--theme-text-muted, #a3a3a3)'}
             >
               {isExpanded ? '收起代码' : '展开完整代码'}
             </button>
@@ -140,13 +152,24 @@ export default function CodeBlock({ language, code, highlightStyle }: CodeBlockP
               <TooltipTrigger asChild>
                 <button
                   onClick={handleCopy}
-                  className={`p-1.5 rounded transition-all duration-200 ${
-                    error
-                      ? 'text-red-500 hover:bg-red-50'
-                      : copied
-                      ? 'text-green-500 hover:bg-green-50'
-                      : 'text-[#6b7280] hover:text-[#171717] hover:bg-neutral-200'
-                  }`}
+                  className="p-1.5 rounded transition-all duration-200"
+                  style={{
+                    color: error ? 'var(--destructive, #dc2626)' : copied ? 'var(--success, #22c55e)' : 'var(--theme-text-muted, #a3a3a3)',
+                    backgroundColor: 'transparent'
+                  }}
+                  onMouseEnter={(e) => {
+                    if (!error && !copied) {
+                      e.currentTarget.style.color = 'var(--theme-text-primary, #171717)';
+                      e.currentTarget.style.backgroundColor = 'var(--theme-bg-secondary, #f6f6f7)';
+                    } else if (error) {
+                      e.currentTarget.style.backgroundColor = 'var(--destructive-100, #fef2f2)';
+                    } else if (copied) {
+                      e.currentTarget.style.backgroundColor = 'var(--success-100, #f0fdf4)';
+                    }
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.backgroundColor = 'transparent';
+                  }}
                 >
                   {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                 </button>
