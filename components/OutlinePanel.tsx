@@ -21,6 +21,7 @@ export default function OutlinePanel({ content, isOpen, onClose, containerRef }:
   const [isDragging, setIsDragging] = useState(false);
   const [draggingOffset, setDraggingOffset] = useState({ x: 0, y: 0 });
   const [activeHeadingId, setActiveHeadingId] = useState<string | null>(null);
+  const [isVisible, setIsVisible] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
 
   const headings = useCallback((): Heading[] => {
@@ -37,13 +38,23 @@ export default function OutlinePanel({ content, isOpen, onClose, containerRef }:
   }, [content]);
 
   useEffect(() => {
-    if (!isOpen || !containerRef.current) return;
-
-    const containerRect = containerRef.current.getBoundingClientRect();
-    setPosition({
-      x: containerRect.width - 280,
-      y: 100,
-    });
+    if (isOpen) {
+      setIsVisible(true);
+      if (containerRef.current) {
+        const containerRect = containerRef.current.getBoundingClientRect();
+        setPosition({
+          x: Math.min(window.innerWidth - 280, containerRect.right - 280),
+          y: Math.min(100, window.innerHeight - 350),
+        });
+      } else {
+        setPosition({
+          x: window.innerWidth - 280,
+          y: 100,
+        });
+      }
+    } else {
+      setIsVisible(false);
+    }
   }, [isOpen, containerRef]);
 
   useEffect(() => {
@@ -83,6 +94,7 @@ export default function OutlinePanel({ content, isOpen, onClose, containerRef }:
 
   const handleMouseDown = (e: React.MouseEvent) => {
     if (!panelRef.current) return;
+    e.preventDefault();
     setIsDragging(true);
     const rect = panelRef.current.getBoundingClientRect();
     setDraggingOffset({
@@ -93,11 +105,10 @@ export default function OutlinePanel({ content, isOpen, onClose, containerRef }:
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
-      if (!isDragging || !containerRef.current) return;
+      if (!isDragging) return;
 
-      const containerRect = containerRef.current.getBoundingClientRect();
-      const newX = Math.max(0, Math.min(e.clientX - draggingOffset.x, containerRect.width - 260));
-      const newY = Math.max(0, Math.min(e.clientY - draggingOffset.y, containerRect.height - 300));
+      const newX = Math.max(0, Math.min(e.clientX - draggingOffset.x, window.innerWidth - 260));
+      const newY = Math.max(0, Math.min(e.clientY - draggingOffset.y, window.innerHeight - 100));
 
       setPosition({ x: newX, y: newY });
     };
@@ -115,7 +126,7 @@ export default function OutlinePanel({ content, isOpen, onClose, containerRef }:
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-  }, [isDragging, draggingOffset, containerRef]);
+  }, [isDragging, draggingOffset]);
 
   const handleHeadingClick = (headingId: string) => {
     const element = document.getElementById(`heading-${headingId}`);
@@ -127,22 +138,25 @@ export default function OutlinePanel({ content, isOpen, onClose, containerRef }:
 
   const outlineHeadings = headings();
 
-  if (!isOpen || outlineHeadings.length === 0) return null;
+  if (!isVisible || outlineHeadings.length === 0) return null;
 
   return (
     <div
       ref={panelRef}
-      className={`fixed z-50 w-[260px] rounded-xl border border-black/[0.08] bg-white shadow-[0_8px_32px_rgba(0,0,0,0.12)] transition-shadow ${
-        isDragging ? 'shadow-[0_12px_40px_rgba(0,0,0,0.16)] cursor-grabbing' : 'cursor-default'
+      className={`fixed z-50 w-[260px] rounded-xl border border-black/[0.08] bg-white shadow-[0_8px_32px_rgba(0,0,0,0.12)] transition-all duration-200 ${
+        isDragging
+          ? 'shadow-[0_12px_40px_rgba(0,0,0,0.16)] cursor-grabbing scale-[1.02]'
+          : isOpen
+          ? 'opacity-100 scale-100'
+          : 'opacity-0 scale-95 pointer-events-none'
       }`}
       style={{
         left: `${position.x}px`,
         top: `${position.y}px`,
-        transform: isDragging ? 'scale(1.02)' : 'scale(1)',
       }}
     >
       <div
-        className="flex items-center gap-2 border-b border-black/[0.06] px-4 py-3 cursor-grab active:cursor-grabbing"
+        className="flex items-center gap-2 border-b border-black/[0.06] px-4 py-3 cursor-grab active:cursor-grabbing select-none"
         onMouseDown={handleMouseDown}
       >
         <GripVertical className="h-4 w-4 text-[#a3a3a3]" />
