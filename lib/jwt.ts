@@ -24,3 +24,18 @@ export async function verifyJwt(token: string): Promise<JwtPayload> {
   });
   return payload as JwtPayload;
 }
+
+export async function getUserIdFromRequest(req: Request): Promise<string | null> {
+  const cookieHeader = req.headers.get('cookie');
+  if (!cookieHeader) return null;
+
+  const match = cookieHeader.match(/auth_token=([^;]+)/);
+  if (!match) return null;
+
+  try {
+    const payload = await verifyJwt(match[1]);
+    return payload.userId;
+  } catch {
+    return null;
+  }
+}

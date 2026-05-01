@@ -1,23 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { verifyJwt } from '@/lib/jwt';
+import { getUserIdFromRequest } from '@/lib/jwt';
 
 export const runtime = 'nodejs';
-
-async function getUserIdFromRequest(req: Request): Promise<string | null> {
-  const cookieHeader = req.headers.get('cookie');
-  if (!cookieHeader) return null;
-  
-  const match = cookieHeader.match(/auth_token=([^;]+)/);
-  if (!match) return null;
-  
-  try {
-    const payload = await verifyJwt(match[1]);
-    return payload.userId;
-  } catch {
-    return null;
-  }
-}
 
 /** 列出当前设备下的会话 */
 export async function GET(req: Request) {

@@ -1,23 +1,8 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { verifyJwt } from '@/lib/jwt';
+import { getUserIdFromRequest } from '@/lib/jwt';
 
 export const runtime = 'nodejs';
-
-async function getUserIdFromRequest(req: Request): Promise<string | null> {
-  const cookieHeader = req.headers.get('cookie');
-  if (!cookieHeader) return null;
-  
-  const match = cookieHeader.match(/auth_token=([^;]+)/);
-  if (!match) return null;
-  
-  try {
-    const payload = await verifyJwt(match[1]);
-    return payload.userId;
-  } catch {
-    return null;
-  }
-}
 
 export async function POST(req: Request, ctx: { params: Promise<{ id: string }> }) {
   const { id: sourceConversationId } = await ctx.params;

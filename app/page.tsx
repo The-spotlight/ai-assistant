@@ -2,6 +2,7 @@
 
 import type { Message } from 'ai';
 import { useCallback, useEffect, useState, useRef, useMemo } from 'react';
+import { message } from 'antd';
 import {
   DndContext,
   closestCenter,
@@ -1392,8 +1393,6 @@ export default function Home() {
   const [duplicatingConversationId, setDuplicatingConversationId] = useState<string | null>(null);
   const [showDuplicateConfirmModal, setShowDuplicateConfirmModal] = useState<boolean>(false);
   const [isDuplicating, setIsDuplicating] = useState<boolean>(false);
-  const [duplicateSuccessToast, setDuplicateSuccessToast] = useState<boolean>(false);
-  const duplicateToastTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hasAutoArchivedRef = useRef(false);
@@ -2406,35 +2405,20 @@ export default function Home() {
       setIsDuplicating(false);
       setDuplicatingConversationId(null);
 
-      setDuplicateSuccessToast(true);
-      if (duplicateToastTimerRef.current) {
-        clearTimeout(duplicateToastTimerRef.current);
-      }
-      duplicateToastTimerRef.current = setTimeout(() => {
-        setDuplicateSuccessToast(false);
-        duplicateToastTimerRef.current = null;
-      }, 2000);
+      message.success('复制成功');
 
       await selectConversation(data.id);
     } catch (error) {
       console.error('复制对话失败:', error);
       setIsDuplicating(false);
       setDuplicatingConversationId(null);
-      alert('复制对话失败，请稍后重试');
+      message.error('复制对话失败，请稍后重试');
     }
   }, [deviceId, duplicatingConversationId, selectConversation]);
 
   const handleDuplicateCancel = useCallback(() => {
     setShowDuplicateConfirmModal(false);
     setDuplicatingConversationId(null);
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      if (duplicateToastTimerRef.current) {
-        clearTimeout(duplicateToastTimerRef.current);
-      }
-    };
   }, []);
 
   const loadingMain = !!(deviceId && !chatPayload && !bootstrapError);
@@ -2746,16 +2730,6 @@ export default function Home() {
                 </button>
               </div>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* 复制成功提示 */}
-      {duplicateSuccessToast && (
-        <div className="fixed bottom-24 left-1/2 z-50 -translate-x-1/2 transform">
-          <div className="rounded-full bg-[#171717] px-6 py-3 text-sm font-medium text-white shadow-lg flex items-center gap-2">
-            <IconCheck className="h-4 w-4" />
-            复制成功
           </div>
         </div>
       )}
