@@ -10,6 +10,7 @@ import QuickCommandPanel from '@/components/QuickCommandPanel';
 import TokenStatsPanel from '@/components/TokenStatsPanel';
 import ShareModal from '@/components/ShareModal';
 import ShareHistory from '@/components/ShareHistory';
+import OutlinePanel from '@/components/OutlinePanel';
 import { Button } from '@/components/ui/Button';
 import {
   calculateMessageCost,
@@ -42,11 +43,18 @@ import {
   Maximize2,
   ArrowRight,
   Search,
+  List,
 } from 'lucide-react';
 import { useMessageFeedback, MessageFeedbackButton } from '@/components/MessageFeedback';
 import ChatErrorBar from '@/components/ChatErrorBar';
 import { saveDraft, loadDraft, clearDraft, addToHistory, getHistory } from '@/lib/draft-history';
 import { ImageUpload, type ImageFile } from '@/components/ImageUpload';
+
+const OUTLINE_MIN_LENGTH = 500;
+
+const hasHeadings = (content: string): boolean => {
+  return /^#{1,6}\s+/.test(content);
+};
 
 const SUGGESTIONS = [
   '搜索今日新闻',
@@ -163,9 +171,12 @@ export default function ChatSession({
   const statsTriggerRef = useRef<HTMLDivElement>(null);
   const menuTriggerRef = useRef<HTMLButtonElement>(null);
   const menuContainerRef = useRef<HTMLDivElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
   const [showSkills, setShowSkills] = useState(false);
   const [showTokenStats, setShowTokenStats] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const [showOutline, setShowOutline] = useState(false);
+  const [outlineMessageContent, setOutlineMessageContent] = useState('');
 
   const [showForwardModal, setShowForwardModal] = useState(false);
   const [forwardingMessage, setForwardingMessage] = useState<ForwardMessageInfo | null>(null);
@@ -1213,7 +1224,7 @@ export default function ChatSession({
         </div>
       )}
 
-      <div className="min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain px-3 py-5 sm:px-6 sm:py-7">
+      <div ref={chatContainerRef} className="min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain px-3 py-5 sm:px-6 sm:py-7">
         {messages.length === 0 && (
           <div className="mx-auto max-w-lg px-2 pt-4 text-center sm:pt-14">
             <p className="text-2xl font-semibold tracking-tight text-[#171717] sm:text-3xl" style={{ letterSpacing: '-1.28px' }}>
@@ -1355,6 +1366,20 @@ export default function ChatSession({
                     <div className="absolute -top-1 -right-1">
                       <Bookmark className="h-4 w-4 text-[#f59e0b] fill-[#f59e0b]" />
                     </div>
+                  )}
+
+                  {m.role === 'assistant' && m.content.length >= OUTLINE_MIN_LENGTH && hasHeadings(m.content) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setOutlineMessageContent(m.content);
+                        setShowOutline(true);
+                      }}
+                      className="absolute top-2 right-2 flex h-7 w-7 items-center justify-center rounded-md bg-white/80 shadow-sm text-[#737373] transition-all hover:bg-white hover:text-[#171717] hover:shadow-md"
+                      title="大纲"
+                    >
+                      <List className="h-4 w-4" />
+                    </button>
                   )}
                   
                   {/* 引用显示 */}
@@ -1906,6 +1931,13 @@ export default function ChatSession({
           </div>
         </div>
       )}
+
+      <OutlinePanel
+        content={outlineMessageContent}
+        isOpen={showOutline}
+        onClose={() => setShowOutline(false)}
+        containerRef={chatContainerRef}
+      />
 
     </div>
   );
