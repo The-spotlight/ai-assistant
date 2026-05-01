@@ -1,8 +1,10 @@
 'use client';
 
-import { useRef, useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { Message } from 'ai';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/Tooltip';
+import { Timeline as AntTimeline, Tooltip, Slider, ConfigProvider } from 'antd';
+import type { TimelineItemProps } from 'antd/es/timeline';
+import { useSettings } from '@/lib/settings';
 import { cn } from '@/lib/utils';
 
 type MessageWithTokens = Message & {
@@ -11,22 +13,19 @@ type MessageWithTokens = Message & {
 
 type TimelineProps = {
   messages: MessageWithTokens[];
-  messageRefs: React.MutableRefObject<Map<string, HTMLDivElement>>;
   onJumpToMessage: (messageId: string) => void;
   isImmersiveMode?: boolean;
 };
 
 export default function Timeline({
   messages,
-  messageRefs,
   onJumpToMessage,
   isImmersiveMode = false,
 }: TimelineProps) {
-  const timelineRef = useRef<HTMLDivElement>(null);
-  const sliderRef = useRef<HTMLDivElement>(null);
+  const { settings } = useSettings();
+  const isDarkMode = settings.darkMode;
+  const [sliderValue, setSliderValue] = useState(100);
   const [isDragging, setIsDragging] = useState(false);
-  const [sliderPosition, setSliderPosition] = useState(100);
-  const [hoveredDotId, setHoveredDotId] = useState<string | null>(null);
 
   const validMessages = useMemo(() => {
     return messages.filter((m): m is MessageWithTokens & { createdAt: string } => 
@@ -48,166 +47,186 @@ export default function Timeline({
     return `${role}: ${content}`;
   }, []);
 
-  const getDotPosition = useCallback((index: number, total: number) => {
-    if (total <= 1) return 50;
-    return (index / (total - 1)) * 100;
-  }, []);
-
-  const handleDotClick = useCallback((messageId: string) => {
-    onJumpToMessage(messageId);
-  }, [onJumpToMessage]);
+  const getDotColor = useCallback((message: Message) => {
+    if (isDarkMode) {
+      return message.role === 'user' ? '#60a5fa' : '#525252';
+    }
+    return message.role === 'user' ? '#171717' : '#a3a3a3';
+  }, [isDarkMode]);
 
   const updateSliderFromScroll = useCallback(() => {
     if (isDragging) return;
     
-    const container = document.querySelector('[data-scroll-container]');
+    const container = document.querySelector('[data-scroll-container]') as HTMLElement | null;
     if (!container) return;
 
     const scrollTop = container.scrollTop;
     const scrollHeight = container.scrollHeight - container.clientHeight;
     
     if (scrollHeight <= 0) {
-      setSliderPosition(100);
+      setSliderValue(100);
       return;
     }
 
     const position = (scrollTop / scrollHeight) * 100;
-    setSliderPosition(Math.max(0, Math.min(100, position)));
+    setSliderValue(Math.max(0, Math.min(100, position)));
   }, [isDragging]);
 
   useEffect(() => {
-    const container = document.querySelector('[data-scroll-container]');
+    const container = document.querySelector('[data-scroll-container]') as HTMLElement | null;
     if (!container) return;
 
     container.addEventListener('scroll', updateSliderFromScroll, { passive: true });
     return () => container.removeEventListener('scroll', updateSliderFromScroll);
   }, [updateSliderFromScroll]);
 
-  const handleSliderMouseDown = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    setIsDragging(true);
+  const handleSliderChange = useCallback((value: number) => {
+    setSliderValue(value);
   }, []);
 
-  const handleSliderMove = useCallback((clientY: number) => {
-    if (!timelineRef.current) return;
-
-    const rect = timelineRef.current.getBoundingClientRect();
-    const timelineTop = rect.top + 24;
-    const timelineHeight = rect.height - 48;
-
-    const relativeY = clientY - timelineTop;
-    let position = (relativeY / timelineHeight) * 100;
-    position = Math.max(0, Math.min(100, position));
-
-    setSliderPosition(position);
-  }, []);
-
-  const handleSliderRelease = useCallback(() => {
-    if (!isDragging) return;
+  const handleSliderAfterChange = useCallback((value: number) => {
     setIsDragging(false);
-
+    
     if (validMessages.length === 0) return;
 
-    const position = sliderPosition;
-    const index = Math.round((position / 100) * (validMessages.length - 1));
+    const index = Math.round((value / 100) * (validMessages.length - 1));
     const clampedIndex = Math.max(0, Math.min(validMessages.length - 1, index));
     const message = validMessages[clampedIndex];
 
     if (message) {
       onJumpToMessage(message.id);
     }
-  }, [isDragging, sliderPosition, validMessages, onJumpToMessage]);
+  }, [validMessages, onJumpToMessage]);
 
-  useEffect(() => {
-    const handleMouseMove = (e: MouseEvent) => {
-      if (isDragging) {
-        handleSliderMove(e.clientY);
-      }
-    };
+  const handleDotClick = useCallback((messageId: string) => {
+    onJumpToMessage(messageId);
+  }, [onJumpToMessage]);
 
-    const handleMouseUp = () => {
-      handleSliderRelease();
-    };
-
-    if (isDragging) {
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
-    }
-
-    return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
-    };
-  }, [isDragging, handleSliderMove, handleSliderRelease]);
+  const timelineItems: TimelineItemProps[] = useMemo(() => {
+    return validMessages.map((message) => ({
+      key: message.id,
+      dot: (
+        <Tooltip
+          title={
+            <div className="flex flex-col gap-1">
+              <span className="font-medium">{formatTime(message.createdAt)}</span>
+              <span className="text-xs opacity-80">{getMessagePreview(message)}</span>
+            </div>
+          }
+          placement="left"
+          mouseEnterDelay={0.1}
+        >
+          <div
+            className={cn(
+              'w-2.5 h-2.5 rounded-full cursor-pointer transition-all duration-200',
+              'hover:scale-150 hover:shadow-lg'
+            )}
+            style={{ backgroundColor: getDotColor(message) }}
+            onClick={() => handleDotClick(message.id)}
+          />
+        </Tooltip>
+      ),
+      color: getDotColor(message),
+      children: null,
+    }));
+  }, [validMessages, formatTime, getMessagePreview, getDotColor, handleDotClick]);
 
   if (isImmersiveMode || validMessages.length === 0) {
     return null;
   }
 
+  const sliderTrackColor = isDarkMode ? '#525252' : '#e5e5e5';
+  const sliderHandleColor = isDarkMode ? '#d4d4d4' : '#525252';
+  const sliderRailColor = isDarkMode ? '#262626' : '#f5f5f5';
+
   return (
-    <TooltipProvider>
+    <ConfigProvider
+      theme={{
+        components: {
+          Timeline: {
+            dotBg: 'transparent',
+            lineColor: isDarkMode ? '#404040' : '#e5e5e5',
+            tailColor: isDarkMode ? '#404040' : '#e5e5e5',
+          },
+          Slider: {
+            trackBg: sliderTrackColor,
+            railBg: sliderRailColor,
+            handleColor: sliderHandleColor,
+            handleActiveColor: sliderHandleColor,
+            handleSize: 16,
+            handleLineWidth: 0,
+            trackHoverBg: sliderTrackColor,
+          },
+        },
+        token: {
+          colorTextSecondary: isDarkMode ? '#a3a3a3' : '#737373',
+        },
+      }}
+    >
       <div
-        ref={timelineRef}
         className={cn(
-          'absolute right-0 top-0 bottom-0 w-8 flex flex-col items-center justify-between py-3 z-10',
+          'absolute right-0 top-0 bottom-0 flex flex-col items-center justify-between py-3 z-10',
           'transition-opacity duration-300',
           isDragging ? 'opacity-100' : 'opacity-60 hover:opacity-100'
         )}
+        style={{ width: '48px' }}
       >
-        <div className="text-[10px] text-[#a3a3a3] font-medium mb-1">最早</div>
+        <div className={cn(
+          'text-[10px] font-medium mb-2',
+          isDarkMode ? 'text-[#a3a3a3]' : 'text-[#737373]'
+        )}>最早</div>
 
-        <div className="relative flex-1 w-1 flex flex-col items-center my-1">
-          <div className="absolute inset-0 w-0.5 bg-gradient-to-b from-[#e5e5e5] via-[#d4d4d4] to-[#e5e5e5] dark:from-[#404040] dark:via-[#525252] dark:to-[#404040] rounded-full" />
+        <div className="flex-1 flex items-center gap-2 my-1">
+          <div className="flex-1 overflow-hidden py-2">
+            <AntTimeline
+              items={timelineItems}
+              mode="left"
+              className="h-full"
+              style={{
+                padding: 0,
+                margin: 0,
+              }}
+            />
+          </div>
 
-          {validMessages.map((message, index) => {
-            const position = getDotPosition(index, validMessages.length);
-            const isHovered = hoveredDotId === message.id;
-
-            return (
-              <Tooltip key={message.id} open={isHovered}>
-                <TooltipTrigger asChild>
-                  <div
-                    className={cn(
-                      'absolute left-1/2 -translate-x-1/2 w-2 h-2 rounded-full cursor-pointer transition-all duration-200',
-                      'hover:scale-150 hover:shadow-lg',
-                      isHovered
-                        ? 'bg-[#525252] dark:bg-[#d4d4d4] scale-150 shadow-lg'
-                        : 'bg-[#a3a3a3] dark:bg-[#737373]'
-                    )}
-                    style={{ top: `${position}%` }}
-                    onMouseEnter={() => setHoveredDotId(message.id)}
-                    onMouseLeave={() => setHoveredDotId(null)}
-                    onClick={() => handleDotClick(message.id)}
-                  />
-                </TooltipTrigger>
-                <TooltipContent side="left" sideOffset={8} className="max-w-48">
-                  <div className="flex flex-col gap-1">
-                    <span className="font-medium text-[#171717]">
-                      {formatTime(message.createdAt)}
-                    </span>
-                    <span className="text-[#737373] text-xs">
-                      {getMessagePreview(message)}
-                    </span>
-                  </div>
-                </TooltipContent>
-              </Tooltip>
-            );
-          })}
-
-          <div
-            ref={sliderRef}
-            className={cn(
-              'absolute left-1/2 -translate-x-1/2 w-4 h-4 rounded-full cursor-grab active:cursor-grabbing transition-all duration-200',
-              'bg-[#525252] dark:bg-[#d4d4d4] shadow-md border-2 border-white dark:border-[#262626]',
-              isDragging ? 'scale-125 shadow-lg' : 'hover:scale-110'
-            )}
-            style={{ top: `calc(${sliderPosition}% - 8px)` }}
-            onMouseDown={handleSliderMouseDown}
-          />
+          <div className="w-4 h-full flex flex-col py-2">
+            <Slider
+              vertical
+              value={sliderValue}
+              onChange={handleSliderChange}
+              onChangeComplete={handleSliderAfterChange}
+              onMouseDown={() => setIsDragging(true)}
+              max={100}
+              min={0}
+              step={0.1}
+              tooltip={{ open: false }}
+              className="h-full"
+              styles={{
+                track: {
+                  backgroundColor: 'transparent',
+                },
+                rail: {
+                  width: '2px',
+                  borderRadius: '1px',
+                },
+                handle: {
+                  width: '12px',
+                  height: '12px',
+                  marginLeft: '-5px',
+                  marginTop: '-6px',
+                  border: `2px solid ${isDarkMode ? '#262626' : '#ffffff'}`,
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                },
+              }}
+            />
+          </div>
         </div>
 
-        <div className="text-[10px] text-[#a3a3a3] font-medium mt-1">最新</div>
+        <div className={cn(
+          'text-[10px] font-medium mt-2',
+          isDarkMode ? 'text-[#a3a3a3]' : 'text-[#737373]'
+        )}>最新</div>
       </div>
-    </TooltipProvider>
+    </ConfigProvider>
   );
 }
