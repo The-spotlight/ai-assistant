@@ -3,144 +3,319 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Vercel Design System */
+/* ==================== 主题变量系统 ==================== */
+/* 浅色主题（默认） */
 :root {
-  /* Primary */
-  --vercel-black: #171717;
-  --vercel-white: #ffffff;
+  /* 主要颜色 */
+  --theme-primary: #171717;
+  --theme-secondary: #4d4d4d;
+  --theme-accent: #0072f5;
   
-  /* Grays */
-  --vercel-gray-900: #171717;
-  --vercel-gray-600: #4d4d4d;
-  --vercel-gray-500: #666666;
-  --vercel-gray-400: #808080;
-  --vercel-gray-100: #ebebeb;
-  --vercel-gray-50: #fafafa;
+  /* 背景颜色 */
+  --theme-bg-primary: #ffffff;
+  --theme-bg-secondary: #f6f6f7;
+  --theme-bg-tertiary: #fafafa;
+  --theme-bg-hover: #f5f5f5;
+  --theme-bg-active: #e5e5e5;
   
-  /* Accent */
-  --vercel-link: #0072f5;
-  --vercel-focus: hsla(212, 100%, 48%, 1);
-  --vercel-badge-bg: #ebf5ff;
-  --vercel-badge-text: #0068d6;
+  /* 文字颜色 */
+  --theme-text-primary: #171717;
+  --theme-text-secondary: #4d4d4d;
+  --theme-text-muted: #a3a3a3;
+  --theme-text-inverse: #ffffff;
   
-  /* Workflow Colors */
-  --vercel-ship-red: #ff5b4f;
-  --vercel-preview-pink: #de1d8d;
-  --vercel-develop-blue: #0a72ef;
+  /* 边框颜色 */
+  --theme-border: rgba(0, 0, 0, 0.08);
+  --theme-border-strong: rgba(0, 0, 0, 0.12);
+  --theme-border-light: rgba(0, 0, 0, 0.06);
+  
+  /* 阴影 */
+  --theme-shadow-sm: rgba(0, 0, 0, 0.04) 0 1px 2px;
+  --theme-shadow-md: rgba(0, 0, 0, 0.08) 0 1px 4px, rgba(0, 0, 0, 0.04) 0 2px 8px;
+  --theme-shadow-lg: rgba(0, 0, 0, 0.12) 0 4px 16px, rgba(0, 0, 0, 0.04) 0 2px 8px;
+  
+  /* 气泡颜色 */
+  --theme-user-bubble: #171717;
+  --theme-user-text: #ffffff;
+  --theme-ai-bubble: #ffffff;
+  --theme-ai-text: #171717;
+  
+  /* 功能颜色 */
+  --theme-success: #22c55e;
+  --theme-success-bg: #f0fdf4;
+  --theme-warning: #f59e0b;
+  --theme-warning-bg: #fef3c7;
+  --theme-error: #dc2626;
+  --theme-error-bg: #fef2f2;
+  --theme-info: #3b82f6;
+  --theme-info-bg: #eff6ff;
+  
+  /* 滚动条 */
+  --theme-scrollbar-track: transparent;
+  --theme-scrollbar-thumb: rgba(0, 0, 0, 0.1);
+  --theme-scrollbar-thumb-hover: rgba(0, 0, 0, 0.15);
+  
+  /* 代码块 */
+  --theme-code-bg: #fafafa;
+  --theme-code-border: rgba(0, 0, 0, 0.08);
+  
+  /* 字体大小 */
+  --theme-font-size: 14px;
+  --theme-line-height: 1.6;
 }
 
-/* Scrollbar - Vercel style */
+/* 深色主题 */
+[data-theme="dark"] {
+  /* 主要颜色 */
+  --theme-primary: #fafafa;
+  --theme-secondary: #d4d4d4;
+  --theme-accent: #60a5fa;
+  
+  /* 背景颜色 */
+  --theme-bg-primary: #171717;
+  --theme-bg-secondary: #262626;
+  --theme-bg-tertiary: #1f1f1f;
+  --theme-bg-hover: #2d2d2d;
+  --theme-bg-active: #3d3d3d;
+  
+  /* 文字颜色 */
+  --theme-text-primary: #fafafa;
+  --theme-text-secondary: #d4d4d4;
+  --theme-text-muted: #737373;
+  --theme-text-inverse: #171717;
+  
+  /* 边框颜色 */
+  --theme-border: rgba(255, 255, 255, 0.1);
+  --theme-border-strong: rgba(255, 255, 255, 0.15);
+  --theme-border-light: rgba(255, 255, 255, 0.08);
+  
+  /* 阴影 */
+  --theme-shadow-sm: rgba(0, 0, 0, 0.3) 0 1px 2px;
+  --theme-shadow-md: rgba(0, 0, 0, 0.4) 0 1px 4px, rgba(0, 0, 0, 0.2) 0 2px 8px;
+  --theme-shadow-lg: rgba(0, 0, 0, 0.5) 0 4px 16px, rgba(0, 0, 0, 0.2) 0 2px 8px;
+  
+  /* 气泡颜色 */
+  --theme-user-bubble: #3b82f6;
+  --theme-user-text: #ffffff;
+  --theme-ai-bubble: #262626;
+  --theme-ai-text: #fafafa;
+  
+  /* 功能颜色 */
+  --theme-success: #4ade80;
+  --theme-success-bg: rgba(34, 197, 94, 0.2);
+  --theme-warning: #fbbf24;
+  --theme-warning-bg: rgba(245, 158, 11, 0.2);
+  --theme-error: #f87171;
+  --theme-error-bg: rgba(220, 38, 38, 0.2);
+  --theme-info: #60a5fa;
+  --theme-info-bg: rgba(59, 130, 246, 0.2);
+  
+  /* 滚动条 */
+  --theme-scrollbar-track: transparent;
+  --theme-scrollbar-thumb: rgba(255, 255, 255, 0.15);
+  --theme-scrollbar-thumb-hover: rgba(255, 255, 255, 0.25);
+  
+  /* 代码块 */
+  --theme-code-bg: #1f1f1f;
+  --theme-code-border: rgba(255, 255, 255, 0.1);
+}
+
+/* ==================== 基础样式 ==================== */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background-color: var(--theme-bg-primary);
+  color: var(--theme-text-primary);
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+/* ==================== 滚动条 - 主题适配 ==================== */
 ::-webkit-scrollbar {
   width: 6px;
-}
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: rgba(0,0,0,0.08);
-  border-radius: 3px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(0,0,0,0.12);
+  height: 6px;
 }
 
-/* Animation */
+::-webkit-scrollbar-track {
+  background: var(--theme-scrollbar-track);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--theme-scrollbar-thumb);
+  border-radius: 3px;
+  transition: background-color 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--theme-scrollbar-thumb-hover);
+}
+
+/* ==================== 动画 ==================== */
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(8px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
 }
 
 .animate-fade-in {
   animation: fadeIn 0.3s ease-out;
 }
 
-/* Markdown overrides — Vercel style */
+.animate-scale-in {
+  animation: scaleIn 0.2s ease-out;
+}
+
+/* ==================== Markdown 覆盖样式 ==================== */
 .prose {
-  color: var(--theme-text-primary, #171717);
+  color: var(--theme-text-primary);
+  max-width: 100%;
 }
 
 .prose pre {
   border-radius: 8px;
-  padding: 14px !important;
-  box-shadow: rgba(0,0,0,0.08) 0px 0px 0px 1px;
+  padding: 12px 16px !important;
+  background-color: var(--theme-code-bg) !important;
+  border: 1px solid var(--theme-code-border);
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
   font-size: 14px;
   line-height: 1.5;
+  margin: 1em 0;
+}
+
+.prose code {
+  background-color: var(--theme-bg-tertiary);
+  border: 1px solid var(--theme-border);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 0.875em;
+  color: var(--theme-text-primary);
+}
+
+.prose pre code {
+  background-color: transparent !important;
+  border: none !important;
+  padding: 0 !important;
+  color: inherit;
 }
 
 .prose h1, .prose h2, .prose h3 {
   margin-top: 0.5em;
   margin-bottom: 0.3em;
   letter-spacing: -0.02em;
-  color: var(--theme-text-primary, #171717);
+  color: var(--theme-text-primary);
+  font-weight: 600;
 }
+
+.prose h1 { font-size: 1.875rem; line-height: 2.25rem; }
+.prose h2 { font-size: 1.5rem; line-height: 2rem; }
+.prose h3 { font-size: 1.25rem; line-height: 1.75rem; }
 
 .prose ul, .prose ol {
   padding-left: 1.5em;
+  margin: 0.5em 0;
+}
+
+.prose li {
+  margin: 0.25em 0;
 }
 
 .prose p {
-  color: var(--theme-text-secondary, #4d4d4d);
+  color: var(--theme-text-secondary);
+  margin: 0.5em 0;
+  line-height: var(--theme-line-height);
 }
 
-/* Code inline */
-.prose code {
-  background: var(--theme-bg-tertiary, #fafafa);
-  box-shadow: var(--theme-border, rgba(0,0,0,0.08)) 0px 0px 0px 1px;
-  border-radius: 4px;
-  padding: 2px 6px;
-  font-size: 0.875em;
-  color: var(--theme-text-primary, #171717);
+.prose a {
+  color: var(--theme-accent);
+  text-decoration: none;
+  transition: color 0.2s ease;
 }
 
-/* Selection */
+.prose a:hover {
+  text-decoration: underline;
+}
+
+.prose blockquote {
+  border-left: 3px solid var(--theme-border-strong);
+  padding-left: 1em;
+  margin: 1em 0;
+  color: var(--theme-text-muted);
+}
+
+.prose table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1em 0;
+}
+
+.prose th, .prose td {
+  border: 1px solid var(--theme-border);
+  padding: 0.5em 1em;
+  text-align: left;
+}
+
+.prose th {
+  background-color: var(--theme-bg-secondary);
+  font-weight: 600;
+}
+
+/* ==================== 文本选择 ==================== */
 ::selection {
-  background: rgba(0, 0, 0, 0.12);
-  color: #171717;
+  background-color: var(--theme-accent);
+  color: var(--theme-text-inverse);
 }
 
-/* Focus ring — 中性灰，与整体 UI 一致 */
+/* ==================== 焦点样式 ==================== */
 :focus-visible {
-  outline: 2px solid rgba(64, 64, 64, 0.45);
+  outline: 2px solid var(--theme-accent);
   outline-offset: 2px;
 }
 
-/* Toast 自定义样式 — 极简黑白灰风格 */
+/* ==================== Toast 自定义样式 ==================== */
 .Toastify__toast-container {
   z-index: 9999;
 }
 
 .Toastify__toast {
-  background: #ffffff;
-  border: 1px solid rgba(0, 0, 0, 0.06);
+  background-color: var(--theme-bg-primary);
+  border: 1px solid var(--theme-border);
   border-radius: 8px;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--theme-shadow-md);
   padding: 12px 16px;
   min-height: auto;
+  color: var(--theme-text-primary);
 }
 
 .Toastify__toast--success {
-  background: #fafafa;
-  border-color: rgba(34, 197, 94, 0.2);
+  background-color: var(--theme-success-bg);
+  border-color: var(--theme-success);
 }
 
 .Toastify__toast--error {
-  background: #fafafa;
-  border-color: rgba(220, 38, 38, 0.2);
+  background-color: var(--theme-error-bg);
+  border-color: var(--theme-error);
 }
 
 .Toastify__toast--info {
-  background: #fafafa;
-  border-color: rgba(59, 130, 246, 0.2);
+  background-color: var(--theme-info-bg);
+  border-color: var(--theme-info);
 }
 
 .Toastify__toast--warning {
-  background: #fefefe;
-  border-color: rgba(217, 119, 6, 0.2);
+  background-color: var(--theme-warning-bg);
+  border-color: var(--theme-warning);
 }
 
 .Toastify__toast-body {
-  color: #171717;
+  color: var(--theme-text-primary);
   font-size: 14px;
   font-weight: 500;
   line-height: 1.5;
@@ -153,63 +328,138 @@
 
 .Toastify__progress-bar {
   height: 2px;
-  background: rgba(0, 0, 0, 0.1);
+  background-color: var(--theme-text-muted);
   border-radius: 1px;
 }
 
 .Toastify__progress-bar--success {
-  background: rgba(34, 197, 94, 0.6);
+  background-color: var(--theme-success);
 }
 
 .Toastify__progress-bar--error {
-  background: rgba(220, 38, 38, 0.6);
+  background-color: var(--theme-error);
 }
 
 .Toastify__progress-bar--info {
-  background: rgba(59, 130, 246, 0.6);
+  background-color: var(--theme-info);
 }
 
 .Toastify__progress-bar--warning {
-  background: rgba(217, 119, 6, 0.6);
+  background-color: var(--theme-warning);
 }
 
 .Toastify__close-button {
-  color: #808080;
+  color: var(--theme-text-muted);
   opacity: 0.6;
   padding: 2px;
   margin-left: 8px;
-  transition: opacity 0.2s;
+  transition: opacity 0.2s, color 0.2s;
 }
 
 .Toastify__close-button:hover {
   opacity: 1;
-  color: #4d4d4d;
+  color: var(--theme-text-primary);
 }
 
-@keyframes slideIn {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
+/* ==================== 深色模式全局覆盖样式 ==================== */
+[data-theme="dark"] {
+  /* 侧边栏和面板背景 */
+  .bg-white,
+  .bg-\[\#ffffff\] {
+    background-color: var(--theme-bg-primary) !important;
   }
-  to {
-    opacity: 1;
-    transform: translateY(0);
+  
+  .bg-\[\#fafafa\],
+  .bg-gray-50,
+  .bg-\[\#f4f4f5\] {
+    background-color: var(--theme-bg-secondary) !important;
+  }
+  
+  /* 文字颜色 */
+  .text-\[\#171717\],
+  .text-gray-900,
+  .text-gray-800,
+  .text-\[\#374151\] {
+    color: var(--theme-text-primary) !important;
+  }
+  
+  .text-\[\#525252\],
+  .text-gray-700,
+  .text-gray-600 {
+    color: var(--theme-text-secondary) !important;
+  }
+  
+  .text-\[\#a3a3a3\],
+  .text-gray-500,
+  .text-\[\#737373\] {
+    color: var(--theme-text-muted) !important;
+  }
+  
+  /* 边框 */
+  .border-black\/\[0.08\],
+  .border-gray-200,
+  .border-\[\#d1d5db\],
+  .border-\[\#d4d4d4\] {
+    border-color: var(--theme-border) !important;
+  }
+  
+  .border-black\/\[0.12\],
+  .border-\[\#e5e5e5\] {
+    border-color: var(--theme-border-strong) !important;
+  }
+  
+  /* 悬停和激活态 */
+  .hover\:bg-\[\#fafafa\]:hover,
+  .hover\:bg-gray-50:hover {
+    background-color: var(--theme-bg-hover) !important;
+  }
+  
+  .hover\:bg-\[\#f5f5f5\]:hover {
+    background-color: var(--theme-bg-hover) !important;
+  }
+  
+  .hover\:text-\[\#171717\]:hover,
+  .hover\:text-gray-900:hover {
+    color: var(--theme-text-primary) !important;
+  }
+  
+  .hover\:border-\[\#171717\]:hover {
+    border-color: var(--theme-text-primary) !important;
+  }
+  
+  /* 红色/黄色/蓝色背景 */
+  .bg-red-50,
+  .bg-amber-50 {
+    background-color: rgba(239, 68, 68, 0.1) !important;
+  }
+  
+  /* 输入框和交互元素 */
+  .bg-\[\#fafafa\],
+  .bg-gray-50 {
+    background-color: var(--theme-bg-tertiary) !important;
+  }
+  
+  /* 阴影适配 */
+  .shadow-sm {
+    box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.3) !important;
   }
 }
 
-.Toastify__toast--slideIn {
-  animation: slideIn 0.25s ease-out;
-}
+/* 通用的主题适配类 */
+.theme-bg-primary { background-color: var(--theme-bg-primary); }
+.theme-bg-secondary { background-color: var(--theme-bg-secondary); }
+.theme-bg-tertiary { background-color: var(--theme-bg-tertiary); }
+.theme-bg-hover { background-color: var(--theme-bg-hover); }
+.theme-bg-active { background-color: var(--theme-bg-active); }
 
-@keyframes fadeOut {
-  from {
-    opacity: 1;
-  }
-  to {
-    opacity: 0;
-  }
-}
+.theme-text-primary { color: var(--theme-text-primary); }
+.theme-text-secondary { color: var(--theme-text-secondary); }
+.theme-text-muted { color: var(--theme-text-muted); }
+.theme-text-inverse { color: var(--theme-text-inverse); }
 
-.Toastify__toast--fadeOut {
-  animation: fadeOut 0.2s ease-in;
-}
+.theme-border { border-color: var(--theme-border); }
+.theme-border-strong { border-color: var(--theme-border-strong); }
+
+.theme-accent { color: var(--theme-accent); }
+.theme-accent-bg { background-color: var(--theme-accent); }
+
