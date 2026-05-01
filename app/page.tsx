@@ -179,6 +179,14 @@ function IconX(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
+function IconCheck(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden {...props}>
+      <path d="M20 6 9 17l-5-5" />
+    </svg>
+  );
+}
+
 function IconGripVertical(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden {...props}>
@@ -272,6 +280,24 @@ function IconSaveAs(props: React.SVGProps<SVGSVGElement>) {
       <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
       <polyline points="17 21 17 13 7 13 7 21" />
       <polyline points="7 3 7 8 15 8" />
+    </svg>
+  );
+}
+
+function IconCopy(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      {...props}
+    >
+      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
     </svg>
   );
 }
@@ -418,6 +444,7 @@ interface SidebarContentProps {
   onOpenFeedback: () => void;
   onOpenExport: () => void;
   onSaveAsTemplate: (conversationId: string) => Promise<void>;
+  duplicateConversation: (id: string, e: React.MouseEvent) => void;
   compareMode: CompareModeState;
   enterCompareMode: () => void;
   exitCompareMode: () => void;
@@ -443,6 +470,7 @@ function SortableConversationRow({
   togglePin,
   deleteConversation,
   onSaveAsTemplate,
+  duplicateConversation,
   compareMode,
 }: {
   conversation: ConversationRow;
@@ -461,6 +489,7 @@ function SortableConversationRow({
   togglePin: (id: string, e: React.MouseEvent) => Promise<void>;
   deleteConversation: (id: string, e: React.MouseEvent) => Promise<void>;
   onSaveAsTemplate: (conversationId: string) => Promise<void>;
+  duplicateConversation: (id: string, e: React.MouseEvent) => void;
   compareMode: CompareModeState;
 }) {
   const {
@@ -594,6 +623,20 @@ function SortableConversationRow({
       </button>
       <button
         type="button"
+        aria-label="复制对话"
+        onClick={(e) => {
+          e.stopPropagation();
+          void duplicateConversation(conversation.id, e);
+        }}
+        className={`flex w-9 shrink-0 items-center justify-center text-[#a3a3a3] opacity-0 transition hover:bg-[#f5f5f5] hover:text-[#171717] group-hover:opacity-100 ${
+          isNarrow ? 'w-7' : ''
+        }`}
+        title="复制对话"
+      >
+        <IconCopy className={`h-4 w-4 ${isNarrow ? 'h-3.5 w-3.5' : ''}`} />
+      </button>
+      <button
+        type="button"
         aria-label="删除会话"
         onClick={(e) => deleteConversation(conversation.id, e)}
         className={`flex w-9 shrink-0 items-center justify-center text-[#a3a3a3] opacity-0 transition hover:bg-red-50 hover:text-red-600 group-hover:opacity-100 ${
@@ -633,6 +676,7 @@ function SidebarContent({
   onOpenFeedback,
   onOpenExport,
   onSaveAsTemplate,
+  duplicateConversation,
   compareMode,
   enterCompareMode,
   exitCompareMode,
@@ -1008,6 +1052,20 @@ function SidebarContent({
                   </button>
                   <button
                     type="button"
+                    aria-label="复制对话"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void duplicateConversation(c.id, e);
+                    }}
+                    className={`flex w-9 shrink-0 items-center justify-center text-[#a3a3a3] opacity-0 transition hover:bg-[#f5f5f5] hover:text-[#171717] group-hover:opacity-100 ${
+                      isNarrow ? 'w-7' : ''
+                    }`}
+                    title="复制对话"
+                  >
+                    <IconCopy className={`h-4 w-4 ${isNarrow ? 'h-3.5 w-3.5' : ''}`} />
+                  </button>
+                  <button
+                    type="button"
                     aria-label="删除会话"
                     onClick={(e) => deleteConversation(c.id, e)}
                     className={`flex w-9 shrink-0 items-center justify-center text-[#a3a3a3] opacity-0 transition hover:bg-red-50 hover:text-red-600 group-hover:opacity-100 ${
@@ -1169,6 +1227,7 @@ function SidebarContent({
                     togglePin={togglePin}
                     deleteConversation={deleteConversation}
                     onSaveAsTemplate={onSaveAsTemplate}
+                    duplicateConversation={duplicateConversation}
                     compareMode={compareMode}
                   />
                 ))}
@@ -1328,6 +1387,13 @@ export default function Home() {
     activeSide: 'left',
     selectingForCompare: false,
   });
+
+  // 复制对话相关状态
+  const [duplicatingConversationId, setDuplicatingConversationId] = useState<string | null>(null);
+  const [showDuplicateConfirmModal, setShowDuplicateConfirmModal] = useState<boolean>(false);
+  const [isDuplicating, setIsDuplicating] = useState<boolean>(false);
+  const [duplicateSuccessToast, setDuplicateSuccessToast] = useState<boolean>(false);
+  const duplicateToastTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hasAutoArchivedRef = useRef(false);
@@ -2302,6 +2368,75 @@ export default function Home() {
     [deviceId, loadConversations]
   );
 
+  // 复制对话相关函数
+  const duplicateConversation = useCallback((id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setDuplicatingConversationId(id);
+    setShowDuplicateConfirmModal(true);
+  }, []);
+
+  const handleDuplicateConfirm = useCallback(async () => {
+    if (!deviceId || !duplicatingConversationId) return;
+
+    setIsDuplicating(true);
+    setShowDuplicateConfirmModal(false);
+
+    try {
+      const r = await fetch(`/api/conversations/${duplicatingConversationId}/duplicate`, {
+        method: 'POST',
+        headers: {
+          'x-device-id': deviceId,
+        },
+      });
+
+      if (!r.ok) {
+        throw new Error('复制失败');
+      }
+
+      const data = (await r.json()) as { 
+        id: string; 
+        title: string;
+        conversations: ConversationRow[];
+      };
+
+      if (data.conversations) {
+        setConvList(data.conversations);
+      }
+
+      setIsDuplicating(false);
+      setDuplicatingConversationId(null);
+
+      setDuplicateSuccessToast(true);
+      if (duplicateToastTimerRef.current) {
+        clearTimeout(duplicateToastTimerRef.current);
+      }
+      duplicateToastTimerRef.current = setTimeout(() => {
+        setDuplicateSuccessToast(false);
+        duplicateToastTimerRef.current = null;
+      }, 2000);
+
+      await selectConversation(data.id);
+    } catch (error) {
+      console.error('复制对话失败:', error);
+      setIsDuplicating(false);
+      setDuplicatingConversationId(null);
+      alert('复制对话失败，请稍后重试');
+    }
+  }, [deviceId, duplicatingConversationId, selectConversation]);
+
+  const handleDuplicateCancel = useCallback(() => {
+    setShowDuplicateConfirmModal(false);
+    setDuplicatingConversationId(null);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (duplicateToastTimerRef.current) {
+        clearTimeout(duplicateToastTimerRef.current);
+      }
+    };
+  }, []);
+
   const loadingMain = !!(deviceId && !chatPayload && !bootstrapError);
 
   return (
@@ -2365,6 +2500,7 @@ export default function Home() {
               onOpenFeedback={handleOpenFeedback}
               onOpenExport={handleOpenExport}
               onSaveAsTemplate={handleSaveAsTemplate}
+              duplicateConversation={duplicateConversation}
               compareMode={compareMode}
               enterCompareMode={enterCompareMode}
               exitCompareMode={exitCompareMode}
@@ -2555,6 +2691,74 @@ export default function Home() {
         mode="save-as"
         onSubmit={handleCreateTemplateFromConversation}
       />
+
+      {/* 复制对话确认弹窗 */}
+      {showDuplicateConfirmModal && duplicatingConversationId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={handleDuplicateCancel}>
+          <div
+            className="w-full max-w-md rounded-2xl border border-black/[0.08] bg-white shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-black/[0.06] p-4">
+              <h3 className="text-lg font-semibold text-[#171717]">复制对话</h3>
+              <button
+                type="button"
+                onClick={handleDuplicateCancel}
+                className="flex h-8 w-8 items-center justify-center rounded-lg text-[#a3a3a3] hover:bg-[#f5f5f5] hover:text-[#171717] transition-colors"
+                aria-label="关闭"
+              >
+                <IconX className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="p-4">
+              <div className="mb-4 rounded-xl bg-[#fafafa] p-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <IconCopy className="h-5 w-5 text-[#171717]" />
+                  <span className="text-sm font-medium text-[#171717]">
+                    {convList.find(c => c.id === duplicatingConversationId)?.title?.trim() || '新对话'}
+                  </span>
+                </div>
+              </div>
+
+              <p className="text-sm text-[#737373] mb-4">
+                将创建一个完全相同的副本，包括所有历史消息和模型设置。
+              </p>
+
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={handleDuplicateCancel}
+                  className="flex-1 rounded-xl border border-black/[0.08] bg-white px-4 py-2.5 text-sm font-medium text-[#171717] transition-colors hover:bg-[#fafafa]"
+                >
+                  取消
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDuplicateConfirm}
+                  disabled={isDuplicating}
+                  className="flex-1 rounded-xl bg-[#171717] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-black disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  {isDuplicating && (
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                  )}
+                  {isDuplicating ? '正在复制...' : '确认复制'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 复制成功提示 */}
+      {duplicateSuccessToast && (
+        <div className="fixed bottom-24 left-1/2 z-50 -translate-x-1/2 transform">
+          <div className="rounded-full bg-[#171717] px-6 py-3 text-sm font-medium text-white shadow-lg flex items-center gap-2">
+            <IconCheck className="h-4 w-4" />
+            复制成功
+          </div>
+        </div>
+      )}
 
       {/* 使用记录面板 */}
       <UserStatsPanel
