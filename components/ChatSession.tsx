@@ -1524,6 +1524,29 @@ export default function ChatSession({
                       inputRef.current?.focus();
                     }}
                     className="mt-2"
+                    conversationId={conversationId}
+                    deviceId={deviceId}
+                    messages={messages.map(msg => ({
+                      role: msg.role,
+                      content: msg.content,
+                    }))}
+                    customModelConfig={(() => {
+                      // 检查是否使用自定义模型
+                      const currentModelId = model.defaultModel || modelId;
+                      if (currentModelId.startsWith('custom_')) {
+                        const customModel = getCustomModelById(currentModelId);
+                        if (customModel) {
+                          return {
+                            baseUrl: customModel.baseUrl,
+                            apiKey: decryptApiKey(customModel.encryptedApiKey),
+                            modelId: customModel.modelId,
+                            provider: customModel.provider,
+                          };
+                        }
+                      }
+                      return undefined;
+                    })()}
+                    enableAIGeneration={true}
                   />
                 )}
 
