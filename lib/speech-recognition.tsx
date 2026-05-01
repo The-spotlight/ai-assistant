@@ -6,8 +6,6 @@ type SpeechRecognitionState = 'idle' | 'listening' | 'recognizing';
 
 interface UseSpeechRecognitionOptions {
   lang?: string;
-  continuous?: boolean;
-  interimResults?: boolean;
   maxDuration?: number;
 }
 
@@ -49,6 +47,13 @@ interface SpeechRecognition {
   onresult: ((event: SpeechRecognitionEvent) => void) | null;
   onerror: ((event: SpeechRecognitionErrorEvent) => void) | null;
   onend: (() => void) | null;
+  onstart: (() => void) | null;
+  onaudiostart: (() => void) | null;
+  onsoundstart: (() => void) | null;
+  onspeechstart: (() => void) | null;
+  onspeechend: (() => void) | null;
+  onsoundend: (() => void) | null;
+  onaudioend: (() => void) | null;
 }
 
 interface SpeechRecognitionConstructor {
@@ -62,11 +67,11 @@ declare global {
   }
 }
 
+type AudioState = 'silent' | 'detecting' | 'speaking';
+
 export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) {
   const {
     lang = 'zh-CN',
-    continuous = false,
-    interimResults = true,
     maxDuration = 60000,
   } = options;
 
@@ -75,11 +80,15 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
   const [interimTranscript, setInterimTranscript] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [isSupported, setIsSupported] = useState(false);
+  const [audioState, setAudioState] = useState<AudioState>('silent');
 
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const finalTranscriptRef = useRef('');
   const stateRef = useRef<SpeechRecognitionState>('idle');
+  const isManuallyStoppedRef = useRef(false);
+  const restartTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hasSpeechRef = useRef(false);
 
   useEffect(() => {
     stateRef.current = state;
@@ -99,55 +108,58 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
       clearTimeout(timerRef.current);
       timerRef.current = null;
     }
+    if (restartTimeoutRef.current) {
+      clearTimeout(restartTimeoutRef.current);
+      restartTimeoutRef.current = null;
+    }
   }, []);
 
   const stopListening = useCallback(() => {
     clearTimer();
-    
-    if (recognitionRef.current && state === 'listening') {
-      setState('recognizing');
-      recognitionRef.current.stop();
-    }
-  }, [state, clearTimer]);
+    isManuallyStoppedRef.current = true;
 
-  const startListening = useCallback(() => {
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch (e) {
+        // Ignore stop errors
+      }
+    }
+
+    if (stateRef.current === 'listening') {
+      setState('recognizing');
+    }
+  }, [clearTimer]);
+
+  const createRecognition = useCallback(() => {
     const SpeechRecognitionAPI =
       window.SpeechRecognition || window.webkitSpeechRecognition;
 
     if (!SpeechRecognitionAPI) {
-      setError('您的浏览器不支持语音识别功能');
-      return;
+      return null;
     }
-
-    if (state === 'listening' || state === 'recognizing') {
-      stopListening();
-      return;
-    }
-
-    setError(null);
-    setTranscript('');
-    setInterimTranscript('');
-    finalTranscriptRef.current = '';
-    setState('listening');
 
     const recognition = new SpeechRecognitionAPI();
     recognition.lang = lang;
-    recognition.continuous = continuous;
-    recognition.interimResults = interimResults;
+    recognition.continuous = false;
+    recognition.interimResults = true;
 
     recognition.onresult = (event: SpeechRecognitionEvent) => {
+      hasSpeechRef.current = true;
+      setAudioState('speaking');
+      
       let interim = '';
       let final = '';
 
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const result = event.results[i];
         const alternative = result[0];
-        const transcript = alternative?.transcript || '';
-        const isFinal = result.isFinal;
-        if (isFinal) {
-          final += transcript;
+        const text = alternative?.transcript || '';
+        
+        if (result.isFinal) {
+          final += text;
         } else {
-          interim += transcript;
+          interim += text;
         }
       }
 
@@ -159,59 +171,170 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
     };
 
     recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
-      console.error('Speech recognition error:', event.error);
+      console.log('[SpeechRecognition] error:', event.error);
       
-      if (event.error === 'no-speech') {
-        setError('没有检测到语音，请重试');
-      } else if (event.error === 'audio-capture') {
-        setError('无法访问麦克风，请检查权限设置');
-      } else if (event.error === 'not-allowed') {
+      if (event.error === 'not-allowed') {
         setError('麦克风权限被拒绝，请在浏览器设置中允许访问麦克风');
+        clearTimer();
+        setState('idle');
+        setAudioState('silent');
+      } else if (event.error === 'audio-capture') {
+        setError('无法访问麦克风，请检查设备连接');
+        clearTimer();
+        setState('idle');
+        setAudioState('silent');
+      } else if (event.error === 'no-speech') {
+        setAudioState('silent');
+      } else if (event.error === 'network') {
+        setAudioState('silent');
+      } else if (event.error === 'aborted') {
+        // 正常中止，不处理
       } else {
-        setError(`语音识别出错: ${event.error}`);
+        console.warn('Unhandled speech recognition error:', event.error);
       }
-      
-      clearTimer();
-      setState('idle');
     };
 
     recognition.onend = () => {
-      clearTimer();
+      console.log('[SpeechRecognition] onend, state:', stateRef.current, 'isManuallyStopped:', isManuallyStoppedRef.current);
       
-      if (stateRef.current === 'recognizing') {
-        const finalText = finalTranscriptRef.current || interimTranscript;
-        if (finalText) {
-          setTranscript(finalText);
+      if (isManuallyStoppedRef.current) {
+        if (stateRef.current === 'recognizing') {
+          const finalText = finalTranscriptRef.current || interimTranscript;
+          if (finalText) {
+            setTranscript(finalText);
+          }
+          setState('idle');
+          setAudioState('silent');
         }
-        setState('idle');
+        return;
+      }
+
+      if (stateRef.current === 'listening') {
+        setAudioState('detecting');
+        
+        restartTimeoutRef.current = setTimeout(() => {
+          if (stateRef.current === 'listening' && !isManuallyStoppedRef.current) {
+            startRecognitionInternal();
+          }
+        }, 100);
       }
     };
 
-    recognitionRef.current = recognition;
-    recognition.start();
+    recognition.onstart = () => {
+      console.log('[SpeechRecognition] onstart');
+      setAudioState('detecting');
+    };
 
-    timerRef.current = setTimeout(() => {
-      stopListening();
-    }, maxDuration);
+    recognition.onaudiostart = () => {
+      console.log('[SpeechRecognition] onaudiostart');
+      setAudioState('detecting');
+    };
 
-    return () => {
-      clearTimer();
+    recognition.onsoundstart = () => {
+      console.log('[SpeechRecognition] onsoundstart');
+      setAudioState('detecting');
+    };
+
+    recognition.onspeechstart = () => {
+      console.log('[SpeechRecognition] onspeechstart');
+      hasSpeechRef.current = true;
+      setAudioState('speaking');
+    };
+
+    recognition.onspeechend = () => {
+      console.log('[SpeechRecognition] onspeechend');
+      setAudioState('detecting');
+    };
+
+    recognition.onsoundend = () => {
+      console.log('[SpeechRecognition] onsoundend');
+      setAudioState('silent');
+    };
+
+    recognition.onaudioend = () => {
+      console.log('[SpeechRecognition] onaudioend');
+      setAudioState('silent');
+    };
+
+    return recognition;
+  }, [lang]);
+
+  const startRecognitionInternal = useCallback(() => {
+    const SpeechRecognitionAPI =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!SpeechRecognitionAPI) {
+      setError('您的浏览器不支持语音识别功能');
+      return;
+    }
+
+    try {
       if (recognitionRef.current) {
         try {
-          recognitionRef.current.stop();
+          recognitionRef.current.abort();
         } catch (e) {
-          // Ignore stop errors
+          // Ignore abort errors
         }
       }
-    };
-  }, [lang, continuous, interimResults, maxDuration, state, stopListening, clearTimer]);
+
+      const recognition = createRecognition();
+      if (!recognition) {
+        return;
+      }
+
+      recognitionRef.current = recognition;
+      recognition.start();
+    } catch (e) {
+      console.error('Failed to start recognition:', e);
+    }
+  }, [createRecognition]);
+
+  const startListening = useCallback(() => {
+    const SpeechRecognitionAPI =
+      window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!SpeechRecognitionAPI) {
+      setError('您的浏览器不支持语音识别功能');
+      return;
+    }
+
+    if (stateRef.current === 'listening') {
+      stopListening();
+      return;
+    }
+
+    if (stateRef.current === 'recognizing') {
+      return;
+    }
+
+    clearTimer();
+    isManuallyStoppedRef.current = false;
+    hasSpeechRef.current = false;
+    setError(null);
+    setTranscript('');
+    setInterimTranscript('');
+    finalTranscriptRef.current = '';
+    setState('listening');
+    setAudioState('detecting');
+
+    startRecognitionInternal();
+
+    timerRef.current = setTimeout(() => {
+      console.log('[SpeechRecognition] max duration reached, stopping');
+      stopListening();
+    }, maxDuration);
+  }, [stopListening, startRecognitionInternal, clearTimer, maxDuration]);
 
   const reset = useCallback(() => {
+    clearTimer();
+    isManuallyStoppedRef.current = false;
+    hasSpeechRef.current = false;
     setTranscript('');
     setInterimTranscript('');
     setError(null);
     finalTranscriptRef.current = '';
-  }, []);
+    setAudioState('silent');
+  }, [clearTimer]);
 
   useEffect(() => {
     return () => {
@@ -232,8 +355,12 @@ export function useSpeechRecognition(options: UseSpeechRecognitionOptions = {}) 
     transcript,
     interimTranscript,
     error,
+    audioState,
     isListening: state === 'listening',
     isRecognizing: state === 'recognizing',
+    isSilent: audioState === 'silent',
+    isDetecting: audioState === 'detecting',
+    isSpeaking: audioState === 'speaking',
     startListening,
     stopListening,
     reset,

@@ -197,6 +197,9 @@ export default function ChatSession({
     isSupported: isSpeechRecognitionSupported,
     isListening,
     isRecognizing,
+    isSpeaking,
+    isSilent,
+    isDetecting,
     transcript,
     interimTranscript,
     error: speechRecognitionError,
@@ -205,8 +208,6 @@ export default function ChatSession({
     reset: resetSpeechRecognition,
   } = useSpeechRecognition({
     lang: 'zh-CN',
-    continuous: true,
-    interimResults: true,
     maxDuration: 60000,
   });
 
@@ -1737,10 +1738,10 @@ export default function ChatSession({
                 value={isListening || isRecognizing ? (transcript + interimTranscript) : input}
                 onChange={handleCustomInputChange}
                 onKeyDown={handleKeyDown}
-                placeholder={isRecognizing ? "正在识别…" : (isListening ? "正在聆听…" : "有问题，尽管问… 输入 / 查看快捷指令")}
+                placeholder={isRecognizing ? "正在识别…" : (isSpeaking ? "正在聆听…" : (isListening ? "等待输入…" : "有问题，尽管问… 输入 / 查看快捷指令"))}
                 disabled={isLoading || isRecognizing}
                 className={`min-h-[44px] w-full border-0 bg-transparent px-3 text-[15px] text-[#171717] placeholder:text-[#808080] focus:outline-none focus:ring-0 disabled:opacity-60 pr-12 ${
-                  isListening ? 'text-[#dc2626]' : ''
+                  isListening ? (isSpeaking ? 'text-[#dc2626]' : 'text-[#f97316]') : ''
                 }`}
               />
               
@@ -1750,18 +1751,25 @@ export default function ChatSession({
                   onClick={handleMicClick}
                   disabled={isLoading || isRecognizing}
                   className={`absolute right-1 top-1/2 -translate-y-1/2 flex h-9 w-9 items-center justify-center rounded-full transition-all duration-300 ${
-                    isListening
+                    isSpeaking
                       ? 'bg-[#dc2626] text-white shadow-lg shadow-[#dc2626]/40'
+                      : isDetecting
+                      ? 'bg-[#fed7aa] text-[#f97316] shadow-md shadow-[#f97316]/20'
                       : isRecognizing
                       ? 'bg-[#fef3c7] text-[#92400e]'
                       : 'text-[#737373] hover:bg-white/40 hover:text-[#171717]'
                   } disabled:cursor-not-allowed disabled:opacity-40`}
-                  title={isListening ? "点击停止录音" : isRecognizing ? "正在识别，请稍候" : "点击开始语音输入"}
+                  title={isListening ? (isSpeaking ? "说话中，点击停止录音" : "等待输入，点击停止录音") : isRecognizing ? "正在识别，请稍候" : "点击开始语音输入"}
                 >
-                  {isListening && (
+                  {isSpeaking && (
                     <>
                       <span className="absolute inset-0 rounded-full bg-[#dc2626] animate-ping opacity-40" />
                       <span className="absolute inset-1 rounded-full bg-[#dc2626] animate-pulse opacity-30" />
+                    </>
+                  )}
+                  {isDetecting && !isSpeaking && (
+                    <>
+                      <span className="absolute inset-0 rounded-full bg-[#f97316] animate-pulse opacity-20" />
                     </>
                   )}
                   {isRecognizing ? (
@@ -1769,7 +1777,7 @@ export default function ChatSession({
                       <span className="absolute inline-flex h-full w-full animate-spin rounded-full border-2 border-[#92400e] border-t-transparent" />
                     </span>
                   ) : (
-                    <Mic className={`h-5 w-5 relative z-10 ${isListening ? 'animate-pulse' : ''}`} />
+                    <Mic className={`h-5 w-5 relative z-10 ${isSpeaking ? 'animate-pulse' : ''}`} />
                   )}
                 </button>
               )}
