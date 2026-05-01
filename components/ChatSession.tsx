@@ -47,6 +47,7 @@ import { saveDraft, loadDraft, clearDraft, addToHistory, getHistory } from '@/li
 import { addSkillToHistory } from '@/lib/skill-history';
 import { TranslateButton, TranslationResult } from '@/components/MessageTranslator';
 import MessageTranslateProvider from '@/components/MessageTranslateProvider';
+import FollowUpSuggestions from '@/components/FollowUpSuggestions';
 
 const SUGGESTIONS = [
   '搜索今日新闻',
@@ -1500,6 +1501,30 @@ export default function ChatSession({
                       )}
                     </div>
                   </div>
+                )}
+
+                {/* 推荐追问组件：只在最后一条 AI 消息且加载完成时显示 */}
+                {isLastAssistant && (
+                  <FollowUpSuggestions
+                    content={m.content}
+                    userMessage={(() => {
+                      // 找到对应的用户消息（通常是前一条消息）
+                      for (let i = index - 1; i >= 0; i--) {
+                        if (messages[i]?.role === 'user') {
+                          return messages[i].content;
+                        }
+                      }
+                      return undefined;
+                    })()}
+                    isLoading={isLoading}
+                    onSelectSuggestion={(suggestion) => {
+                      // 将推荐内容填入输入框
+                      setInput(suggestion);
+                      // 聚焦输入框
+                      inputRef.current?.focus();
+                    }}
+                    className="mt-2"
+                  />
                 )}
 
                 {/* 用户消息操作栏：状态图标 + 编辑按钮 + 引用按钮 + 翻译按钮 */}
