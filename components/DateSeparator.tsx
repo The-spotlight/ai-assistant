@@ -85,14 +85,14 @@ export default function DateSeparator({
         className={`flex-1 h-px transition-all duration-300 ${
           isHighlightActive
             ? 'bg-[#f59e0b]'
-            : 'bg-black/[0.08]'
+            : 'bg-[#171717]/[0.08] dark:bg-white/10'
         }`}
       />
       <div
         className={`relative px-4 py-1 text-xs font-medium transition-all duration-300 rounded-full ${
           isHighlightActive
             ? 'bg-[#fef3c7] text-[#92400e] shadow-sm'
-            : 'text-[#a3a3a3]'
+            : 'text-[#a3a3a3] dark:text-[#737373]'
         }`}
       >
         {dateLabel}
@@ -101,7 +101,7 @@ export default function DateSeparator({
         className={`flex-1 h-px transition-all duration-300 ${
           isHighlightActive
             ? 'bg-[#f59e0b]'
-            : 'bg-black/[0.08]'
+            : 'bg-[#171717]/[0.08] dark:bg-white/10'
         }`}
       />
     </div>

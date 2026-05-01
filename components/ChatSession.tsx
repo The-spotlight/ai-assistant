@@ -992,7 +992,7 @@ export default function ChatSession({
     >
       {/* 顶部状态栏：显示 token 和费用 */}
       {messages.length > 0 && behavior.showTokenStats && (
-        <div className="relative shrink-0 border-b border-white/20 bg-white/60 backdrop-blur-xl px-4 py-2 text-xs text-[#737373]">
+        <div className="relative shrink-0 border-b border-white/20 bg-white/60 dark:bg-[#171717]/60 backdrop-blur-xl px-4 py-2 text-xs text-[#737373] dark:text-[#a3a3a3]">
           <div className="flex items-center justify-between gap-2">
             <span className="truncate">
               模型：{modelPricing.label}
@@ -1031,7 +1031,7 @@ export default function ChatSession({
                     type="button"
                     onClick={onToggleImmersiveMode}
                     title="沉浸模式"
-                    className="flex h-8 w-8 items-center justify-center rounded-lg text-[#a3a3a3] hover:text-[#171717] hover:bg-white/40 transition-all duration-300 ease-in-out"
+                    className="flex h-8 w-8 items-center justify-center rounded-lg text-[#a3a3a3] hover:text-[#171717] hover:bg-white/40 dark:hover:text-white dark:hover:bg-white/10 transition-all duration-300 ease-in-out"
                   >
                     <Maximize2 className="h-5 w-5" />
                   </button>
@@ -1039,14 +1039,14 @@ export default function ChatSession({
                 <div
                   onClick={() => setShowMenu(!showMenu)}
                   title="更多选项"
-                  className="flex h-8 w-8 items-center justify-center rounded-lg text-[#a3a3a3] hover:text-[#171717] hover:bg-white/40 cursor-pointer transition-all duration-300 ease-in-out"
+                  className="flex h-8 w-8 items-center justify-center rounded-lg text-[#a3a3a3] hover:text-[#171717] hover:bg-white/40 dark:hover:text-white dark:hover:bg-white/10 cursor-pointer transition-all duration-300 ease-in-out"
                 >
                   <MoreVertical className="h-5 w-5" />
                 </div>
 
                 {/* 下拉菜单 */}
                 {showMenu && (
-                  <div className="absolute right-0 top-full z-50 mt-1 w-44 overflow-hidden rounded-xl border border-black/[0.08] bg-white shadow-[0_4px_24px_rgba(0,0,0,0.12)]">
+                  <div className="absolute right-0 top-full z-50 mt-1 w-44 overflow-hidden rounded-xl border border-black/[0.08] dark:border-white/10 bg-white dark:bg-[#262626] shadow-[0_4px_24px_rgba(0,0,0,0.12)] dark:shadow-[0_4px_24px_rgba(0,0,0,0.4)]">
                     <button
                       type="button"
                       onClick={() => {
@@ -1054,9 +1054,9 @@ export default function ChatSession({
                         setShowMenu(false);
                       }}
                       disabled={messages.length === 0}
-                      className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-[#171717] transition-colors hover:bg-[#fafafa] disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-[#171717] dark:text-white transition-colors hover:bg-[#fafafa] dark:hover:bg-[#3d3d3d] disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <Share2 className="h-4 w-4 text-[#737373]" />
+                      <Share2 className="h-4 w-4 text-[#737373] dark:text-[#a3a3a3]" />
                       <span>分享</span>
                     </button>
                     <button
@@ -1065,18 +1065,18 @@ export default function ChatSession({
                         setShowShareHistory(true);
                         setShowMenu(false);
                       }}
-                      className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-[#171717] transition-colors hover:bg-[#fafafa]"
+                      className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-[#171717] dark:text-white transition-colors hover:bg-[#fafafa] dark:hover:bg-[#3d3d3d]"
                     >
-                      <FolderOpen className="h-4 w-4 text-[#737373]" />
+                      <FolderOpen className="h-4 w-4 text-[#737373] dark:text-[#a3a3a3]" />
                       <span>分享记录</span>
                     </button>
-                    <div className="h-px bg-black/[0.06]" />
+                    <div className="h-px bg-black/[0.06] dark:bg-white/10" />
                     <button
                       type="button"
                       onClick={handleExport}
-                      className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-[#171717] transition-colors hover:bg-[#fafafa]"
+                      className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-[#171717] dark:text-white transition-colors hover:bg-[#fafafa] dark:hover:bg-[#3d3d3d]"
                     >
-                      <Download className="h-4 w-4 text-[#737373]" />
+                      <Download className="h-4 w-4 text-[#737373] dark:text-[#a3a3a3]" />
                       <span>导出为 Markdown</span>
                     </button>
                   </div>
@@ -1233,7 +1233,7 @@ export default function ChatSession({
                 className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold ${
                   m.role === 'user'
                     ? 'text-white'
-                    : 'border bg-gradient-to-br from-[#f4f4f5] to-[#e4e4e7] text-[#525252]'
+                    : 'border bg-gradient-to-br from-[#f4f4f5] to-[#e4e4e7] text-[#525252] dark:border-white/10 dark:from-[#3d3d3d] dark:to-[#262626] dark:text-[#d4d4d4]'
                 }`}
                 style={{
                   backgroundColor: m.role === 'user' ? themeColors.primary : undefined,
@@ -1267,8 +1267,8 @@ export default function ChatSession({
                     <div
                       className={`mb-2 cursor-pointer rounded-lg px-3 py-2 text-xs transition-colors ${
                         m.role === 'user'
-                          ? 'bg-white/10 hover:bg-white/20 text-white/80'
-                          : 'bg-[#f5f5f5] hover:bg-[#e5e5e5] text-[#737373]'
+                          ? 'bg-white/10 hover:bg-white/20 text-white/80 dark:bg-white/10 dark:hover:bg-white/20 dark:text-white/80'
+                          : 'bg-[#f5f5f5] hover:bg-[#e5e5e5] text-[#737373] dark:bg-[#3d3d3d] dark:hover:bg-[#4d4d4d] dark:text-[#d4d4d4]'
                       }`}
                       onClick={() => {
                         if (msg.replyToId && !isReplyDeleted) {
