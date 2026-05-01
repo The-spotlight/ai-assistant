@@ -53,6 +53,7 @@ model Message {
   totalTokens     Int?
   replyToId       String?
   replyToSnapshot String?      @db.Text
+  readAt          DateTime?
   repliedMessage  Message?     @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
   replies         Message[]    @relation("MessageReplies")
   createdAt       DateTime     @default(now())
@@ -60,7 +61,8 @@ model Message {
   @@unique([conversationId, clientMessageId])
   @@index([userId, conversationId, createdAt])
   @@index([userId, replyToId])
-  
+  @@index([conversationId, readAt])
+
   favorites Favorite[]
   feedbacks MessageFeedback[]
 }

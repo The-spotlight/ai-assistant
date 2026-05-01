@@ -32,22 +32,22 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
 
   const messages = conversation.messages.map((m, index) => {
     let showDateSeparator = false;
-    
+
     if (index === 0) {
       showDateSeparator = true;
     } else {
       const prevMsg = conversation.messages[index - 1];
       const currentDate = m.createdAt;
       const prevDate = prevMsg.createdAt;
-      
-      const isSameDay = 
+
+      const isSameDay =
         currentDate.getFullYear() === prevDate.getFullYear() &&
         currentDate.getMonth() === prevDate.getMonth() &&
         currentDate.getDate() === prevDate.getDate();
-      
+
       showDateSeparator = !isSameDay;
     }
-    
+
     return {
       id: m.clientMessageId ?? m.id,
       role: m.role,
@@ -59,6 +59,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
       totalTokens: m.totalTokens,
       replyToId: m.replyToId,
       replyToSnapshot: m.replyToSnapshot,
+      readAt: m.readAt?.toISOString() ?? null,
       showDateSeparator,
     };
   });
