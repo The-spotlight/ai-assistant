@@ -46,6 +46,7 @@ import {
 import { useMessageFeedback, MessageFeedbackButton } from '@/components/MessageFeedback';
 import ChatErrorBar from '@/components/ChatErrorBar';
 import { saveDraft, loadDraft, clearDraft, addToHistory, getHistory } from '@/lib/draft-history';
+import { ImageUpload, type ImageFile } from '@/components/ImageUpload';
 
 const SUGGESTIONS = [
   '搜索今日新闻',
@@ -238,6 +239,40 @@ export default function ChatSession({
   const [messageHistory, setMessageHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [originalInput, setOriginalInput] = useState('');
+
+  // 图片上传相关状态
+  const [uploadedImages, setUploadedImages] = useState<ImageFile[]>([]);
+
+  // 上传图片到服务器
+  const uploadImages = useCallback(async (images: ImageFile[]): Promise<string[]> => {
+    if (images.length === 0) return [];
+
+    const formData = new FormData();
+    images.forEach((img) => {
+      formData.append('images', img.file);
+    });
+
+    try {
+      const response = await fetch('/api/upload/images', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || '图片上传失败');
+      }
+
+      const result = await response.json();
+      if (result.success && result.images) {
+        return result.images.map((img: { url: string }) => img.url);
+      }
+      return [];
+    } catch (error) {
+      console.error('[ChatSession] 图片上传失败:', error);
+      throw error;
+    }
+  }, []);
 
   // 格式化相对时间
   const formatRelativeTime = useCallback((dateStr: string) => {
@@ -658,53 +693,59 @@ export default function ChatSession({
   }, [input, conversationId, showQuickCommands]);
 
   // 自定义表单提交处理
-  const handleFormSubmit = useCallback((e: React.FormEvent) => {
+  const handleFormSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // 解析快捷指令
+
+    const validImages = uploadedImages.filter((img) => !img.isOversized);
+
+    const imageMarkdown = validImages.length > 0
+      ? `\n\n${validImages.map((img) => `![${img.file.name}](${img.preview})`).join('\n')}\n\n`
+      : '';
+
+    const contentWithImages = input + imageMarkdown;
+
+    if (!contentWithImages.trim() && validImages.length === 0) {
+      return;
+    }
+
     const { systemCommand, customCommand, argument } = parseQuickCommand(input, customCommands);
-    
-    // 保存引用信息，然后清除 UI 状态
+
     const hasReply = !!replyingToRef.current;
-    
+
     if (systemCommand && argument !== null) {
-      // 如果是有效的系统快捷指令且有参数（有空格），即使参数为空字符串也允许提交
-      // 这样用户可以搜索空格或其他特殊字符
       const prompt = generateQuickCommandPrompt(systemCommand, argument);
-      append({ role: 'user', content: prompt });
+      append({ role: 'user', content: prompt + imageMarkdown });
       setInput('');
+      setUploadedImages([]);
       clearDraft(conversationId);
       addToHistory(conversationId, prompt);
       setHistoryIndex(-1);
-      // 提交后清除引用状态
       setReplyingTo(null);
       replyingToRef.current = null;
     } else if (customCommand) {
-      // 如果是自定义指令，直接发送预设提示词
-      append({ role: 'user', content: customCommand.prompt });
+      append({ role: 'user', content: customCommand.prompt + imageMarkdown });
       setInput('');
+      setUploadedImages([]);
       clearDraft(conversationId);
       addToHistory(conversationId, customCommand.prompt);
       setHistoryIndex(-1);
       setReplyingTo(null);
       replyingToRef.current = null;
     } else if (systemCommand && argument === null) {
-      // 如果有系统指令但没有参数（没有空格，如 /搜索），不提交，等待用户输入参数
       return;
     } else {
-      // 正常提交
-      handleSubmit(e);
+      append({ role: 'user', content: contentWithImages });
+      setInput('');
+      setUploadedImages([]);
       clearDraft(conversationId);
       addToHistory(conversationId, input);
       setHistoryIndex(-1);
-      // 提交后清除引用状态
-      // 注意：这里需要延迟一点，确保 useChat 已经读取了 body 中的引用信息
       setTimeout(() => {
         setReplyingTo(null);
         replyingToRef.current = null;
       }, 0);
     }
-  }, [input, customCommands, append, setInput, handleSubmit, generateQuickCommandPrompt, conversationId]);
+  }, [input, customCommands, append, setInput, handleSubmit, generateQuickCommandPrompt, conversationId, uploadedImages]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     // 快捷指令导航
@@ -1652,18 +1693,27 @@ export default function ChatSession({
 
           <form
             onSubmit={handleFormSubmit}
-            className="flex flex-col gap-3 rounded-lg bg-white p-2 sm:flex-row sm:items-center sm:gap-2 sm:p-2"
+            className="flex flex-col gap-3 rounded-lg bg-white p-2 sm:flex-row sm:items-end sm:gap-2 sm:p-2"
             style={{ boxShadow: 'rgba(0,0,0,0.08) 0px 0px 0px 1px' }}
           >
-            <input
-              ref={inputRef}
-              value={input}
-              onChange={handleCustomInputChange}
-              onKeyDown={handleKeyDown}
-              placeholder="有问题，尽管问… 输入 / 查看快捷指令"
-              disabled={isLoading}
-              className="min-h-[44px] flex-1 border-0 bg-transparent px-3 text-[15px] text-[#171717] placeholder:text-[#808080] focus:outline-none focus:ring-0 disabled:opacity-60"
-            />
+            <div className="flex flex-1 flex-col gap-2">
+              <ImageUpload
+                images={uploadedImages}
+                onImagesChange={setUploadedImages}
+                maxImages={5}
+                maxSizeMB={5}
+                disabled={isLoading}
+              />
+              <input
+                ref={inputRef}
+                value={input}
+                onChange={handleCustomInputChange}
+                onKeyDown={handleKeyDown}
+                placeholder="有问题，尽管问… 输入 / 查看快捷指令"
+                disabled={isLoading}
+                className="min-h-[44px] flex-1 border-0 bg-transparent px-2 text-[15px] text-[#171717] placeholder:text-[#808080] focus:outline-none focus:ring-0 disabled:opacity-60"
+              />
+            </div>
             <div className="flex items-center justify-end gap-1 sm:shrink-0">
               <button
                 type="button"
@@ -1675,7 +1725,7 @@ export default function ChatSession({
               </button>
               <button
                 type="submit"
-                disabled={isLoading || !input.trim()}
+                disabled={isLoading || (!input.trim() && uploadedImages.filter(img => !img.isOversized).length === 0)}
                 className="min-h-[40px] min-w-[88px] rounded-md bg-[#171717] px-5 text-sm font-medium text-white transition-colors hover:bg-[#000000] disabled:cursor-not-allowed disabled:opacity-40"
               >
                 发送
