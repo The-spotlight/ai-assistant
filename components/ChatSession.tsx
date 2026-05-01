@@ -51,6 +51,7 @@ import MessageStatus, { type MessageStatus as MessageStatusType } from '@/compon
 import DateSeparator, { isSameDay } from '@/components/DateSeparator';
 import { saveDraft, loadDraft, clearDraft, addToHistory, getHistory } from '@/lib/draft-history';
 import { addSkillToHistory } from '@/lib/skill-history';
+import MessageTranslator from '@/components/MessageTranslator';
 
 const SUGGESTIONS = [
   '搜索今日新闻',
@@ -1395,6 +1396,8 @@ export default function ChatSession({
                       )}
                     </div>
                     <div className="flex items-center gap-1">
+                      {/* 翻译按钮 */}
+                      <MessageTranslator content={m.content} />
                       {/* 朗读按钮 */}
                       {(() => {
                         const isThisMessagePlaying = currentMessageId === m.id;
@@ -1510,7 +1513,7 @@ export default function ChatSession({
                   </div>
                 )}
 
-                {/* 用户消息操作栏：状态图标 + 编辑按钮 + 引用按钮 */}
+                {/* 用户消息操作栏：状态图标 + 编辑按钮 + 引用按钮 + 翻译按钮 */}
                 {m.role === 'user' && editingMessageId !== m.id && (
                   <div className="mt-1.5 flex items-center justify-between gap-1 px-1">
                     <div className="flex items-center gap-2">
@@ -1529,6 +1532,8 @@ export default function ChatSession({
                       })()}
                     </div>
                     <div className="flex items-center gap-1">
+                      {/* 翻译按钮 */}
+                      <MessageTranslator content={m.content} />
                       {/* 引用按钮 - 悬停显示 */}
                       {!isLoading && regeneratePhase === 'idle' && (
                         <button
