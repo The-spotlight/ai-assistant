@@ -36,6 +36,7 @@ import ConversationListItem, {
   formatFullDateTime,
   type ConversationRow,
 } from '@/components/ConversationListItem';
+import TabBar, { type TabItem } from '@/components/TabBar';
 import {
   Tooltip,
   TooltipContent,
@@ -388,6 +389,7 @@ interface SidebarContentProps {
   convList: ConversationRow[];
   chatPayload: ChatPayload | null;
   selectConversation: (id: string) => Promise<void>;
+  openInNewTab: (id: string) => void;
   deleteConversation: (id: string, e: React.MouseEvent) => Promise<void>;
   togglePin: (id: string, e: React.MouseEvent) => Promise<void>;
   renameConversation: (id: string, newTitle: string) => Promise<void>;
@@ -422,6 +424,7 @@ function SidebarContent({
   convList,
   chatPayload,
   selectConversation,
+  openInNewTab,
   deleteConversation,
   togglePin,
   renameConversation,
@@ -981,6 +984,7 @@ function SidebarContent({
                     editingInputRef={editingInputRef}
                     startEditing={startEditing}
                     selectConversation={selectConversation}
+                    openInNewTab={openInNewTab}
                     togglePin={togglePin}
                     deleteConversation={deleteConversation}
                     onSaveAsTemplate={onSaveAsTemplate}
@@ -1149,6 +1153,13 @@ export default function Home() {
     activeSide: 'left',
     selectingForCompare: false,
   });
+
+  // 标签页相关状态
+  const [tabs, setTabs] = useState<TabItem[]>([]);
+  const [activeTabId, setActiveTabId] = useState<string>('');
+  const tabHistoryRef = useRef<string[]>([]);
+
+  const MAX_TABS = 5;
 
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hasAutoArchivedRef = useRef(false);
@@ -1736,6 +1747,270 @@ export default function Home() {
     };
   }, [keyboardShortcuts, newChat, isImmersiveMode]);
 
+  const getConversationById = useCallback(
+    (id: string): ConversationRow | undefined => {
+      return convList.find((c) => c.id === id);
+    },
+    [convList]
+  );
+
+  const createTabForConversation = useCallback(
+    (conversationId: string, orderIndex: number): TabItem | null => {
+      const conversation = getConversationById(conversationId);
+      if (!conversation) return null;
+
+      return {
+        id: `tab_${conversationId}_${Date.now()}`,
+        conversationId,
+        title: conversation.title?.trim() || '新对话',
+        messagesLength: 0,
+        orderIndex,
+        openedAt: Date.now(),
+      };
+    },
+    [getConversationById]
+  );
+
+  const openInNewTab = useCallback(
+    (conversationId: string) => {
+      if (!deviceId) return;
+
+      const existingTab = tabs.find((t) => t.conversationId === conversationId);
+      if (existingTab) {
+        if (activeTabId !== existingTab.id) {
+          tabHistoryRef.current = [
+            ...tabHistoryRef.current.filter((id) => id !== existingTab.id),
+            activeTabId,
+          ];
+          setActiveTabId(existingTab.id);
+        }
+        return;
+      }
+
+      setTabs((prevTabs) => {
+        let newTabs = [...prevTabs];
+
+        if (newTabs.length === 0 && chatPayload) {
+          const currentConversation = getConversationById(chatPayload.conversationId);
+          const currentTab: TabItem = {
+            id: `tab_${chatPayload.conversationId}_${Date.now()}`,
+            conversationId: chatPayload.conversationId,
+            title: currentConversation?.title?.trim() || '新对话',
+            messagesLength: chatPayload.messages.length,
+            orderIndex: 0,
+            openedAt: Date.now(),
+            messages: chatPayload.messages,
+          };
+          newTabs = [currentTab];
+          setActiveTabId(currentTab.id);
+        }
+
+        if (newTabs.length >= MAX_TABS) {
+          const sortedByTime = [...newTabs].sort((a, b) => a.openedAt - b.openedAt);
+          const oldestTab = sortedByTime[0];
+          if (oldestTab) {
+            newTabs = newTabs.filter((t) => t.id !== oldestTab.id);
+            if (activeTabId === oldestTab.id && newTabs.length > 0) {
+              const lastHistory = tabHistoryRef.current[tabHistoryRef.current.length - 1];
+              if (lastHistory && newTabs.some((t) => t.id === lastHistory)) {
+                setActiveTabId(lastHistory);
+                tabHistoryRef.current = tabHistoryRef.current.slice(0, -1);
+              } else {
+                setActiveTabId(newTabs[newTabs.length - 1].id);
+              }
+            }
+          }
+        }
+
+        const newOrderIndex = newTabs.length;
+        const newTab = createTabForConversation(conversationId, newOrderIndex);
+        if (!newTab) return newTabs;
+
+        (async () => {
+          try {
+            const r = await fetch(`/api/conversations/${conversationId}/messages`, {
+              headers: { 'x-device-id': deviceId },
+            });
+            if (!r.ok) return;
+            const data = (await r.json()) as { messages?: Message[] };
+            
+            setTabs((prevTabs2) =>
+              prevTabs2.map((t) =>
+                t.conversationId === conversationId
+                  ? { ...t, messagesLength: data.messages?.length || 0, messages: data.messages }
+                  : t
+              )
+            );
+          } catch {
+            /* ignore */
+          }
+        })();
+
+        newTabs = [...newTabs, { ...newTab, messages: [] }];
+
+        if (activeTabId) {
+          tabHistoryRef.current = [
+            ...tabHistoryRef.current.filter((id) => id !== activeTabId),
+            activeTabId,
+          ];
+        }
+        setActiveTabId(newTab.id);
+
+        return newTabs.map((t, index) => ({ ...t, orderIndex: index }));
+      });
+    },
+    [deviceId, tabs, activeTabId, chatPayload, getConversationById, createTabForConversation]
+  );
+
+  const switchTab = useCallback(
+    (tabId: string) => {
+      if (activeTabId === tabId) return;
+
+      const targetTab = tabs.find((t) => t.id === tabId);
+      if (!targetTab) return;
+
+      if (activeTabId) {
+        tabHistoryRef.current = [
+          ...tabHistoryRef.current.filter((id) => id !== activeTabId),
+          activeTabId,
+        ];
+      }
+
+      setActiveTabId(tabId);
+
+      (async () => {
+        if (targetTab.messages && targetTab.messages.length > 0) {
+          localStorage.setItem(CONVERSATION_STORAGE_KEY, targetTab.conversationId);
+          setChatPayload({
+            conversationId: targetTab.conversationId,
+            messages: targetTab.messages,
+          });
+        } else if (deviceId) {
+          try {
+            const r = await fetch(`/api/conversations/${targetTab.conversationId}/messages`, {
+              headers: { 'x-device-id': deviceId },
+            });
+            if (!r.ok) return;
+            const data = (await r.json()) as { messages?: Message[] };
+            const messages = data.messages ?? [];
+            
+            localStorage.setItem(CONVERSATION_STORAGE_KEY, targetTab.conversationId);
+            setChatPayload({
+              conversationId: targetTab.conversationId,
+              messages,
+            });
+            
+            setTabs((prevTabs) =>
+              prevTabs.map((t) =>
+                t.id === tabId
+                  ? { ...t, messagesLength: messages.length, messages }
+                  : t
+              )
+            );
+          } catch {
+            /* ignore */
+          }
+        }
+      })();
+    },
+    [activeTabId, tabs, deviceId]
+  );
+
+  const closeTab = useCallback(
+    (tabId: string) => {
+      setTabs((prevTabs) => {
+        const newTabs = prevTabs.filter((t) => t.id !== tabId);
+        
+        if (newTabs.length === 0) {
+          setActiveTabId('');
+          tabHistoryRef.current = [];
+          return newTabs;
+        }
+
+        if (activeTabId === tabId) {
+          const lastHistory = tabHistoryRef.current[tabHistoryRef.current.length - 1];
+          let newActiveTab: TabItem | undefined;
+          
+          if (lastHistory && newTabs.some((t) => t.id === lastHistory)) {
+            newActiveTab = newTabs.find((t) => t.id === lastHistory);
+            setActiveTabId(lastHistory);
+            tabHistoryRef.current = tabHistoryRef.current.slice(0, -1);
+          } else {
+            const tabIndex = prevTabs.findIndex((t) => t.id === tabId);
+            const newIndex = tabIndex > 0 ? tabIndex - 1 : 0;
+            newActiveTab = newTabs[Math.min(newIndex, newTabs.length - 1)];
+            setActiveTabId(newActiveTab.id);
+          }
+
+          if (newActiveTab && deviceId) {
+            (async () => {
+              if (newActiveTab!.messages && newActiveTab!.messages.length > 0) {
+                localStorage.setItem(CONVERSATION_STORAGE_KEY, newActiveTab!.conversationId);
+                setChatPayload({
+                  conversationId: newActiveTab!.conversationId,
+                  messages: newActiveTab!.messages!,
+                });
+              } else {
+                try {
+                  const r = await fetch(`/api/conversations/${newActiveTab!.conversationId}/messages`, {
+                    headers: { 'x-device-id': deviceId },
+                  });
+                  if (!r.ok) return;
+                  const data = (await r.json()) as { messages?: Message[] };
+                  const messages = data.messages ?? [];
+                  
+                  localStorage.setItem(CONVERSATION_STORAGE_KEY, newActiveTab!.conversationId);
+                  setChatPayload({
+                    conversationId: newActiveTab!.conversationId,
+                    messages,
+                  });
+                  
+                  setTabs((prevTabs2) =>
+                    prevTabs2.map((t) =>
+                      t.id === newActiveTab!.id
+                        ? { ...t, messagesLength: messages.length, messages }
+                        : t
+                    )
+                  );
+                } catch {
+                  /* ignore */
+                }
+              }
+            })();
+          }
+        } else {
+          tabHistoryRef.current = tabHistoryRef.current.filter((id) => id !== tabId);
+        }
+
+        return newTabs.map((t, index) => ({ ...t, orderIndex: index }));
+      });
+    },
+    [activeTabId, deviceId]
+  );
+
+  const reorderTabs = useCallback(
+    (oldIndex: number, newIndex: number) => {
+      setTabs((prevTabs) => {
+        const newTabs = arrayMove(prevTabs, oldIndex, newIndex);
+        return newTabs.map((t, index) => ({ ...t, orderIndex: index }));
+      });
+    },
+    []
+  );
+
+  const updateTabTitle = useCallback(
+    (conversationId: string, newTitle: string) => {
+      setTabs((prevTabs) =>
+        prevTabs.map((t) =>
+          t.conversationId === conversationId
+            ? { ...t, title: newTitle.trim() || '新对话' }
+            : t
+        )
+      );
+    },
+    []
+  );
+
   async function selectConversation(id: string) {
     if (!deviceId) return;
     
@@ -1756,20 +2031,54 @@ export default function Home() {
       return;
     }
 
-    setChatPayload(null);
-    try {
-      const r = await fetch(`/api/conversations/${id}/messages`, {
-        headers: { 'x-device-id': deviceId },
-      });
-      if (!r.ok) return;
-      const data = (await r.json()) as { messages?: Message[] };
-      localStorage.setItem(CONVERSATION_STORAGE_KEY, id);
-      setChatPayload({
-        conversationId: id,
-        messages: data.messages ?? [],
-      });
-    } catch {
-      /* ignore */
+    if (tabs.length === 0) {
+      setChatPayload(null);
+      try {
+        const r = await fetch(`/api/conversations/${id}/messages`, {
+          headers: { 'x-device-id': deviceId },
+        });
+        if (!r.ok) return;
+        const data = (await r.json()) as { messages?: Message[] };
+        localStorage.setItem(CONVERSATION_STORAGE_KEY, id);
+        setChatPayload({
+          conversationId: id,
+          messages: data.messages ?? [],
+        });
+      } catch {
+        /* ignore */
+      }
+    } else {
+      const currentActiveTab = tabs.find((t) => t.id === activeTabId);
+      if (!currentActiveTab) return;
+
+      if (currentActiveTab.conversationId === id) {
+        return;
+      }
+
+      try {
+        const r = await fetch(`/api/conversations/${id}/messages`, {
+          headers: { 'x-device-id': deviceId },
+        });
+        if (!r.ok) return;
+        const data = (await r.json()) as { messages?: Message[] };
+        localStorage.setItem(CONVERSATION_STORAGE_KEY, id);
+        
+        const conversation = getConversationById(id);
+        setTabs((prevTabs) =>
+          prevTabs.map((t) =>
+            t.id === activeTabId
+              ? {
+                  ...t,
+                  conversationId: id,
+                  title: conversation?.title?.trim() || '新对话',
+                  messagesLength: data.messages?.length || 0,
+                }
+              : t
+          )
+        );
+      } catch {
+        /* ignore */
+      }
     }
   }
 
@@ -1820,7 +2129,7 @@ export default function Home() {
 
   async function newChat() {
     if (!deviceId) return;
-    setChatPayload(null);
+    
     try {
       const res = await fetch('/api/conversations', {
         method: 'POST',
@@ -1830,7 +2139,13 @@ export default function Home() {
       if (!res.ok) return;
       const { id } = (await res.json()) as { id: string };
       localStorage.setItem(CONVERSATION_STORAGE_KEY, id);
-      setChatPayload({ conversationId: id, messages: [] });
+      
+      if (tabs.length === 0) {
+        setChatPayload({ conversationId: id, messages: [] });
+      } else {
+        openInNewTab(id);
+      }
+      
       await loadConversations(deviceId);
       await loadFavorites(deviceId);
       await loadTrash(deviceId);
@@ -2140,6 +2455,7 @@ export default function Home() {
               convList={convList}
               chatPayload={chatPayload}
               selectConversation={selectConversation}
+              openInNewTab={openInNewTab}
               deleteConversation={deleteConversation}
               togglePin={togglePin}
               renameConversation={renameConversation}
@@ -2163,6 +2479,18 @@ export default function Home() {
         </div>
 
         <main className={`flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden ${isImmersiveMode ? 'bg-white' : ''}`}>
+          {/* 标签栏 */}
+          {tabs.length > 1 && (
+            <TabBar
+              tabs={tabs}
+              activeTabId={activeTabId}
+              onTabClick={switchTab}
+              onTabClose={closeTab}
+              onTabReorder={reorderTabs}
+              onNewTab={newChat}
+            />
+          )}
+
           {/* 移动端：会话 + 新对话 */}
           {deviceId && convList.length > 0 && (
             <div className="mb-3 flex shrink-0 gap-2 sm:hidden">
