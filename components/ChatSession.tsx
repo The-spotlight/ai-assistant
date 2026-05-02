@@ -44,6 +44,7 @@ import {
   Play,
   Mic,
   Star,
+  Smile,
 } from 'lucide-react';
 import {
   getConversationRating,
@@ -58,6 +59,7 @@ import { addSkillToHistory } from '@/lib/skill-history';
 import { TranslateButton, TranslationResult } from '@/components/MessageTranslator';
 import MessageTranslateProvider from '@/components/MessageTranslateProvider';
 import FollowUpSuggestions from '@/components/FollowUpSuggestions';
+import EmojiPicker from '@/components/EmojiPicker';
 
 const SUGGESTIONS = [
   '搜索今日新闻',
@@ -262,6 +264,9 @@ export default function ChatSession({
   const [showSkills, setShowSkills] = useState(false);
   const [showTokenStats, setShowTokenStats] = useState(false);
   const [showMenu, setShowMenu] = useState(false);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const emojiPickerRef = useRef<HTMLDivElement>(null);
+  const emojiButtonRef = useRef<HTMLButtonElement>(null);
 
   // 分享相关状态
   const [showShareModal, setShowShareModal] = useState(false);
@@ -640,6 +645,23 @@ export default function ChatSession({
     return () => document.removeEventListener('click', handleClickOutside);
   }, [showMenu]);
 
+  // 点击外部关闭表情选择器
+  useEffect(() => {
+    if (!showEmojiPicker) return;
+
+    const handleClickOutside = (e: MouseEvent) => {
+      const isInPicker = emojiPickerRef.current && emojiPickerRef.current.contains(e.target as Node);
+      const isInButton = emojiButtonRef.current && emojiButtonRef.current.contains(e.target as Node);
+      
+      if (!isInPicker && !isInButton) {
+        setShowEmojiPicker(false);
+      }
+    };
+
+    document.addEventListener('click', handleClickOutside);
+    return () => document.removeEventListener('click', handleClickOutside);
+  }, [showEmojiPicker]);
+
   // 处理模板内容
   useEffect(() => {
     if (templateContent) {
@@ -657,6 +679,34 @@ export default function ChatSession({
       addSkillToHistory(skillId);
     }
   };
+
+  // 处理表情选择，插入到光标位置
+  const handleEmojiSelect = useCallback((emoji: string) => {
+    const inputElement = inputRef.current;
+    if (!inputElement) {
+      // 如果没有 input 元素，直接追加到末尾
+      setInput((prev) => prev + emoji);
+      currentInputRef.current = currentInputRef.current + emoji;
+      return;
+    }
+
+    // 获取当前光标位置
+    const start = inputElement.selectionStart ?? input.value.length;
+    const end = inputElement.selectionEnd ?? input.value.length;
+
+    // 在光标位置插入表情
+    const newValue = input.slice(0, start) + emoji + input.slice(end);
+    
+    setInput(newValue);
+    currentInputRef.current = newValue;
+
+    // 延迟设置光标位置，确保 DOM 已更新
+    setTimeout(() => {
+      inputElement.focus();
+      const newCursorPos = start + emoji.length;
+      inputElement.setSelectionRange(newCursorPos, newCursorPos);
+    }, 0);
+  }, [input, setInput]);
 
   // 生成快捷指令的提示文本
   const generateQuickCommandPrompt = useCallback((command: QuickCommand, argument: string): string => {
@@ -797,6 +847,13 @@ export default function ChatSession({
   }, [input, customCommands, append, setInput, handleSubmit, generateQuickCommandPrompt, conversationId]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    // 表情选择器 Escape 关闭
+    if (showEmojiPicker && e.key === 'Escape') {
+      e.preventDefault();
+      setShowEmojiPicker(false);
+      return;
+    }
+
     // 快捷指令导航
     if (showQuickCommands) {
       const totalCommands = matchingSystemCommands.length + matchingCustomCommands.length;
@@ -1741,6 +1798,15 @@ export default function ChatSession({
             }}
           />
 
+          {/* 表情选择器 */}
+          <div ref={emojiPickerRef}>
+            <EmojiPicker
+              visible={showEmojiPicker}
+              onClose={() => setShowEmojiPicker(false)}
+              onSelectEmoji={handleEmojiSelect}
+            />
+          </div>
+
           {/* 引用预览 */}
           {replyingTo && (
             <div className="mb-2 flex items-center gap-2 rounded-lg bg-white/60 backdrop-blur-sm px-3 py-2">
@@ -1791,10 +1857,26 @@ export default function ChatSession({
                 onKeyDown={handleKeyDown}
                 placeholder={isRecognizing ? "正在识别…" : (isSpeaking ? "正在聆听…" : (isListening ? "等待输入…" : "有问题，尽管问… 输入 / 查看快捷指令"))}
                 disabled={isLoading || isRecognizing}
-                className={`min-h-[44px] w-full border-0 bg-transparent px-3 text-[15px] text-[#171717] placeholder:text-[#808080] focus:outline-none focus:ring-0 disabled:opacity-60 pr-12 ${
+                className={`min-h-[44px] w-full border-0 bg-transparent px-3 text-[15px] text-[#171717] placeholder:text-[#808080] focus:outline-none focus:ring-0 disabled:opacity-60 ${isSpeechRecognitionSupported ? 'pr-20' : 'pr-12'} ${
                   isListening ? (isSpeaking ? 'text-[#dc2626]' : 'text-[#f97316]') : ''
                 }`}
               />
+              
+              {/* 表情按钮 */}
+              <button
+                ref={emojiButtonRef}
+                type="button"
+                onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                disabled={isLoading || isRecognizing}
+                className={`absolute ${isSpeechRecognitionSupported ? 'right-10' : 'right-1'} top-1/2 -translate-y-1/2 flex h-9 w-9 items-center justify-center rounded-full transition-all duration-300 ${
+                  showEmojiPicker
+                    ? 'bg-[#f0f0f0] dark:bg-[#3d3d3d] text-[#171717] dark:text-white'
+                    : 'text-[#737373] hover:bg-white/40 hover:text-[#171717] dark:hover:text-white'
+                } disabled:cursor-not-allowed disabled:opacity-40`}
+                title="表情"
+              >
+                <Smile className="h-5 w-5" />
+              </button>
               
               {isSpeechRecognitionSupported && (
                 <button
