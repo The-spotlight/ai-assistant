@@ -42,6 +42,7 @@ import {
 import { OPENROUTER_MODEL_OPTIONS } from '@/lib/openrouter-models';
 import { getOrCreateDeviceId } from '@/lib/device';
 import { downloadBlob } from '@/lib/export';
+import { addActionLog } from '@/lib/action-log';
 import { Button } from '@/components/ui/Button';
 import { CloseButton } from '@/components/ui/Dialog';
 import { Switch } from '@/components/ui/Switch';
@@ -1270,6 +1271,8 @@ function DataTab({
       const timestamp = new Date().toISOString().slice(0, 10);
       const filename = `全部对话导出_${timestamp}.zip`;
       downloadBlob(blob, filename);
+      
+      addActionLog('export_data', '导出了全部会话数据', { exportType: 'all_conversations' });
     } catch (err) {
       console.error('导出会话失败:', err);
       error('导出失败，请稍后重试');
@@ -1327,6 +1330,8 @@ function DataTab({
       const filename = `配置备份_${timestamp}.json`;
       downloadBlob(blob, filename);
       success('配置导出成功');
+      
+      addActionLog('export_data', '导出了配置备份', { exportType: 'config' });
     } catch (err) {
       console.error('导出配置失败:', err);
       error('导出失败，请稍后重试');

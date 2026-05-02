@@ -1,8 +1,9 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useRef, type ReactNode } from 'react';
 import { DEFAULT_OPENROUTER_MODEL_ID, OPENROUTER_MODEL_OPTIONS } from '@/lib/openrouter-models';
 import { getOrCreateDeviceId } from '@/lib/device';
+import { addActionLog } from '@/lib/action-log';
 import {
   THEME_PRESETS,
   CODE_HIGHLIGHT_THEMES,
@@ -632,6 +633,34 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     return null;
   });
 
+  const settingsLogTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingSettingsLogRef = useRef<{ key: string; oldValue: any; newValue: any } | null>(null);
+
+  const logSettingsChange = useCallback((settingKey: string, oldValue: any, newValue: any) => {
+    addActionLog('modify_settings', `修改了设置：${settingKey}`, {
+      setting: settingKey,
+      oldValue,
+      newValue,
+    });
+  }, []);
+
+  const debouncedLogSettingsChange = useCallback((settingKey: string, oldValue: any, newValue: any) => {
+    if (settingsLogTimerRef.current) {
+      clearTimeout(settingsLogTimerRef.current);
+    }
+    pendingSettingsLogRef.current = { key: settingKey, oldValue, newValue };
+    settingsLogTimerRef.current = setTimeout(() => {
+      if (pendingSettingsLogRef.current) {
+        logSettingsChange(
+          pendingSettingsLogRef.current.key,
+          pendingSettingsLogRef.current.oldValue,
+          pendingSettingsLogRef.current.newValue
+        );
+        pendingSettingsLogRef.current = null;
+      }
+    }, 1000);
+  }, [logSettingsChange]);
+
   // 从服务器加载设置
   const loadSettingsFromServer = useCallback(async () => {
     try {
@@ -761,56 +790,80 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     value: AppearanceSettings[K]
   ) => {
     setAppearance((prev) => {
+      const oldValue = prev[key];
+      if (oldValue !== value) {
+        logSettingsChange(String(key), oldValue, value);
+      }
       const newSettings = { ...prev, [key]: value };
       saveSettings(newSettings);
       return newSettings;
     });
-  }, []);
+  }, [logSettingsChange]);
 
   const updateBackground = useCallback(<K extends keyof BackgroundSettings>(
     key: K,
     value: BackgroundSettings[K]
   ) => {
     setAppearance((prev) => {
+      const oldValue = prev.background[key];
+      if (oldValue !== value) {
+        logSettingsChange(`background.${key}`, oldValue, value);
+      }
       const newBackground = { ...prev.background, [key]: value };
       const newSettings = { ...prev, background: newBackground };
       saveSettings(newSettings);
       return newSettings;
     });
-  }, []);
+  }, [logSettingsChange]);
 
   const updateBehavior = useCallback(<K extends keyof BehaviorSettings>(
     key: K,
     value: BehaviorSettings[K]
   ) => {
     setBehavior((prev) => {
+      const oldValue = prev[key];
+      if (oldValue !== value) {
+        logSettingsChange(String(key), oldValue, value);
+      }
       const newSettings = { ...prev, [key]: value };
       saveBehaviorSettings(newSettings);
       return newSettings;
     });
-  }, []);
+  }, [logSettingsChange]);
 
   const updateModel = useCallback(<K extends keyof ModelSettings>(
     key: K,
     value: ModelSettings[K]
   ) => {
     setModel((prev) => {
+      const oldValue = prev[key];
+      if (oldValue !== value) {
+        if (key === 'temperature' || key === 'maxTokens') {
+          debouncedLogSettingsChange(String(key), oldValue, value);
+        } else {
+          logSettingsChange(String(key), oldValue, value);
+        }
+      }
       const newSettings = { ...prev, [key]: value };
       saveModelSettings(newSettings);
       return newSettings;
     });
-  }, []);
+  }, [logSettingsChange, debouncedLogSettingsChange]);
 
   const updateKeyboardShortcuts = useCallback(<K extends keyof KeyboardShortcuts>(
     key: K,
     value: KeyboardShortcuts[K]
   ) => {
     setKeyboardShortcuts((prev) => {
+      const oldValue = prev[key];
+      if (oldValue !== value) {
+        logSettingsChange(`keyboard.${key}`, oldValue, value);
+      }
       const newSettings = { ...prev, [key]: value };
       saveKeyboardShortcuts(newSettings);
       return newSettings;
     });
-  }, []);
+  }, [logSettingsChange]);
 
   const resetAppearance = useCallback(() => {
     setAppearance(DEFAULT_SETTINGS);
