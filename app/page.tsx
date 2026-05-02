@@ -2486,8 +2486,6 @@ export default function Home() {
               activeTabId={activeTabId}
               onTabClick={switchTab}
               onTabClose={closeTab}
-              onTabReorder={reorderTabs}
-              onNewTab={newChat}
             />
           )}
 
