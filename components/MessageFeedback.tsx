@@ -252,30 +252,28 @@ export function MessageFeedbackButton({
         type="button"
         onClick={() => onLike(messageId, conversationId)}
         disabled={!messageId || !conversationId}
-        className={`inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] transition-colors hover:bg-[#f5f5f5] ${
+        className={`inline-flex items-center justify-center rounded px-1.5 py-1 text-[10px] transition-colors hover:bg-[#f5f5f5] ${
           feedback.liked
             ? 'text-[#10b981]'
             : 'text-[#737373] hover:text-[#171717]'
         } ${(!messageId || !conversationId) ? 'opacity-50 cursor-not-allowed' : ''}`}
         title={feedback.liked ? '取消点赞' : '点赞此回复'}
       >
-        <ThumbsUp className={`h-3 w-3 ${feedback.liked ? 'fill-[#10b981]' : ''}`} />
-        {feedback.liked ? '已点赞' : '点赞'}
+        <ThumbsUp className={`h-3.5 w-3.5 ${feedback.liked ? 'fill-[#10b981]' : ''}`} />
       </button>
 
       <button
         type="button"
         onClick={handleDislikeClick}
         disabled={!messageId || !conversationId}
-        className={`inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] transition-colors hover:bg-[#f5f5f5] ${
+        className={`inline-flex items-center justify-center rounded px-1.5 py-1 text-[10px] transition-colors hover:bg-[#f5f5f5] ${
           feedback.disliked
             ? 'text-[#ef4444]'
             : 'text-[#737373] hover:text-[#171717]'
         } ${(!messageId || !conversationId) ? 'opacity-50 cursor-not-allowed' : ''}`}
         title={feedback.disliked ? '取消点踩' : '点踩此回复'}
       >
-        <ThumbsDown className={`h-3 w-3 ${feedback.disliked ? 'fill-[#ef4444]' : ''}`} />
-        {feedback.disliked ? '已点踩' : '点踩'}
+        <ThumbsDown className={`h-3.5 w-3.5 ${feedback.disliked ? 'fill-[#ef4444]' : ''}`} />
       </button>
 
       <Modal

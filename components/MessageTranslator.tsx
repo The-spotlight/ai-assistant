@@ -165,15 +165,14 @@ export function TranslateButton({ translator }: TranslateButtonProps) {
         type="button"
         onClick={() => setShowMenu(!showMenu)}
         disabled={isTranslating}
-        className="inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] transition-colors text-[#737373] hover:bg-[#f5f5f5] hover:text-[#171717] disabled:opacity-50"
+        className="inline-flex items-center justify-center rounded px-1.5 py-1 text-[10px] transition-colors text-[#737373] hover:bg-[#f5f5f5] hover:text-[#171717] disabled:opacity-50"
         title="翻译"
       >
         {isTranslating ? (
-          <Loader2 className="h-3 w-3 animate-spin" />
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
         ) : (
-          <Languages className="h-3 w-3" />
+          <Languages className="h-3.5 w-3.5" />
         )}
-        翻译
       </button>
 
       {showMenu && (
