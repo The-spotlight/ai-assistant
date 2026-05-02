@@ -44,6 +44,7 @@ import {
   encryptConversation,
   verifyPassword,
   decryptConversation,
+  removeEncryption,
   setDecryptedSession,
   getEncryptedConversation,
   loadEncryptedConversations,
@@ -2566,12 +2567,11 @@ export default function Home() {
   );
 
   const handleRemoveEncryption = useCallback(
-    async (): Promise<boolean> => {
+    async (password: string): Promise<boolean> => {
       if (!encryptingConversationId) return false;
 
-      decryptConversation(encryptingConversationId);
-
-      return true;
+      const success = await removeEncryption(encryptingConversationId, password);
+      return success;
     },
     [encryptingConversationId]
   );
