@@ -36,7 +36,7 @@ import ResizablePanel, { useLayoutContext, AdaptiveText } from '@/components/Res
 import { DEFAULT_OPENROUTER_MODEL_ID, DEFAULT_OPENROUTER_MODEL_LABEL } from '@/lib/openrouter-models';
 import { CONVERSATION_STORAGE_KEY, getOrCreateDeviceId } from '@/lib/device';
 import { useSettings } from '@/lib/settings';
-import { hasScheduledMessages } from '@/lib/scheduled-messages';
+import { getScheduledConversationIds } from '@/lib/scheduled-messages';
 
 type ConversationRow = {
   id: string;
@@ -433,6 +433,7 @@ interface SidebarContentProps {
   exitCompareMode: () => void;
   setCompareActiveSide: (side: CompareSide) => void;
   toggleCompareSelecting: () => void;
+  scheduledConversationIds: Set<string>;
 }
 
 /** useSortable 必须在子组件顶层调用，不能在 SidebarContent 的 map 里调用（会与搜索视图切换时 hooks 数量冲突）。 */
@@ -454,6 +455,7 @@ function SortableConversationRow({
   deleteConversation,
   onSaveAsTemplate,
   compareMode,
+  scheduledConversationIds,
 }: {
   conversation: ConversationRow;
   isNarrow: boolean;
@@ -472,6 +474,7 @@ function SortableConversationRow({
   deleteConversation: (id: string, e: React.MouseEvent) => Promise<void>;
   onSaveAsTemplate: (conversationId: string) => Promise<void>;
   compareMode: CompareModeState;
+  scheduledConversationIds: Set<string>;
 }) {
   const {
     attributes,
@@ -571,7 +574,7 @@ function SortableConversationRow({
                 {conversation.title?.trim() || '新对话'}
               </span>
               {(() => {
-                const hasScheduled = hasScheduledMessages(conversation.id);
+                const hasScheduled = scheduledConversationIds.has(conversation.id);
                 if (hasScheduled) {
                   return (
                     <span className="inline-flex" title="有定时消息">
@@ -663,6 +666,7 @@ function SidebarContent({
   exitCompareMode,
   setCompareActiveSide,
   toggleCompareSelecting,
+  scheduledConversationIds,
 }: SidebarContentProps) {
   const { widthCategory, sidebarWidth } = useLayoutContext();
 
@@ -998,7 +1002,7 @@ function SidebarContent({
                             {c.title?.trim() || '新对话'}
                           </span>
                           {(() => {
-                            const hasScheduled = hasScheduledMessages(c.id);
+                            const hasScheduled = scheduledConversationIds.has(c.id);
                             if (hasScheduled) {
                               return (
                                 <span className="inline-flex" title="有定时消息">
@@ -1210,6 +1214,7 @@ function SidebarContent({
                     deleteConversation={deleteConversation}
                     onSaveAsTemplate={onSaveAsTemplate}
                     compareMode={compareMode}
+                    scheduledConversationIds={scheduledConversationIds}
                   />
                 ))}
               </div>
@@ -1374,7 +1379,18 @@ export default function Home() {
   const prevAutoArchiveRef = useRef<boolean | null>(null);
   const prevAutoArchiveDaysRef = useRef<number | null>(null);
 
+  const [scheduledConversationIds, setScheduledConversationIds] = useState<Set<string>>(new Set());
+
   const { behavior, keyboardShortcuts } = useSettings();
+
+  const loadScheduledMessages = useCallback(async () => {
+    try {
+      const ids = await getScheduledConversationIds();
+      setScheduledConversationIds(ids);
+    } catch (error) {
+      console.error('加载定时消息状态失败:', error);
+    }
+  }, []);
 
   const loadConversations = useCallback(async (did: string) => {
     const r = await fetch('/api/conversations', { headers: { 'x-device-id': did } });
@@ -1955,6 +1971,12 @@ export default function Home() {
     };
   }, [keyboardShortcuts, newChat, isImmersiveMode]);
 
+  useEffect(() => {
+    loadScheduledMessages();
+    const intervalId = setInterval(loadScheduledMessages, 30000);
+    return () => clearInterval(intervalId);
+  }, [loadScheduledMessages]);
+
   async function selectConversation(id: string) {
     if (!deviceId) return;
     
@@ -2377,6 +2399,7 @@ export default function Home() {
               exitCompareMode={exitCompareMode}
               setCompareActiveSide={setCompareActiveSide}
               toggleCompareSelecting={toggleCompareSelecting}
+              scheduledConversationIds={scheduledConversationIds}
             />
           </ResizablePanel>
         </div>

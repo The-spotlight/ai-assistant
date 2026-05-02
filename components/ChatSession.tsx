@@ -55,14 +55,10 @@ import ModelLabel from '@/components/ModelLabel';
 import DateTimePicker from '@/components/DateTimePicker';
 import {
   type ScheduledMessage,
-  getScheduledMessages,
-  saveScheduledMessage,
+  fetchScheduledMessages,
+  createScheduledMessage,
   cancelScheduledMessage,
-  markScheduledMessageAsSent,
   formatScheduledTime,
-  scheduleMessageTimer,
-  cancelMessageTimer,
-  setScheduledCallback,
 } from '@/lib/scheduled-messages';
 
 const SUGGESTIONS = [
@@ -705,86 +701,57 @@ export default function ChatSession({
     }
   }, [input, conversationId, showQuickCommands]);
 
-  // 加载当前会话的定时消息
+  // 加载当前会话的定时消息（使用 API）
   useEffect(() => {
-    const load = () => {
-      const msgs = getScheduledMessages(conversationId);
+    const loadScheduledMessages = async () => {
+      const msgs = await fetchScheduledMessages(conversationId);
       setScheduledMessages(msgs);
     };
-    load();
 
-    const handleScheduledMessage = (message: ScheduledMessage) => {
-      if (message.conversationId !== conversationId) return;
-      
-      console.log('[ChatSession] 触发定时发送:', message.id);
-      
-      if (isSchedulingRef.current) {
-        console.log('[ChatSession] 正在发送中，跳过');
-        return;
-      }
-      
-      isSchedulingRef.current = true;
-      
-      try {
-        append({ role: 'user', content: message.content });
-        markScheduledMessageAsSent(message.id);
-        cancelMessageTimer(message.id);
-        
-        setScheduledMessages(prev => 
-          prev.filter(m => m.id !== message.id)
-        );
-        
-        console.log('[ChatSession] 定时消息发送成功:', message.id);
-      } catch (error) {
-        console.error('[ChatSession] 定时消息发送失败:', error);
-      } finally {
-        isSchedulingRef.current = false;
-      }
-    };
+    loadScheduledMessages();
 
-    setScheduledCallback(handleScheduledMessage);
+    const intervalId = setInterval(loadScheduledMessages, 30000);
 
-    return () => {
-      setScheduledCallback(() => {});
-    };
-  }, [conversationId, append]);
+    return () => clearInterval(intervalId);
+  }, [conversationId]);
 
-  const handleScheduledSend = useCallback(() => {
+  const handleScheduledSend = useCallback(async () => {
     if (!scheduledTime || !input.trim()) return;
 
-    let replyToSnapshot = null;
+    let replyToInfo = null;
     if (replyingToRef.current) {
-      replyToSnapshot = JSON.stringify({
+      replyToInfo = {
+        messageId: replyingToRef.current.messageId,
         content: replyingToRef.current.content,
         createdAt: replyingToRef.current.createdAt,
         role: replyingToRef.current.role,
-      });
+      };
     }
 
-    const scheduledMsg = saveScheduledMessage({
+    const scheduledMsg = await createScheduledMessage(
       conversationId,
-      content: input.trim(),
-      scheduledAt: scheduledTime.toISOString(),
-      replyToId: replyingToRef.current?.messageId || null,
-      replyToSnapshot,
-    });
-
-    scheduleMessageTimer(scheduledMsg);
-
-    setScheduledMessages(prev => [...prev, scheduledMsg]);
-    setInput('');
-    clearDraft(conversationId);
-    setScheduledTime(null);
-    setReplyingTo(null);
-    replyingToRef.current = null;
-  }, [scheduledTime, input, conversationId, append]);
-
-  const handleCancelScheduled = useCallback((messageId: string) => {
-    cancelScheduledMessage(messageId);
-    cancelMessageTimer(messageId);
-    setScheduledMessages(prev => 
-      prev.filter(m => m.id !== messageId)
+      input.trim(),
+      scheduledTime,
+      replyToInfo
     );
+
+    if (scheduledMsg) {
+      setScheduledMessages(prev => [...prev, scheduledMsg]);
+      setInput('');
+      clearDraft(conversationId);
+      setScheduledTime(null);
+      setReplyingTo(null);
+      replyingToRef.current = null;
+    }
+  }, [scheduledTime, input, conversationId]);
+
+  const handleCancelScheduled = useCallback(async (messageId: string) => {
+    const success = await cancelScheduledMessage(messageId);
+    if (success) {
+      setScheduledMessages(prev => 
+        prev.filter(m => m.id !== messageId)
+      );
+    }
   }, []);
 
   const handleModifyScheduledTime = useCallback(() => {
@@ -1828,36 +1795,6 @@ export default function ChatSession({
               >
                 取消
               </button>
-            </div>
-          )}
-
-          {/* 已设置的定时消息列表 */}
-          {scheduledMessages.length > 0 && (
-            <div className="mb-2 space-y-1">
-              {scheduledMessages.map((msg) => (
-                <div
-                  key={msg.id}
-                  className="flex items-center gap-2 rounded-lg bg-[#fef3c7] px-3 py-2"
-                >
-                  <Bell className="h-4 w-4 text-[#d97706]" />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-xs text-[#92400e]">
-                      {msg.content}
-                    </p>
-                    <p className="text-[10px] text-[#b45309]">
-                      将在 {formatScheduledTime(new Date(msg.scheduledAt))} 发送
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => handleCancelScheduled(msg.id)}
-                    className="text-xs text-[#92400e] hover:text-[#78350f] transition-colors"
-                    title="取消定时"
-                  >
-                    <X className="h-4 w-4" />
-                  </button>
-                </div>
-              ))}
             </div>
           )}
 
