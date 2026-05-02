@@ -100,64 +100,82 @@ interface ContributionCalendarProps {
   yearTotal: number;
 }
 
+interface WeekColumn {
+  days: DailyActivity[];
+  monthLabel?: string;
+}
+
 function ContributionCalendar({ activities, yearTotal }: ContributionCalendarProps) {
-  const weeks = useMemo(() => {
-    const result: DailyActivity[][] = [];
+  const weekColumns = useMemo(() => {
     const sortedActivities = [...activities].sort((a, b) =>
       new Date(a.date).getTime() - new Date(b.date).getTime()
     );
 
-    const firstDate = new Date(sortedActivities[0]?.date || Date.now());
-    const firstDay = firstDate.getDay();
-
-    const currentWeek: DailyActivity[] = [];
-    for (let i = 0; i < firstDay; i++) {
-      currentWeek.push({ date: '', conversationCount: 0, messageCount: 0 });
+    if (sortedActivities.length === 0) {
+      return [];
     }
 
-    for (const activity of sortedActivities) {
-      const date = new Date(activity.date);
-      const dayOfWeek = date.getDay();
+    const firstDate = new Date(sortedActivities[0].date);
+    const lastDate = new Date(sortedActivities[sortedActivities.length - 1].date);
 
-      if (dayOfWeek === 0 && currentWeek.length > 0) {
-        result.push([...currentWeek]);
-        currentWeek.length = 0;
+    const startDate = new Date(firstDate);
+    startDate.setDate(firstDate.getDate() - firstDate.getDay());
+
+    const endDate = new Date(lastDate);
+    endDate.setDate(lastDate.getDate() + (6 - lastDate.getDay()));
+
+    const columns: WeekColumn[] = [];
+    const activityMap = new Map<string, DailyActivity>();
+    sortedActivities.forEach((a) => activityMap.set(a.date, a));
+
+    const totalDays = Math.floor((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    const totalWeeks = Math.ceil(totalDays / 7);
+
+    let lastMonth = -1;
+
+    for (let weekIdx = 0; weekIdx < totalWeeks; weekIdx++) {
+      const weekStartDate = new Date(startDate);
+      weekStartDate.setDate(startDate.getDate() + weekIdx * 7);
+
+      const days: DailyActivity[] = [];
+      let monthLabel: string | undefined;
+
+      for (let dayOfWeek = 0; dayOfWeek < 7; dayOfWeek++) {
+        const currentDate = new Date(weekStartDate);
+        currentDate.setDate(weekStartDate.getDate() + dayOfWeek);
+
+        if (currentDate > lastDate) {
+          days.push({ date: '', conversationCount: 0, messageCount: 0 });
+          continue;
+        }
+
+        const dateStr = currentDate.toISOString().split('T')[0];
+        const activity = activityMap.get(dateStr);
+
+        const currentMonth = currentDate.getMonth();
+        if (currentMonth !== lastMonth) {
+          if (activity || dateStr === sortedActivities[0].date) {
+            monthLabel = `${currentMonth + 1}月`;
+          }
+          lastMonth = currentMonth;
+        }
+
+        if (activity) {
+          days.push(activity);
+        } else if (currentDate >= firstDate && currentDate <= lastDate) {
+          days.push({ date: dateStr, conversationCount: 0, messageCount: 0 });
+        } else {
+          days.push({ date: '', conversationCount: 0, messageCount: 0 });
+        }
       }
 
-      currentWeek.push(activity);
+      columns.push({ days, monthLabel });
     }
 
-    if (currentWeek.length > 0) {
-      result.push(currentWeek);
-    }
-
-    return result;
+    return columns;
   }, [activities]);
 
   const weekDays = ['日', '一', '二', '三', '四', '五', '六'];
-
-  const monthLabels = useMemo(() => {
-    const labels: { month: string; column: number }[] = [];
-    let lastMonth = -1;
-
-    weeks.forEach((week, weekIdx) => {
-      week.forEach((day, dayIdx) => {
-        if (day.date) {
-          const date = new Date(day.date);
-          const month = date.getMonth();
-          if (month !== lastMonth) {
-            labels.push({
-              month: `${month + 1}月`,
-              column: weekIdx,
-            });
-            lastMonth = month;
-          }
-        }
-      });
-    });
-
-    return labels;
-  }, [weeks]);
 
   return (
     <div className="flex flex-col gap-3">
@@ -165,22 +183,30 @@ function ContributionCalendar({ activities, yearTotal }: ContributionCalendarPro
         今年共 <span className="font-bold text-[#16a34a]">{yearTotal}</span> 次对话
       </div>
 
-      <div className="overflow-x-auto">
-        <div className="min-w-[280px]">
-          <div className="flex justify-end gap-1 mb-1">
-            {monthLabels.map((label, idx) => (
-              <span key={idx} className="text-[10px] text-[#737373] w-3 text-center">
-                {label.month}
-              </span>
-            ))}
+      <div className="overflow-x-auto pb-2">
+        <div className="inline-block min-w-full">
+          <div className="flex relative">
+            <div className="w-4 mr-1" />
+            <div className="flex gap-1">
+              {weekColumns.map((col, colIdx) => (
+                <div
+                  key={colIdx}
+                  className="w-3 h-3 flex items-start justify-start text-[10px] text-[#737373] overflow-visible"
+                >
+                  {col.monthLabel ? (
+                    <span className="whitespace-nowrap relative left-0">{col.monthLabel}</span>
+                  ) : null}
+                </div>
+              ))}
+            </div>
           </div>
 
-          <div className="flex gap-1">
+          <div className="flex mt-1">
             <div className="flex flex-col gap-1 mr-1">
               {weekDays.map((day, idx) => (
                 <div
                   key={idx}
-                  className="h-3 flex items-center text-[10px] text-[#737373]"
+                  className="h-3 flex items-center justify-end text-[10px] text-[#737373] w-4 pr-0.5"
                 >
                   {idx % 2 === 1 ? day : ''}
                 </div>
@@ -188,16 +214,14 @@ function ContributionCalendar({ activities, yearTotal }: ContributionCalendarPro
             </div>
 
             <div className="flex gap-1">
-              {weeks.map((week, weekIdx) => (
-                <div key={weekIdx} className="flex flex-col gap-1">
-                  {weekDays.map((_, dayIdx) => {
-                    const day = week[dayIdx];
-                    if (!day) {
+              {weekColumns.map((col, colIdx) => (
+                <div key={colIdx} className="flex flex-col gap-1">
+                  {col.days.map((day, dayIdx) => {
+                    if (!day.date) {
                       return (
                         <div
                           key={dayIdx}
                           className="w-3 h-3 rounded-sm"
-                          style={{ backgroundColor: 'transparent' }}
                         />
                       );
                     }
@@ -205,26 +229,15 @@ function ContributionCalendar({ activities, yearTotal }: ContributionCalendarPro
                     const level = getActivityLevel(day.conversationCount);
                     const color = activityColors[level];
 
-                    if (!day.date) {
-                      return (
-                        <div
-                          key={dayIdx}
-                          className="w-3 h-3 rounded-sm"
-                          style={{ backgroundColor: 'transparent' }}
-                        />
-                      );
-                    }
-
                     return (
                       <Tooltip key={dayIdx}>
                         <TooltipTrigger asChild>
                           <div
                             className="w-3 h-3 rounded-sm cursor-pointer hover:ring-2 hover:ring-[#171717]/20 transition-all"
                             style={{ backgroundColor: color }}
-                            title=""
                           />
                         </TooltipTrigger>
-                        <TooltipContent side="top" className="text-center">
+                        <TooltipContent side="top" className="text-center whitespace-nowrap">
                           <p className="font-medium">{formatChineseDate(day.date)}</p>
                           <p className="text-[#737373]">
                             {day.conversationCount} 次对话，{day.messageCount} 条消息
