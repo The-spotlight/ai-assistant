@@ -286,7 +286,7 @@ export default function SettingsPanel({ visible, onClose, onTrashEmptied }: Sett
           <CloseButton onClick={onClose} aria-label="关闭" />
         </div>
 
-        <div className="flex items-center border-b border-black/[0.06] bg-white shrink-0">
+        <div className="flex items-center gap-1 px-3 py-2 border-b border-black/[0.06] bg-white shrink-0 overflow-x-auto">
           {TAB_CONFIG.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.key;
@@ -295,16 +295,16 @@ export default function SettingsPanel({ visible, onClose, onTrashEmptied }: Sett
                 key={tab.key}
                 type="button"
                 onClick={() => setActiveTab(tab.key)}
-                className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium transition-colors relative ${
+                className={`shrink-0 flex items-center gap-2 px-3.5 py-2 text-xs font-medium transition-colors rounded-lg relative ${
                   isActive
-                    ? 'text-[#171717]'
+                    ? 'text-[#171717] bg-[#f5f5f5]'
                     : 'text-[#737373] hover:text-[#171717] hover:bg-[#fafafa]'
                 }`}
               >
-                <Icon className="h-3.5 w-3.5" />
+                <Icon className="h-4 w-4" />
                 <span>{tab.label}</span>
                 {isActive && (
-                  <div className="absolute bottom-0 left-2 right-2 h-0.5 bg-[#171717] rounded-full" />
+                  <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-6 h-0.5 bg-[#171717] rounded-full" />
                 )}
               </button>
             );
