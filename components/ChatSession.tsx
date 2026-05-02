@@ -51,6 +51,12 @@ import {
   setConversationRating,
   formatRatingStars,
 } from '@/lib/conversation-rating';
+import {
+  getPinnedMessages,
+  togglePinMessage,
+  isMessagePinned,
+  type PinnedMessage,
+} from '@/lib/pinned-messages';
 import { useMessageFeedback, MessageFeedbackButton } from '@/components/MessageFeedback';
 import { useMessageReaction, MessageReactionBar, MessageReactionDisplay, QUICK_REACTIONS } from '@/components/MessageReaction';
 import MessageStatus, { type MessageStatus as MessageStatusType } from '@/components/MessageStatus';
@@ -61,6 +67,16 @@ import { TranslateButton, TranslationResult } from '@/components/MessageTranslat
 import MessageTranslateProvider from '@/components/MessageTranslateProvider';
 import FollowUpSuggestions from '@/components/FollowUpSuggestions';
 import EmojiPicker from '@/components/EmojiPicker';
+
+function IconPin(props: React.SVGProps<SVGSVGElement> & { filled?: boolean }) {
+  const { filled, ...rest } = props;
+  return (
+    <svg viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden {...rest}>
+      <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
+      <circle cx="12" cy="10" r="3" />
+    </svg>
+  );
+}
 
 const SUGGESTIONS = [
   '搜索今日新闻',
@@ -280,6 +296,18 @@ export default function ChatSession({
     if (typeof window === 'undefined') return null;
     return getConversationRating(conversationId);
   }, [conversationId, ratingRefreshKey]);
+
+  // 钉选消息相关状态
+  const [pinnedMessagesRefreshKey, setPinnedMessagesRefreshKey] = useState(0);
+  const pinnedMessages = useMemo(() => {
+    if (typeof window === 'undefined') return [];
+    return getPinnedMessages(conversationId);
+  }, [conversationId, pinnedMessagesRefreshKey]);
+
+  const handleTogglePin = useCallback((message: { id: string; content: string; role: 'user' | 'assistant'; createdAt?: string }) => {
+    togglePinMessage(conversationId, message);
+    setPinnedMessagesRefreshKey(prev => prev + 1);
+  }, [conversationId]);
 
   // 自定义指令列表 - 使用初始化函数同步加载
   const [customCommands, setCustomCommands] = useState<CustomCommand[]>(() => {
@@ -1294,6 +1322,47 @@ export default function ChatSession({
           </div>
         )}
 
+        {/* 钉选消息区域 */}
+        {pinnedMessages.length > 0 && (
+          <div className="sticky top-0 z-10 mb-4 rounded-lg bg-white/80 dark:bg-[#262626]/80 backdrop-blur-sm border border-black/[0.06] dark:border-white/10 shadow-sm p-3">
+            <div className="flex items-center gap-2 mb-2">
+              <IconPin className="h-4 w-4 text-[#f59e0b] fill-[#f59e0b]" filled />
+              <span className="text-xs font-medium text-[#737373] dark:text-[#a3a3a3]">钉选消息</span>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {pinnedMessages.slice(0, 3).map((pinnedMsg) => (
+                <button
+                  key={pinnedMsg.messageId}
+                  type="button"
+                  onClick={() => handleJumpToMessage(pinnedMsg.messageId)}
+                  className="group flex items-center gap-2 max-w-xs px-3 py-2 rounded-lg bg-[#f5f5f5] dark:bg-[#3d3d3d] hover:bg-[#e5e5e5] dark:hover:bg-[#4d4d4d] transition-colors text-left"
+                  title={`点击跳转到${pinnedMsg.role === 'user' ? '我' : 'AI'}的消息`}
+                >
+                  <span className={`inline-flex items-center justify-center h-5 w-5 rounded-full text-[9px] font-semibold shrink-0 ${
+                    pinnedMsg.role === 'user'
+                      ? 'text-white'
+                      : 'border bg-gradient-to-br from-[#f4f4f5] to-[#e4e4e7] text-[#525252] dark:border-white/10 dark:from-[#3d3d3d] dark:to-[#262626] dark:text-[#d4d4d4]'
+                  }`}
+                  style={{
+                    backgroundColor: pinnedMsg.role === 'user' ? '#f59e0b' : undefined,
+                  }}
+                  >
+                    {pinnedMsg.role === 'user' ? '我' : 'AI'}
+                  </span>
+                  <span className="truncate text-xs text-[#525252] dark:text-[#d4d4d4]">
+                    {pinnedMsg.content.slice(0, 30)}{pinnedMsg.content.length > 30 ? '...' : ''}
+                  </span>
+                </button>
+              ))}
+              {pinnedMessages.length > 3 && (
+                <span className="inline-flex items-center px-3 py-2 text-xs text-[#737373] dark:text-[#a3a3a3]">
+                  还有 {pinnedMessages.length - 3} 条
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* 高亮提示条 */}
         {highlightMessageId && (
           <div className="sticky top-0 z-10 mb-4 flex items-center justify-between gap-2 rounded-lg bg-[#fef3c7] px-4 py-2.5 text-sm text-[#92400e] shadow-sm">
@@ -1673,6 +1742,25 @@ export default function ChatSession({
                         onDislike={handleDislike}
                         onUndoDislike={handleUndoDislike}
                       />
+                      {/* 钉选按钮 */}
+                      <button
+                        type="button"
+                        onClick={() => handleTogglePin({
+                          id: m.id,
+                          content: m.content,
+                          role: m.role as 'user' | 'assistant',
+                          createdAt: msg.createdAt,
+                        })}
+                        className={`inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] transition-colors hover:bg-[#f5f5f5] ${
+                          isMessagePinned(conversationId, m.id)
+                            ? 'text-[#f59e0b]'
+                            : 'text-[#737373] hover:text-[#171717]'
+                        }`}
+                        title={isMessagePinned(conversationId, m.id) ? '取消钉选' : '钉选此消息'}
+                      >
+                        <IconPin className={`h-3 w-3 ${isMessagePinned(conversationId, m.id) ? 'fill-[#f59e0b]' : ''}`} filled={isMessagePinned(conversationId, m.id)} />
+                        {isMessagePinned(conversationId, m.id) ? '已钉选' : '钉选'}
+                      </button>
                       {onToggleFavorite && (
                         <button
                           type="button"
@@ -1775,6 +1863,25 @@ export default function ChatSession({
                     </div>
                     <div className="flex items-center gap-1">
                       <TranslateButton />
+                      {/* 钉选按钮 */}
+                      <button
+                        type="button"
+                        onClick={() => handleTogglePin({
+                          id: m.id,
+                          content: m.content,
+                          role: m.role as 'user' | 'assistant',
+                          createdAt: msg.createdAt,
+                        })}
+                        className={`inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] transition-colors hover:bg-[#f5f5f5] ${
+                          isMessagePinned(conversationId, m.id)
+                            ? 'text-[#f59e0b]'
+                            : 'text-[#737373] hover:text-[#171717]'
+                        }`}
+                        title={isMessagePinned(conversationId, m.id) ? '取消钉选' : '钉选此消息'}
+                      >
+                        <IconPin className={`h-3 w-3 ${isMessagePinned(conversationId, m.id) ? 'fill-[#f59e0b]' : ''}`} filled={isMessagePinned(conversationId, m.id)} />
+                        {isMessagePinned(conversationId, m.id) ? '已钉选' : '钉选'}
+                      </button>
                       {/* 引用按钮 - 悬停显示 */}
                       {!isLoading && regeneratePhase === 'idle' && (
                         <button
