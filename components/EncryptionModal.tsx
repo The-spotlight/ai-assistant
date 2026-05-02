@@ -254,22 +254,48 @@ export default function EncryptionModal({
             </>
           ) : (
             <>
-              <div className="mb-4 flex justify-center">
-                {getIcon()}
-              </div>
-              <h3 className="mb-2 text-center text-lg font-semibold text-[#171717]">
-                {getModalTitle()}
-              </h3>
-              <p className="mb-6 text-center text-sm text-[#737373]">
-                {mode === 'set-password' &&
-                  '设置密码保护此对话。密码仅保存在本地，换设备后需要重新设置。'}
-                {mode === 'verify-password' &&
-                  '此对话已加密，请输入密码以查看内容。'}
-                {mode === 'remove-encryption' &&
-                  '确定要关闭此对话的加密保护吗？关闭后任何人都可以查看此对话。'}
-              </p>
+              <form
+                id="encryption-modal-form"
+                autoComplete="off"
+                className="m-0 p-0"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                }}
+              >
+                {/* 隐藏的假输入框，用于吸收浏览器的自动填充 */}
+                <div className="hidden" aria-hidden="true">
+                  <input
+                    type="text"
+                    name="username"
+                    autoComplete="username"
+                    tabIndex={-1}
+                    readOnly
+                  />
+                  <input
+                    type="password"
+                    name="password"
+                    autoComplete="current-password"
+                    tabIndex={-1}
+                    readOnly
+                  />
+                </div>
 
-              {mode !== 'set-password' && (
+                <div className="mb-4 flex justify-center">
+                  {getIcon()}
+                </div>
+                <h3 className="mb-2 text-center text-lg font-semibold text-[#171717]">
+                  {getModalTitle()}
+                </h3>
+                <p className="mb-6 text-center text-sm text-[#737373]">
+                  {mode === 'set-password' &&
+                    '设置密码保护此对话。密码仅保存在本地，换设备后需要重新设置。'}
+                  {mode === 'verify-password' &&
+                    '此对话已加密，请输入密码以查看内容。'}
+                  {mode === 'remove-encryption' &&
+                    '确定要关闭此对话的加密保护吗？关闭后任何人都可以查看此对话。'}
+                </p>
+
+                {mode !== 'set-password' && (
                 <div className="mb-4">
                   <label className="mb-1.5 block text-xs font-medium text-[#525252]">
                     密码
@@ -283,6 +309,11 @@ export default function EncryptionModal({
                       placeholder="请输入密码"
                       className="w-full rounded-lg border border-black/[0.08] bg-[#fafafa] px-3.5 py-2.5 pr-11 text-sm text-[#171717] placeholder:text-[#a3a3a3] focus:outline-none focus:ring-2 focus:ring-[#171717]/20 focus:border-[#171717]/20"
                       autoFocus
+                      autoComplete="one-time-code"
+                      name="encryption-verify-password"
+                      data-1p-ignore
+                      data-lpignore="true"
+                      form="encryption-modal-form"
                     />
                     <button
                       type="button"
@@ -315,6 +346,11 @@ export default function EncryptionModal({
                         placeholder="请输入密码（至少 4 位）"
                         className="w-full rounded-lg border border-black/[0.08] bg-[#fafafa] px-3.5 py-2.5 pr-11 text-sm text-[#171717] placeholder:text-[#a3a3a3] focus:outline-none focus:ring-2 focus:ring-[#171717]/20 focus:border-[#171717]/20"
                         autoFocus
+                        autoComplete="new-password"
+                        name="encryption-new-password"
+                        data-1p-ignore
+                        data-lpignore="true"
+                        form="encryption-modal-form"
                       />
                       <button
                         type="button"
@@ -343,6 +379,11 @@ export default function EncryptionModal({
                         onKeyDown={handleKeyPress}
                         placeholder="请再次输入密码"
                         className="w-full rounded-lg border border-black/[0.08] bg-[#fafafa] px-3.5 py-2.5 pr-11 text-sm text-[#171717] placeholder:text-[#a3a3a3] focus:outline-none focus:ring-2 focus:ring-[#171717]/20 focus:border-[#171717]/20"
+                        autoComplete="new-password"
+                        name="encryption-confirm-password"
+                        data-1p-ignore
+                        data-lpignore="true"
+                        form="encryption-modal-form"
                       />
                       <button
                         type="button"
@@ -419,6 +460,7 @@ export default function EncryptionModal({
                   )}
                 </button>
               </div>
+              </form>
             </>
           )}
         </div>
