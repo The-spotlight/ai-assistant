@@ -12,10 +12,16 @@ import {
   AVATAR_BORDERS,
   DEFAULT_SETTINGS,
   DEFAULT_BACKGROUND_SETTINGS,
+  DEFAULT_CUSTOM_BUBBLE_COLORS,
   BACKGROUND_TYPES,
   PRESET_GRADIENTS,
   PRESET_BACKGROUND_IMAGES,
   IMAGE_DISPLAY_MODES,
+  BUBBLE_COLOR_PRESETS,
+  MESSAGE_FONT_SIZES,
+  BUBBLE_BORDER_RADIUS_MIN,
+  BUBBLE_BORDER_RADIUS_MAX,
+  BUBBLE_BORDER_RADIUS_DEFAULT,
   type ThemeKey,
   type CodeHighlightKey,
   type FontSizeKey,
@@ -28,6 +34,9 @@ import {
   type GradientPresetId,
   type ImagePresetId,
   type ImageDisplayModeKey,
+  type BubbleColorPresetKey,
+  type BubbleColorSettings,
+  type MessageFontSizeKey,
 } from '@/lib/theme-constants';
 
 export {
@@ -39,10 +48,16 @@ export {
   AVATAR_BORDERS,
   DEFAULT_SETTINGS,
   DEFAULT_BACKGROUND_SETTINGS,
+  DEFAULT_CUSTOM_BUBBLE_COLORS,
   BACKGROUND_TYPES,
   PRESET_GRADIENTS,
   PRESET_BACKGROUND_IMAGES,
   IMAGE_DISPLAY_MODES,
+  BUBBLE_COLOR_PRESETS,
+  MESSAGE_FONT_SIZES,
+  BUBBLE_BORDER_RADIUS_MIN,
+  BUBBLE_BORDER_RADIUS_MAX,
+  BUBBLE_BORDER_RADIUS_DEFAULT,
   type ThemeKey,
   type CodeHighlightKey,
   type FontSizeKey,
@@ -55,6 +70,9 @@ export {
   type GradientPresetId,
   type ImagePresetId,
   type ImageDisplayModeKey,
+  type BubbleColorPresetKey,
+  type BubbleColorSettings,
+  type MessageFontSizeKey,
 };
 
 export const SEND_SHORTCUT_OPTIONS = {
@@ -472,6 +490,24 @@ function validateBackgroundSettings(background: unknown): BackgroundSettings {
   };
 }
 
+function isValidHexColor(color: unknown): color is string {
+  if (typeof color !== 'string') return false;
+  return /^#[0-9A-Fa-f]{6}$/.test(color) || /^#[0-9A-Fa-f]{3}$/.test(color);
+}
+
+function validateBubbleColorSettings(colors: unknown): BubbleColorSettings {
+  if (!colors || typeof colors !== 'object') {
+    return { ...DEFAULT_CUSTOM_BUBBLE_COLORS };
+  }
+  const c = colors as any;
+  return {
+    userBubble: isValidHexColor(c.userBubble) ? c.userBubble : DEFAULT_CUSTOM_BUBBLE_COLORS.userBubble,
+    userText: isValidHexColor(c.userText) ? c.userText : DEFAULT_CUSTOM_BUBBLE_COLORS.userText,
+    aiBubble: isValidHexColor(c.aiBubble) ? c.aiBubble : DEFAULT_CUSTOM_BUBBLE_COLORS.aiBubble,
+    aiText: isValidHexColor(c.aiText) ? c.aiText : DEFAULT_CUSTOM_BUBBLE_COLORS.aiText,
+  };
+}
+
 export function loadSettings(): AppearanceSettings {
   if (typeof window === 'undefined') {
     return DEFAULT_SETTINGS;
@@ -485,6 +521,20 @@ export function loadSettings(): AppearanceSettings {
 
     const parsed = JSON.parse(stored) as Partial<AppearanceSettings>;
     
+    const bubbleColorPreset = (parsed.bubbleColorPreset && parsed.bubbleColorPreset in BUBBLE_COLOR_PRESETS) 
+      ? parsed.bubbleColorPreset as BubbleColorPresetKey 
+      : (parsed.bubbleColorPreset === null ? null : DEFAULT_SETTINGS.bubbleColorPreset);
+    
+    const bubbleBorderRadius = (typeof parsed.bubbleBorderRadius === 'number' 
+      && parsed.bubbleBorderRadius >= BUBBLE_BORDER_RADIUS_MIN 
+      && parsed.bubbleBorderRadius <= BUBBLE_BORDER_RADIUS_MAX)
+      ? parsed.bubbleBorderRadius
+      : DEFAULT_SETTINGS.bubbleBorderRadius;
+    
+    const messageFontSize = (parsed.messageFontSize && parsed.messageFontSize in MESSAGE_FONT_SIZES)
+      ? parsed.messageFontSize as MessageFontSizeKey
+      : DEFAULT_SETTINGS.messageFontSize;
+    
     return {
       theme: (parsed.theme && parsed.theme in THEME_PRESETS) ? parsed.theme as ThemeKey : DEFAULT_SETTINGS.theme,
       fontSize: (parsed.fontSize && parsed.fontSize in FONT_SIZES) ? parsed.fontSize as FontSizeKey : DEFAULT_SETTINGS.fontSize,
@@ -494,6 +544,10 @@ export function loadSettings(): AppearanceSettings {
       avatarBorder: (parsed.avatarBorder && parsed.avatarBorder in AVATAR_BORDERS) ? parsed.avatarBorder as AvatarBorderKey : DEFAULT_SETTINGS.avatarBorder,
       background: validateBackgroundSettings(parsed.background),
       darkMode: typeof parsed.darkMode === 'boolean' ? parsed.darkMode : DEFAULT_SETTINGS.darkMode,
+      bubbleColorPreset,
+      customBubbleColors: validateBubbleColorSettings(parsed.customBubbleColors),
+      bubbleBorderRadius,
+      messageFontSize,
     };
   } catch {
     return DEFAULT_SETTINGS;
@@ -789,6 +843,16 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const effectiveTheme = appearance.darkMode ? 'dark' : appearance.theme;
   const themeColors = THEME_PRESETS[effectiveTheme];
 
+  // 获取实际的气泡颜色（预设或自定义）
+  const getEffectiveBubbleColors = useCallback(() => {
+    if (appearance.bubbleColorPreset && appearance.bubbleColorPreset in BUBBLE_COLOR_PRESETS) {
+      return BUBBLE_COLOR_PRESETS[appearance.bubbleColorPreset];
+    }
+    return appearance.customBubbleColors;
+  }, [appearance.bubbleColorPreset, appearance.customBubbleColors]);
+
+  const effectiveBubbleColors = getEffectiveBubbleColors();
+
   useEffect(() => {
     if (typeof window === 'undefined') return;
 
@@ -804,18 +868,30 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     root.style.setProperty('--theme-text-primary', themeColors.textPrimary);
     root.style.setProperty('--theme-text-secondary', themeColors.textSecondary);
     root.style.setProperty('--theme-text-muted', themeColors.textMuted);
-    root.style.setProperty('--theme-user-bubble', themeColors.userBubble);
-    root.style.setProperty('--theme-user-text', themeColors.userText);
-    root.style.setProperty('--theme-ai-bubble', themeColors.aiBubble);
-    root.style.setProperty('--theme-ai-text', themeColors.aiText);
     
+    // 使用消息样式设置中的气泡颜色（优先级高于主题预设）
+    const bubbleColors = getEffectiveBubbleColors();
+    root.style.setProperty('--theme-user-bubble', bubbleColors.userBubble);
+    root.style.setProperty('--theme-user-text', bubbleColors.userText);
+    root.style.setProperty('--theme-ai-bubble', bubbleColors.aiBubble);
+    root.style.setProperty('--theme-ai-text', bubbleColors.aiText);
+    
+    // 气泡圆角
+    root.style.setProperty('--bubble-border-radius', `${appearance.bubbleBorderRadius}px`);
+    
+    // 消息字体大小
+    const messageFontSizeConfig = MESSAGE_FONT_SIZES[appearance.messageFontSize];
+    root.style.setProperty('--message-font-size', messageFontSizeConfig.value);
+    root.style.setProperty('--message-line-height', messageFontSizeConfig.lineHeight);
+    
+    // 全局字体大小（保持兼容）
     const fontSizeConfig = FONT_SIZES[appearance.fontSize];
     root.style.setProperty('--theme-font-size', fontSizeConfig.value);
     root.style.setProperty('--theme-line-height', fontSizeConfig.lineHeight);
     
     // 添加 data-theme 属性供 CSS 使用
     root.setAttribute('data-theme', appearance.darkMode ? 'dark' : 'light');
-  }, [appearance, themeColors]);
+  }, [appearance, themeColors, getEffectiveBubbleColors]);
 
   return (
     <SettingsContext.Provider
