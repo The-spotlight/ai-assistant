@@ -10,6 +10,8 @@ import QuickCommandPanel from '@/components/QuickCommandPanel';
 import TokenStatsPanel from '@/components/TokenStatsPanel';
 import ShareModal from '@/components/ShareModal';
 import ShareHistory from '@/components/ShareHistory';
+import ConversationRatingModal from '@/components/ConversationRatingModal';
+import { ConversationRatingTextDisplay } from '@/components/ConversationRatingDisplay';
 import { Button } from '@/components/ui/Button';
 import {
   calculateMessageCost,
@@ -41,7 +43,13 @@ import {
   Pause,
   Play,
   Mic,
+  Star,
 } from 'lucide-react';
+import {
+  getConversationRating,
+  setConversationRating,
+  formatRatingStars,
+} from '@/lib/conversation-rating';
 import { useMessageFeedback, MessageFeedbackButton } from '@/components/MessageFeedback';
 import MessageStatus, { type MessageStatus as MessageStatusType } from '@/components/MessageStatus';
 import DateSeparator, { isSameDay } from '@/components/DateSeparator';
@@ -258,6 +266,14 @@ export default function ChatSession({
   // 分享相关状态
   const [showShareModal, setShowShareModal] = useState(false);
   const [showShareHistory, setShowShareHistory] = useState(false);
+
+  // 评分相关状态
+  const [showRatingModal, setShowRatingModal] = useState(false);
+  const [ratingRefreshKey, setRatingRefreshKey] = useState(0);
+  const currentRating = useMemo(() => {
+    if (typeof window === 'undefined') return null;
+    return getConversationRating(conversationId);
+  }, [conversationId, ratingRefreshKey]);
 
   // 自定义指令列表 - 使用初始化函数同步加载
   const [customCommands, setCustomCommands] = useState<CustomCommand[]>(() => {
@@ -1044,9 +1060,21 @@ export default function ChatSession({
       {messages.length > 0 && behavior.showTokenStats && (
         <div className="relative shrink-0 border-b border-white/20 bg-white/60 dark:bg-[#171717]/60 backdrop-blur-xl px-4 py-2 text-xs text-[#737373] dark:text-[#a3a3a3]">
           <div className="flex items-center justify-between gap-2">
-            <span className="truncate">
-              模型：{modelPricing.label}
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="truncate">
+                模型：{modelPricing.label}
+              </span>
+              {currentRating !== null && (
+                <button
+                  type="button"
+                  onClick={() => setShowRatingModal(true)}
+                  className="inline-flex items-center gap-1 text-[#f59e0b] hover:opacity-80 transition-opacity"
+                  title="点击重新评分"
+                >
+                  {formatRatingStars(currentRating)}
+                </button>
+              )}
+            </div>
             <div className="flex items-center gap-2">
               <div
                 ref={statsTriggerRef}
@@ -1121,6 +1149,18 @@ export default function ChatSession({
                       <span>分享记录</span>
                     </button>
                     <div className="h-px bg-black/[0.06] dark:bg-white/10" />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowRatingModal(true);
+                        setShowMenu(false);
+                      }}
+                      disabled={messages.length === 0}
+                      className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-[#171717] dark:text-white transition-colors hover:bg-[#fafafa] dark:hover:bg-[#3d3d3d] disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <Star className={`h-4 w-4 ${currentRating ? 'text-[#f59e0b] fill-[#f59e0b]' : 'text-[#737373] dark:text-[#a3a3a3]'}`} />
+                      <span>{currentRating ? `评分: ${formatRatingStars(currentRating)}` : '评分'}</span>
+                    </button>
                     <button
                       type="button"
                       onClick={handleExport}
@@ -1833,6 +1873,18 @@ export default function ChatSession({
         deviceId={deviceId}
         timestampFormat={behavior.timestampFormat}
         formatTime={formatTime}
+      />
+
+      {/* 评分模态框 */}
+      <ConversationRatingModal
+        isOpen={showRatingModal}
+        onClose={() => setShowRatingModal(false)}
+        conversationId={conversationId}
+        currentRating={currentRating}
+        onSave={(rating) => {
+          setConversationRating(conversationId, rating);
+          setRatingRefreshKey(prev => prev + 1);
+        }}
       />
 
     </div>
