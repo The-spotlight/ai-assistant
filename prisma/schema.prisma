@@ -57,6 +57,8 @@ model Message {
   repliedMessage  Message?     @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
   replies         Message[]    @relation("MessageReplies")
   createdAt       DateTime     @default(now())
+  originalContent String?     @db.Text
+  editHistory     Json?
 
   @@unique([conversationId, clientMessageId])
   @@index([userId, conversationId, createdAt])
