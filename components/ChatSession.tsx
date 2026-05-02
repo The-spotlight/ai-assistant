@@ -541,11 +541,13 @@ export default function ChatSession({
     await sendReaction(messageId, emoji);
   }, [sendReaction]);
 
-  // 消息悬停处理
-  const handleMessageHover = useCallback(async (messageId: string, isHovered: boolean) => {
+  // 消息悬停处理（仅对 AI 消息加载表情回应数据）
+  const handleMessageHover = useCallback(async (messageId: string, isHovered: boolean, isAssistant: boolean) => {
     if (isHovered) {
       setHoveredMessageId(messageId);
-      await loadMessageReactions(messageId);
+      if (isAssistant) {
+        await loadMessageReactions(messageId);
+      }
     } else {
       setHoveredMessageId(null);
     }
@@ -1384,8 +1386,8 @@ export default function ChatSession({
                     messageRefs.current.delete(m.id);
                   }
                 }}
-                onMouseEnter={() => handleMessageHover(m.id, true)}
-                onMouseLeave={() => handleMessageHover(m.id, false)}
+                onMouseEnter={() => handleMessageHover(m.id, true, m.role === 'assistant')}
+                onMouseLeave={() => handleMessageHover(m.id, false, m.role === 'assistant')}
                 className={`flex w-full gap-3 transition-all duration-300 group ${
                   m.role === 'user' ? 'flex-row-reverse' : 'flex-row'
                 } ${
@@ -1427,8 +1429,8 @@ export default function ChatSession({
                     </div>
                   )}
 
-                  {/* 表情回应栏 - 悬停时显示 */}
-                  {hoveredMessageId === m.id && (
+                  {/* 表情回应栏 - 悬停时显示（仅 AI 消息） */}
+                  {m.role === 'assistant' && hoveredMessageId === m.id && (
                     <div className={`absolute -top-9 ${m.role === 'user' ? 'left-0' : 'right-0'} z-20`}>
                       <MessageReactionBar
                         messageId={m.id}
@@ -1440,8 +1442,8 @@ export default function ChatSession({
                     </div>
                   )}
 
-                  {/* 小表情指示器 - 有回应时显示在右下角 */}
-                  {reactionMap[m.id]?.myReaction && (
+                  {/* 小表情指示器 - 有回应时显示在右下角（仅 AI 消息） */}
+                  {m.role === 'assistant' && reactionMap[m.id]?.myReaction && (
                     <div className="absolute -bottom-2 -right-2 text-sm bg-white dark:bg-[#262626] rounded-full shadow-sm border border-black/[0.08] dark:border-white/10 w-6 h-6 flex items-center justify-center">
                       {reactionMap[m.id]?.myReaction}
                     </div>
@@ -1561,8 +1563,8 @@ export default function ChatSession({
                   )}
                 </div>
 
-                {/* 表情回应显示 - 在气泡下方显示已回应的表情 */}
-                {reactionMap[m.id]?.reactions && reactionMap[m.id]?.reactions.length > 0 && (
+                {/* 表情回应显示 - 在气泡下方显示已回应的表情（仅 AI 消息） */}
+                {m.role === 'assistant' && reactionMap[m.id]?.reactions && reactionMap[m.id]?.reactions.length > 0 && (
                   <MessageReactionDisplay
                     reactions={reactionMap[m.id].reactions}
                     onReaction={(emoji) => handleReaction(m.id, emoji)}
