@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { Tooltip } from 'antd';
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/Tooltip';
 import { getModelShortName, getModelFullName } from '@/lib/model-pricing';
 
 const TOOL_EMOJIS: Record<string, string> = {
@@ -53,23 +53,35 @@ export default function ModelLabel({ modelId, toolInvocations }: ModelLabelProps
   }, [toolInvocations]);
 
   return (
-    <div className="flex items-center gap-1.5">
-      {uniqueTools.length > 0 && (
-        <div className="flex items-center gap-0.5">
-          {uniqueTools.map((tool) => (
-            <Tooltip key={tool.name} title={tool.label} mouseEnterDelay={0.1}>
-              <span className="text-sm cursor-default">{tool.emoji}</span>
-            </Tooltip>
-          ))}
-        </div>
-      )}
-      <Tooltip title={fullName} mouseEnterDelay={0.1}>
-        <span
-          className="inline-flex items-center rounded-full bg-[#f5f5f5] dark:bg-[#3d3d3d] px-2 py-0.5 text-[10px] font-medium text-[#737373] dark:text-[#a3a3a3] cursor-default transition-colors hover:bg-[#e5e5e5] dark:hover:bg-[#4d4d4d]"
-        >
-          {shortName}
-        </span>
-      </Tooltip>
-    </div>
+    <TooltipProvider>
+      <div className="flex items-center gap-1.5">
+        {uniqueTools.length > 0 && (
+          <div className="flex items-center gap-0.5">
+            {uniqueTools.map((tool) => (
+              <Tooltip key={tool.name}>
+                <TooltipTrigger asChild>
+                  <span className="text-sm cursor-default">{tool.emoji}</span>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <span>{tool.label}</span>
+                </TooltipContent>
+              </Tooltip>
+            ))}
+          </div>
+        )}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span
+              className="inline-flex items-center rounded-full bg-[#f5f5f5] dark:bg-[#3d3d3d] px-2 py-0.5 text-[10px] font-medium text-[#737373] dark:text-[#a3a3a3] cursor-default transition-colors hover:bg-[#e5e5e5] dark:hover:bg-[#4d4d4d]"
+            >
+              {shortName}
+            </span>
+          </TooltipTrigger>
+          <TooltipContent>
+            <span>{fullName}</span>
+          </TooltipContent>
+        </Tooltip>
+      </div>
+    </TooltipProvider>
   );
 }
