@@ -776,13 +776,16 @@ function SidebarContent({
                       )}
                     </div>
                     {showTime && editingConversationId !== c.id && (
-                      <div className="mt-1 flex flex-col gap-0.5">
-                        <span className={`block text-[11px] text-[#a3a3a3] ${isWide ? 'text-xs' : ''}`}>
+                      <div className="mt-1 flex items-center gap-1">
+                        <span className={`text-[11px] text-[#a3a3a3] ${isWide ? 'text-xs' : ''}`}>
                           {formatRelativeTime(c.updatedAt)}
+                        </span>
+                        <span className={`text-[11px] text-[#a3a3a3] ${isWide ? 'text-xs' : ''}`}>
+                          ·
                         </span>
                         <Tooltip>
                           <TooltipTrigger asChild>
-                            <span className={`block text-[10px] text-[#a3a3a3] ${isWide ? 'text-[11px]' : ''} cursor-default`}>
+                            <span className={`text-[11px] text-[#a3a3a3] ${isWide ? 'text-xs' : ''} cursor-default`}>
                               {formatCreatedAtDisplay(c.createdAt, c.updatedAt)}
                             </span>
                           </TooltipTrigger>
@@ -999,11 +1002,14 @@ function SidebarContent({
                       {activeConversation.title?.trim() || '新对话'}
                     </span>
                     {showTime && (
-                      <div className="mt-1 flex flex-col gap-0.5">
-                        <span className={`block text-[11px] text-[#a3a3a3] ${isWide ? 'text-xs' : ''}`}>
+                      <div className="mt-1 flex items-center gap-1">
+                        <span className={`text-[11px] text-[#a3a3a3] ${isWide ? 'text-xs' : ''}`}>
                           {formatRelativeTime(activeConversation.updatedAt)}
                         </span>
-                        <span className={`block text-[10px] text-[#a3a3a3] ${isWide ? 'text-[11px]' : ''}`}>
+                        <span className={`text-[11px] text-[#a3a3a3] ${isWide ? 'text-xs' : ''}`}>
+                          ·
+                        </span>
+                        <span className={`text-[11px] text-[#a3a3a3] ${isWide ? 'text-xs' : ''}`}>
                           {formatCreatedAtDisplay(activeConversation.createdAt, activeConversation.updatedAt)}
                         </span>
                       </div>
