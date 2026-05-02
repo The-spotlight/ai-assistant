@@ -1,14 +1,20 @@
 'use client';
 
+import { useEffect } from 'react';
 import { SettingsProvider } from '@/lib/settings';
 import { SpeechProvider } from '@/lib/speech';
 import { ToastContainer, Slide } from 'react-toastify';
+import { loadAndSchedulePendingMessages } from '@/lib/scheduled-messages';
 
 export default function ClientProviders({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  useEffect(() => {
+    loadAndSchedulePendingMessages();
+  }, []);
+
   return (
     <SettingsProvider>
       <SpeechProvider>

@@ -36,6 +36,7 @@ import ResizablePanel, { useLayoutContext, AdaptiveText } from '@/components/Res
 import { DEFAULT_OPENROUTER_MODEL_ID, DEFAULT_OPENROUTER_MODEL_LABEL } from '@/lib/openrouter-models';
 import { CONVERSATION_STORAGE_KEY, getOrCreateDeviceId } from '@/lib/device';
 import { useSettings } from '@/lib/settings';
+import { hasScheduledMessages } from '@/lib/scheduled-messages';
 
 type ConversationRow = {
   id: string;
@@ -198,6 +199,15 @@ function IconPin(props: React.SVGProps<SVGSVGElement> & { filled?: boolean }) {
     <svg viewBox="0 0 24 24" fill={filled ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden {...rest}>
       <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
       <circle cx="12" cy="10" r="3" />
+    </svg>
+  );
+}
+
+function IconBell(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden {...props}>
+      <path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9" />
+      <path d="M10.3 21a1.94 1.94 0 0 0 3.4 0" />
     </svg>
   );
 }
@@ -552,13 +562,28 @@ function SortableConversationRow({
           />
         ) : (
           <>
-            <span
-              className={`${titleLines} text-[13px] font-medium leading-snug text-[#171717] ${
-                isNarrow ? 'text-[12px]' : ''
-              } ${isWide ? 'text-sm' : ''}`}
-            >
-              {conversation.title?.trim() || '新对话'}
-            </span>
+            <div className="flex items-center gap-1.5">
+              <span
+                className={`${titleLines} text-[13px] font-medium leading-snug text-[#171717] ${
+                  isNarrow ? 'text-[12px]' : ''
+                } ${isWide ? 'text-sm' : ''}`}
+              >
+                {conversation.title?.trim() || '新对话'}
+              </span>
+              {(() => {
+                const hasScheduled = hasScheduledMessages(conversation.id);
+                if (hasScheduled) {
+                  return (
+                    <span className="inline-flex" title="有定时消息">
+                      <IconBell 
+                        className={`h-3.5 w-3.5 text-[#d97706] ${isNarrow ? 'h-3 w-3' : ''}`}
+                      />
+                    </span>
+                  );
+                }
+                return null;
+              })()}
+            </div>
             {showTime && (
               <span className={`mt-1 block text-[11px] text-[#a3a3a3] ${isWide ? 'text-xs' : ''}`}>
                 {formatRelativeTime(conversation.updatedAt)}
@@ -966,11 +991,26 @@ function SidebarContent({
                           placeholder="输入新标题..."
                         />
                       ) : (
-                        <span className={`${titleLines} text-[13px] font-medium leading-snug text-[#171717] ${
-                          isNarrow ? 'text-[12px]' : ''
-                        } ${isWide ? 'text-sm' : ''}`}>
-                          {c.title?.trim() || '新对话'}
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <span className={`${titleLines} text-[13px] font-medium leading-snug text-[#171717] ${
+                            isNarrow ? 'text-[12px]' : ''
+                          } ${isWide ? 'text-sm' : ''}`}>
+                            {c.title?.trim() || '新对话'}
+                          </span>
+                          {(() => {
+                            const hasScheduled = hasScheduledMessages(c.id);
+                            if (hasScheduled) {
+                              return (
+                                <span className="inline-flex" title="有定时消息">
+                                  <IconBell 
+                                    className={`h-3.5 w-3.5 text-[#d97706] ${isNarrow ? 'h-3 w-3' : ''}`}
+                                  />
+                                </span>
+                              );
+                            }
+                            return null;
+                          })()}
+                        </div>
                       )}
                     </div>
                     {showTime && editingConversationId !== c.id && (

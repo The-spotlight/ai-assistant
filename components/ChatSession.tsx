@@ -39,6 +39,8 @@ import {
   Volume2,
   Pause,
   Play,
+  Clock,
+  Bell,
 } from 'lucide-react';
 import { useMessageFeedback, MessageFeedbackButton } from '@/components/MessageFeedback';
 import MessageStatus, { type MessageStatus as MessageStatusType } from '@/components/MessageStatus';
@@ -50,6 +52,18 @@ import MessageTranslateProvider from '@/components/MessageTranslateProvider';
 import FollowUpSuggestions from '@/components/FollowUpSuggestions';
 import Timeline from '@/components/Timeline';
 import ModelLabel from '@/components/ModelLabel';
+import DateTimePicker from '@/components/DateTimePicker';
+import {
+  type ScheduledMessage,
+  getScheduledMessages,
+  saveScheduledMessage,
+  cancelScheduledMessage,
+  markScheduledMessageAsSent,
+  formatScheduledTime,
+  scheduleMessageTimer,
+  cancelMessageTimer,
+  setScheduledCallback,
+} from '@/lib/scheduled-messages';
 
 const SUGGESTIONS = [
   '搜索今日新闻',
@@ -262,6 +276,11 @@ export default function ChatSession({
   const wasLoadingRef = useRef<boolean>(false);
   const initialMessageIdsRef = useRef<Set<string>>(new Set());
   const isInitializedRef = useRef<boolean>(false);
+
+  const [showDateTimePicker, setShowDateTimePicker] = useState(false);
+  const [scheduledTime, setScheduledTime] = useState<Date | null>(null);
+  const [scheduledMessages, setScheduledMessages] = useState<ScheduledMessage[]>([]);
+  const isSchedulingRef = useRef(false);
 
   // 初始化时记录历史消息 ID，这些消息不显示状态
   useEffect(() => {
@@ -685,6 +704,92 @@ export default function ChatSession({
       saveDraft(conversationId, input);
     }
   }, [input, conversationId, showQuickCommands]);
+
+  // 加载当前会话的定时消息
+  useEffect(() => {
+    const load = () => {
+      const msgs = getScheduledMessages(conversationId);
+      setScheduledMessages(msgs);
+    };
+    load();
+
+    const handleScheduledMessage = (message: ScheduledMessage) => {
+      if (message.conversationId !== conversationId) return;
+      
+      console.log('[ChatSession] 触发定时发送:', message.id);
+      
+      if (isSchedulingRef.current) {
+        console.log('[ChatSession] 正在发送中，跳过');
+        return;
+      }
+      
+      isSchedulingRef.current = true;
+      
+      try {
+        append({ role: 'user', content: message.content });
+        markScheduledMessageAsSent(message.id);
+        cancelMessageTimer(message.id);
+        
+        setScheduledMessages(prev => 
+          prev.filter(m => m.id !== message.id)
+        );
+        
+        console.log('[ChatSession] 定时消息发送成功:', message.id);
+      } catch (error) {
+        console.error('[ChatSession] 定时消息发送失败:', error);
+      } finally {
+        isSchedulingRef.current = false;
+      }
+    };
+
+    setScheduledCallback(handleScheduledMessage);
+
+    return () => {
+      setScheduledCallback(() => {});
+    };
+  }, [conversationId, append]);
+
+  const handleScheduledSend = useCallback(() => {
+    if (!scheduledTime || !input.trim()) return;
+
+    let replyToSnapshot = null;
+    if (replyingToRef.current) {
+      replyToSnapshot = JSON.stringify({
+        content: replyingToRef.current.content,
+        createdAt: replyingToRef.current.createdAt,
+        role: replyingToRef.current.role,
+      });
+    }
+
+    const scheduledMsg = saveScheduledMessage({
+      conversationId,
+      content: input.trim(),
+      scheduledAt: scheduledTime.toISOString(),
+      replyToId: replyingToRef.current?.messageId || null,
+      replyToSnapshot,
+    });
+
+    scheduleMessageTimer(scheduledMsg);
+
+    setScheduledMessages(prev => [...prev, scheduledMsg]);
+    setInput('');
+    clearDraft(conversationId);
+    setScheduledTime(null);
+    setReplyingTo(null);
+    replyingToRef.current = null;
+  }, [scheduledTime, input, conversationId, append]);
+
+  const handleCancelScheduled = useCallback((messageId: string) => {
+    cancelScheduledMessage(messageId);
+    cancelMessageTimer(messageId);
+    setScheduledMessages(prev => 
+      prev.filter(m => m.id !== messageId)
+    );
+  }, []);
+
+  const handleModifyScheduledTime = useCallback(() => {
+    setShowDateTimePicker(true);
+  }, []);
 
   // 自定义表单提交处理
   const handleFormSubmit = useCallback((e: React.FormEvent) => {
@@ -1620,6 +1725,42 @@ export default function ChatSession({
           );
         })}
 
+        {/* 待发送的定时消息 */}
+        {scheduledMessages.length > 0 &&
+          scheduledMessages.map((msg) => (
+            <div key={msg.id} className="flex w-full gap-3 opacity-50">
+              <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold text-white" style={{ backgroundColor: themeColors.primary }}>
+                我
+              </div>
+              <div className="min-w-0 max-w-[min(100%,36rem)]">
+                <div
+                  className="min-w-0 relative rounded-2xl rounded-br-md px-4 py-3"
+                  style={{
+                    backgroundColor: themeColors.userBubble,
+                    color: themeColors.userText,
+                    opacity: 0.6,
+                  }}
+                >
+                  <span className="whitespace-pre-wrap">{msg.content}</span>
+                </div>
+                <div className="mt-1.5 flex items-center gap-2 px-1">
+                  <Clock className="h-3 w-3 text-[#a3a3a3]" />
+                  <span className="text-[10px] text-[#a3a3a3]">
+                    定时发送：{formatScheduledTime(new Date(msg.scheduledAt))}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleCancelScheduled(msg.id)}
+                    className="text-[10px] text-[#dc2626] hover:text-[#b91c1c] transition-colors"
+                    title="取消定时"
+                  >
+                    取消
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))}
+
         {isLoading && (
           <div className="flex w-full gap-3">
             <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-black/[0.06] bg-gradient-to-br from-[#f4f4f5] to-[#e4e4e7] text-[11px] font-semibold text-[#525252]">
@@ -1664,6 +1805,62 @@ export default function ChatSession({
             }}
           />
 
+          {/* 定时消息提示条 */}
+          {scheduledTime && (
+            <div className="mb-2 flex items-center gap-2 rounded-lg bg-[#dbeafe] px-3 py-2">
+              <Clock className="h-4 w-4 text-[#2563eb]" />
+              <div className="min-w-0 flex-1">
+                <span className="text-xs font-medium text-[#1e40af]">
+                  将在 {formatScheduledTime(scheduledTime)} 发送
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={handleModifyScheduledTime}
+                className="text-xs text-[#2563eb] hover:text-[#1d4ed8] transition-colors"
+              >
+                修改时间
+              </button>
+              <button
+                type="button"
+                onClick={() => setScheduledTime(null)}
+                className="text-xs text-[#64748b] hover:text-[#475569] transition-colors"
+              >
+                取消
+              </button>
+            </div>
+          )}
+
+          {/* 已设置的定时消息列表 */}
+          {scheduledMessages.length > 0 && (
+            <div className="mb-2 space-y-1">
+              {scheduledMessages.map((msg) => (
+                <div
+                  key={msg.id}
+                  className="flex items-center gap-2 rounded-lg bg-[#fef3c7] px-3 py-2"
+                >
+                  <Bell className="h-4 w-4 text-[#d97706]" />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-xs text-[#92400e]">
+                      {msg.content}
+                    </p>
+                    <p className="text-[10px] text-[#b45309]">
+                      将在 {formatScheduledTime(new Date(msg.scheduledAt))} 发送
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleCancelScheduled(msg.id)}
+                    className="text-xs text-[#92400e] hover:text-[#78350f] transition-colors"
+                    title="取消定时"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
           {/* 引用预览 */}
           {replyingTo && (
             <div className="mb-2 flex items-center gap-2 rounded-lg bg-white/60 backdrop-blur-sm px-3 py-2">
@@ -1702,7 +1899,14 @@ export default function ChatSession({
           )}
 
           <form
-            onSubmit={handleFormSubmit}
+            onSubmit={(e) => {
+              if (scheduledTime) {
+                e.preventDefault();
+                handleScheduledSend();
+              } else {
+                handleFormSubmit(e);
+              }
+            }}
             className="flex flex-col gap-3 rounded-lg bg-white/80 backdrop-blur-sm p-2 sm:flex-row sm:items-center sm:gap-2 sm:p-2"
             style={{ boxShadow: 'rgba(0,0,0,0.06) 0px 0px 0px 1px' }}
           >
@@ -1718,6 +1922,19 @@ export default function ChatSession({
             <div className="flex items-center justify-end gap-1 sm:shrink-0">
               <button
                 type="button"
+                onClick={() => setShowDateTimePicker(true)}
+                className={`flex h-9 w-9 items-center justify-center rounded-lg transition-colors ${
+                  scheduledTime
+                    ? 'bg-[#2563eb] text-white'
+                    : 'text-[#4d4d4d] hover:bg-white/40 hover:text-[#171717]'
+                }`}
+                title={scheduledTime ? '已设置定时' : '定时发送'}
+                disabled={isLoading}
+              >
+                <Clock className="h-5 w-5" />
+              </button>
+              <button
+                type="button"
                 onClick={() => setShowSkills(!showSkills)}
                 className="rounded px-3 py-2 text-sm text-[#4d4d4d] transition-colors hover:bg-white/40 hover:text-[#171717]"
                 title="技能"
@@ -1727,9 +1944,13 @@ export default function ChatSession({
               <button
                 type="submit"
                 disabled={isLoading || !input.trim()}
-                className="min-h-[40px] min-w-[88px] rounded-md bg-[#171717] px-5 text-sm font-medium text-white transition-colors hover:bg-[#000000] disabled:cursor-not-allowed disabled:opacity-40"
+                className={`min-h-[40px] min-w-[88px] rounded-md px-5 text-sm font-medium text-white transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+                  scheduledTime
+                    ? 'bg-[#2563eb] hover:bg-[#1d4ed8]'
+                    : 'bg-[#171717] hover:bg-[#000000]'
+                }`}
               >
-                发送
+                {scheduledTime ? '定时发送' : '发送'}
               </button>
             </div>
           </form>
@@ -1754,6 +1975,17 @@ export default function ChatSession({
         deviceId={deviceId}
         timestampFormat={behavior.timestampFormat}
         formatTime={formatTime}
+      />
+
+      {/* 时间选择器 */}
+      <DateTimePicker
+        isOpen={showDateTimePicker}
+        onClose={() => setShowDateTimePicker(false)}
+        initialDate={scheduledTime || undefined}
+        onSelect={(date) => {
+          setScheduledTime(date);
+          setShowDateTimePicker(false);
+        }}
       />
 
     </div>
