@@ -2259,6 +2259,7 @@ export default function Home() {
                 onTemplateUsed={handleTemplateUsed}
                 onToggleImmersiveMode={() => setIsImmersiveMode(true)}
                 isImmersiveMode={isImmersiveMode}
+                conversationTitle={convList.find(c => c.id === chatPayload.conversationId)?.title ?? null}
               />
             </div>
           ) : null}

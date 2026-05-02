@@ -41,7 +41,10 @@ import {
   Pause,
   Play,
   Mic,
+  GripVertical,
 } from 'lucide-react';
+import ArtboardPanel from '@/components/ArtboardPanel';
+import MessageContextMenu, { useMessageContextMenu } from '@/components/MessageContextMenu';
 import { useMessageFeedback, MessageFeedbackButton } from '@/components/MessageFeedback';
 import MessageStatus, { type MessageStatus as MessageStatusType } from '@/components/MessageStatus';
 import DateSeparator, { isSameDay } from '@/components/DateSeparator';
@@ -90,6 +93,7 @@ type ChatSessionProps = {
   onTemplateUsed?: () => void;
   onToggleImmersiveMode?: () => void;
   isImmersiveMode?: boolean;
+  conversationTitle?: string | null;
 };
 
 export default function ChatSession({
@@ -105,6 +109,7 @@ export default function ChatSession({
   onTemplateUsed,
   onToggleImmersiveMode,
   isImmersiveMode = false,
+  conversationTitle = null,
 }: ChatSessionProps) {
   const { settings, themeColors, behavior, model, keyboardShortcuts } = useSettings();
   const {
@@ -289,6 +294,19 @@ export default function ChatSession({
   const [replyingTo, setReplyingTo] = useState<ReplyInfo | null>(null);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
   const highlightTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // 画板相关状态
+  const [isArtboardOpen, setIsArtboardOpen] = useState(false);
+  const [artboardMessageId, setArtboardMessageId] = useState<string | null>(null);
+  const [artboardMessageRole, setArtboardMessageRole] = useState('');
+  const [artboardMessageContent, setArtboardMessageContent] = useState('');
+  const [artboardWidth, setArtboardWidth] = useState(450);
+  const [isResizingArtboard, setIsResizingArtboard] = useState(false);
+  const artboardResizeStartXRef = useRef(0);
+  const artboardResizeStartWidthRef = useRef(450);
+
+  // 右键菜单状态
+  const { contextMenuState, handleContextMenu, closeContextMenu } = useMessageContextMenu();
 
   // 消息反馈相关状态（使用组件化的hook）
   const { feedbackMap, handleLike, handleDislike, handleUndoDislike } = useMessageFeedback(deviceId);
@@ -633,6 +651,97 @@ export default function ChatSession({
       addSkillToHistory(skillId);
     }
   };
+
+  // 打开画板
+  const handleOpenArtboard = useCallback((messageId: string, messageRole: string, messageContent: string) => {
+    setArtboardMessageId(messageId);
+    setArtboardMessageRole(messageRole);
+    setArtboardMessageContent(messageContent);
+    setIsArtboardOpen(true);
+  }, []);
+
+  // 关闭画板
+  const handleCloseArtboard = useCallback(() => {
+    setIsArtboardOpen(false);
+    setArtboardMessageId(null);
+    setArtboardMessageRole('');
+    setArtboardMessageContent('');
+  }, []);
+
+  // 更新消息内容
+  const handleUpdateMessage = useCallback(
+    async (newContent: string) => {
+      if (!artboardMessageId) return;
+
+      try {
+        const response = await fetch(
+          `/api/conversations/${conversationId}/messages/${encodeURIComponent(artboardMessageId)}`,
+          {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-Device-Id': deviceId,
+            },
+            body: JSON.stringify({ content: newContent }),
+          }
+        );
+
+        if (!response.ok) {
+          throw new Error('更新消息失败');
+        }
+
+        // 更新前端消息状态
+        setMessages((prevMessages) =>
+          prevMessages.map((msg) =>
+            msg.id === artboardMessageId ? { ...msg, content: newContent } : msg
+          )
+        );
+
+        // 关闭画板
+        handleCloseArtboard();
+      } catch (error) {
+        console.error('[ChatSession] 更新消息失败:', error);
+        alert('更新消息失败，请稍后重试');
+      }
+    },
+    [artboardMessageId, conversationId, deviceId, setMessages, handleCloseArtboard]
+  );
+
+  // 画板宽度拖拽调整
+  useEffect(() => {
+    if (!isResizingArtboard) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      if (artboardResizeStartXRef.current === 0) {
+        artboardResizeStartXRef.current = e.clientX;
+        artboardResizeStartWidthRef.current = artboardWidth;
+        return;
+      }
+
+      const diff = artboardResizeStartXRef.current - e.clientX;
+      const newWidth = Math.min(
+        Math.max(artboardResizeStartWidthRef.current + diff, 300),
+        800
+      );
+      setArtboardWidth(newWidth);
+    };
+
+    const handleMouseUp = () => {
+      setIsResizingArtboard(false);
+    };
+
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+  }, [isResizingArtboard, artboardWidth]);
 
   // 生成快捷指令的提示文本
   const generateQuickCommandPrompt = useCallback((command: QuickCommand, argument: string): string => {
@@ -1139,7 +1248,9 @@ export default function ChatSession({
         </div>
       )}
 
-      <div className="min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain px-3 py-5 sm:px-6 sm:py-7">
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        <div className={`flex min-h-0 flex-1 flex-col overflow-hidden ${isArtboardOpen ? 'border-r border-black/[0.08]' : ''}`}>
+          <div className="min-h-0 flex-1 space-y-6 overflow-y-auto overscroll-contain px-3 py-5 sm:px-6 sm:py-7">
         {messages.length === 0 && (
           <div className="mx-auto max-w-lg px-2 pt-4 text-center sm:pt-14">
             <p className="text-2xl font-semibold tracking-tight text-[#171717] sm:text-3xl" style={{ letterSpacing: '-1.28px' }}>
@@ -1263,6 +1374,7 @@ export default function ChatSession({
                     ? 'ring-2 ring-[#f59e0b] ring-offset-2 rounded-xl p-1 -mx-1 animate-pulse'
                     : ''
                 } ${bubbleStyle.spacing}`}
+                onContextMenu={(e) => handleContextMenu(e, m.id, m.role, m.content)}
               >
               <div
                 className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold ${
@@ -1804,6 +1916,42 @@ export default function ChatSession({
           <p className="mt-2 text-center text-[11px] text-[#808080]">内容由 AI 生成，请核对重要信息</p>
         </div>
       </div>
+        </div>
+
+        {isArtboardOpen && (
+          <>
+            <div
+              className="flex cursor-col-resize items-center justify-center bg-black/[0.04] hover:bg-black/[0.08] transition-colors w-1.5"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                setIsResizingArtboard(true);
+                artboardResizeStartXRef.current = e.clientX;
+                artboardResizeStartWidthRef.current = artboardWidth;
+              }}
+            >
+              <GripVertical className="h-4 w-4 text-[#737373]" />
+            </div>
+
+            {artboardMessageId && (
+              <div style={{ width: artboardWidth }} className="shrink-0">
+                <ArtboardPanel
+                  messageId={artboardMessageId}
+                  messageRole={artboardMessageRole}
+                  messageContent={artboardMessageContent}
+                  conversationTitle={conversationTitle}
+                  deviceId={deviceId}
+                  conversationId={conversationId}
+                  onClose={handleCloseArtboard}
+                  onApply={handleUpdateMessage}
+                  minWidth={300}
+                  maxWidth={800}
+                  defaultWidth={450}
+                />
+              </div>
+            )}
+          </>
+        )}
+      </div>
 
       {/* 分享模态框 */}
       <ShareModal
@@ -1822,6 +1970,23 @@ export default function ChatSession({
         deviceId={deviceId}
         timestampFormat={behavior.timestampFormat}
         formatTime={formatTime}
+      />
+
+      {/* 右键菜单 */}
+      <MessageContextMenu
+        isOpen={contextMenuState.isOpen}
+        position={contextMenuState.position}
+        messageRole={contextMenuState.messageRole}
+        onOpenArtboard={() => {
+          if (contextMenuState.messageId) {
+            handleOpenArtboard(
+              contextMenuState.messageId,
+              contextMenuState.messageRole,
+              contextMenuState.messageContent
+            );
+          }
+        }}
+        onClose={closeContextMenu}
       />
 
     </div>
