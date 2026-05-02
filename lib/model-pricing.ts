@@ -105,3 +105,53 @@ export function formatTokens(tokens: number): string {
   }
   return tokens.toString();
 }
+
+/**
+ * 从模型 ID 提取短名称（用于标签显示）
+ * @param modelId 模型 ID
+ * @returns 短名称，如 "GPT-4o"、"Claude"、"Gemini"
+ */
+export function getModelShortName(modelId: string | null | undefined): string {
+  if (!modelId) return 'AI';
+  
+  const pricing = MODEL_PRICING[modelId];
+  if (pricing?.label) {
+    const label = pricing.label;
+    if (label.includes('GPT')) return 'GPT';
+    if (label.includes('Claude')) return 'Claude';
+    if (label.includes('Llama')) return 'Llama';
+    if (label.includes('Mistral')) return 'Mistral';
+    if (label.includes('Gemma')) return 'Gemma';
+    if (label.includes('Elephant')) return 'Elephant';
+    if (label.includes('OpenRouter')) return 'OpenRouter';
+    return label.split(' ')[0];
+  }
+  
+  const lowerId = modelId.toLowerCase();
+  if (lowerId.includes('gpt')) return 'GPT';
+  if (lowerId.includes('claude')) return 'Claude';
+  if (lowerId.includes('llama')) return 'Llama';
+  if (lowerId.includes('mistral')) return 'Mistral';
+  if (lowerId.includes('gemini')) return 'Gemini';
+  if (lowerId.includes('gemma')) return 'Gemma';
+  if (lowerId.includes('openrouter')) return 'OpenRouter';
+  
+  const parts = modelId.split(/[/_-]/);
+  return parts[parts.length - 1] || 'AI';
+}
+
+/**
+ * 从模型 ID 获取完整显示名称（用于 tooltip）
+ * @param modelId 模型 ID
+ * @returns 完整名称，如 "模型：GPT-4o"
+ */
+export function getModelFullName(modelId: string | null | undefined): string {
+  if (!modelId) return '模型：未知';
+  
+  const pricing = MODEL_PRICING[modelId];
+  if (pricing?.label) {
+    return `模型：${pricing.label}`;
+  }
+  
+  return `模型：${modelId}`;
+}

@@ -54,6 +54,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
       content: m.content,
       createdAt: m.createdAt.toISOString(),
       toolInvocations: m.toolInvocations,
+      modelId: m.modelId,
       promptTokens: m.promptTokens,
       completionTokens: m.completionTokens,
       totalTokens: m.totalTokens,

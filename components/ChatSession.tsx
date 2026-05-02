@@ -49,6 +49,7 @@ import { TranslateButton, TranslationResult } from '@/components/MessageTranslat
 import MessageTranslateProvider from '@/components/MessageTranslateProvider';
 import FollowUpSuggestions from '@/components/FollowUpSuggestions';
 import Timeline from '@/components/Timeline';
+import ModelLabel from '@/components/ModelLabel';
 
 const SUGGESTIONS = [
   '搜索今日新闻',
@@ -67,6 +68,12 @@ type MessageWithTokens = Message & {
   createdAt?: string;
   readAt?: string | null;
   showDateSeparator?: boolean;
+  modelId?: string | null;
+  toolInvocations?: Array<{
+    toolName: string;
+    args?: Record<string, unknown>;
+    result?: unknown;
+  }>;
 };
 
 type ReplyInfo = {
@@ -1373,7 +1380,7 @@ export default function ChatSession({
                   )}
                 </div>
 
-                {/* 消息操作栏：收藏按钮 + 重新生成按钮 + token 信息 + 编辑按钮 + 引用按钮 */}
+                {/* 消息操作栏：收藏按钮 + 重新生成按钮 + token 信息 + 编辑按钮 + 引用按钮 + 模型标签 */}
                 {m.role === 'assistant' && (
                   <div className="mt-1.5 flex items-center justify-between gap-2 px-1">
                     <div className="flex items-center gap-3 text-[10px] text-[#a3a3a3]">
@@ -1392,6 +1399,10 @@ export default function ChatSession({
                           )}
                         </span>
                       )}
+                      <ModelLabel 
+                        modelId={msg.modelId} 
+                        toolInvocations={msg.toolInvocations} 
+                      />
                     </div>
                     <div className="flex items-center gap-1">
                       <TranslateButton />
