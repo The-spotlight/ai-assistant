@@ -58,9 +58,11 @@ import DateTimePicker from '@/components/DateTimePicker';
 import EncryptionModal from '@/components/EncryptionModal';
 import {
   isConversationEncrypted,
+  isConversationDecrypted,
   encryptConversation,
   verifyPassword,
   decryptConversation,
+  removeEncryption,
   setDecryptedSession,
 } from '@/lib/encryption';
 import {
@@ -345,16 +347,11 @@ export default function ChatSession({
 
   // 处理关闭加密
   const handleRemoveEncryption = useCallback(async (password: string): Promise<boolean> => {
-    const isValid = await verifyPassword(conversationId, password);
-    if (isValid) {
-      const { removeEncryption } = await import('@/lib/encryption');
-      const success = await removeEncryption(conversationId, password);
-      if (success) {
-        setIsEncrypted(false);
-      }
-      return success;
+    const success = await removeEncryption(conversationId, password);
+    if (success) {
+      setIsEncrypted(false);
     }
-    return false;
+    return success;
   }, [conversationId]);
 
   // 处理加密成功

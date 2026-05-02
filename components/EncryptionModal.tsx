@@ -269,8 +269,38 @@ export default function EncryptionModal({
                   '确定要关闭此对话的加密保护吗？关闭后任何人都可以查看此对话。'}
               </p>
 
-              {mode !== 'remove-encryption' || true}
-              {true && (
+              {mode !== 'set-password' && (
+                <div className="mb-4">
+                  <label className="mb-1.5 block text-xs font-medium text-[#525252]">
+                    密码
+                  </label>
+                  <div className="relative">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      onKeyDown={handleKeyPress}
+                      placeholder="请输入密码"
+                      className="w-full rounded-lg border border-black/[0.08] bg-[#fafafa] px-3.5 py-2.5 pr-11 text-sm text-[#171717] placeholder:text-[#a3a3a3] focus:outline-none focus:ring-2 focus:ring-[#171717]/20 focus:border-[#171717]/20"
+                      autoFocus
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-[#a3a3a3] hover:text-[#525252] transition-colors"
+                      aria-label={showPassword ? '隐藏密码' : '显示密码'}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-4 w-4" />
+                      ) : (
+                        <Eye className="h-4 w-4" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {mode === 'set-password' && (
                 <>
                   <div className="mb-4">
                     <label className="mb-1.5 block text-xs font-medium text-[#525252]">
@@ -282,9 +312,7 @@ export default function EncryptionModal({
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         onKeyDown={handleKeyPress}
-                        placeholder={
-                          mode === 'set-password' ? '请输入密码（至少 4 位）' : '请输入密码'
-                        }
+                        placeholder="请输入密码（至少 4 位）"
                         className="w-full rounded-lg border border-black/[0.08] bg-[#fafafa] px-3.5 py-2.5 pr-11 text-sm text-[#171717] placeholder:text-[#a3a3a3] focus:outline-none focus:ring-2 focus:ring-[#171717]/20 focus:border-[#171717]/20"
                         autoFocus
                       />
@@ -303,35 +331,33 @@ export default function EncryptionModal({
                     </div>
                   </div>
 
-                  {mode === 'set-password' && (
-                    <div className="mb-4">
-                      <label className="mb-1.5 block text-xs font-medium text-[#525252]">
-                        确认密码
-                      </label>
-                      <div className="relative">
-                        <input
-                          type={showConfirmPassword ? 'text' : 'password'}
-                          value={confirmPassword}
-                          onChange={(e) => setConfirmPassword(e.target.value)}
-                          onKeyDown={handleKeyPress}
-                          placeholder="请再次输入密码"
-                          className="w-full rounded-lg border border-black/[0.08] bg-[#fafafa] px-3.5 py-2.5 pr-11 text-sm text-[#171717] placeholder:text-[#a3a3a3] focus:outline-none focus:ring-2 focus:ring-[#171717]/20 focus:border-[#171717]/20"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                          className="absolute right-3 top-1/2 -translate-y-1/2 text-[#a3a3a3] hover:text-[#525252] transition-colors"
-                          aria-label={showConfirmPassword ? '隐藏密码' : '显示密码'}
-                        >
-                          {showConfirmPassword ? (
-                            <EyeOff className="h-4 w-4" />
-                          ) : (
-                            <Eye className="h-4 w-4" />
-                          )}
-                        </button>
-                      </div>
+                  <div className="mb-4">
+                    <label className="mb-1.5 block text-xs font-medium text-[#525252]">
+                      确认密码
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showConfirmPassword ? 'text' : 'password'}
+                        value={confirmPassword}
+                        onChange={(e) => setConfirmPassword(e.target.value)}
+                        onKeyDown={handleKeyPress}
+                        placeholder="请再次输入密码"
+                        className="w-full rounded-lg border border-black/[0.08] bg-[#fafafa] px-3.5 py-2.5 pr-11 text-sm text-[#171717] placeholder:text-[#a3a3a3] focus:outline-none focus:ring-2 focus:ring-[#171717]/20 focus:border-[#171717]/20"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-[#a3a3a3] hover:text-[#525252] transition-colors"
+                        aria-label={showConfirmPassword ? '隐藏密码' : '显示密码'}
+                      >
+                        {showConfirmPassword ? (
+                          <EyeOff className="h-4 w-4" />
+                        ) : (
+                          <Eye className="h-4 w-4" />
+                        )}
+                      </button>
                     </div>
-                  )}
+                  </div>
                 </>
               )}
 
