@@ -37,6 +37,7 @@ import ConversationListItem, {
   type ConversationRow,
 } from '@/components/ConversationListItem';
 import TabBar, { type TabItem } from '@/components/TabBar';
+import QuickAccessPanel from '@/components/QuickAccessPanel';
 import {
   Tooltip,
   TooltipContent,
@@ -46,6 +47,7 @@ import { formatRelativeTime } from '@/lib/date-utils';
 import { DEFAULT_OPENROUTER_MODEL_ID, DEFAULT_OPENROUTER_MODEL_LABEL } from '@/lib/openrouter-models';
 import { CONVERSATION_STORAGE_KEY, getOrCreateDeviceId } from '@/lib/device';
 import { useSettings } from '@/lib/settings';
+import { recordConversationVisit } from '@/lib/conversation-history';
 
 type ChatPayload = {
   conversationId: string;
@@ -654,6 +656,14 @@ function SidebarContent({
           </div>
         </div>
       )}
+
+      {/* 快捷访问 */}
+      <QuickAccessPanel
+        convList={convList}
+        selectedConversationId={chatPayload?.conversationId}
+        selectConversation={selectConversation}
+        openInNewTab={openInNewTab}
+      />
 
       {/* 新对话按钮 */}
       <div className="mb-3 flex gap-2 shrink-0">
@@ -2013,6 +2023,8 @@ export default function Home() {
 
   async function selectConversation(id: string) {
     if (!deviceId) return;
+    
+    recordConversationVisit(id);
     
     if (compareMode.isActive) {
       const r = await fetch(`/api/conversations/${id}/messages`, {
