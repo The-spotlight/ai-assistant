@@ -134,6 +134,7 @@ type ConversationListItemProps = {
   editingInputRef: React.RefObject<HTMLInputElement | null>;
   startEditing: (conversationId: string, currentTitle: string | null) => void;
   selectConversation: (id: string) => Promise<void>;
+  openInNewTab: (id: string) => void;
   togglePin: (id: string, e: React.MouseEvent) => Promise<void>;
   deleteConversation: (id: string, e: React.MouseEvent) => Promise<void>;
   onSaveAsTemplate: (conversationId: string) => Promise<void>;
@@ -154,6 +155,7 @@ export default function ConversationListItem({
   editingInputRef,
   startEditing,
   selectConversation,
+  openInNewTab,
   togglePin,
   deleteConversation,
   onSaveAsTemplate,
@@ -224,18 +226,27 @@ export default function ConversationListItem({
       </div>
       <button
         type="button"
-        onClick={() => {
+        onClick={(e) => {
           if (editingConversationId !== conversation.id) {
-            void selectConversation(conversation.id);
+            const isCtrlOrCmd = e.ctrlKey || e.metaKey;
+            if (isCtrlOrCmd) {
+              e.preventDefault();
+              e.stopPropagation();
+              openInNewTab(conversation.id);
+            } else {
+              void selectConversation(conversation.id);
+            }
           }
         }}
         onDoubleClick={(e) => {
           e.preventDefault();
           e.stopPropagation();
-          startEditing(conversation.id, conversation.title);
+          if (editingConversationId !== conversation.id) {
+            openInNewTab(conversation.id);
+          }
         }}
         className={`min-w-0 flex-1 ${itemPadding} text-left`}
-        title={editingConversationId === conversation.id ? '编辑中...' : `双击重命名: ${conversation.title ?? '新对话'}`}
+        title={editingConversationId === conversation.id ? '编辑中...' : `点击打开 | Ctrl/Cmd+点击或双击在新标签页打开: ${conversation.title ?? '新对话'}`}
       >
         {editingConversationId === conversation.id ? (
           <input
