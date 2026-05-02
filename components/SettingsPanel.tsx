@@ -52,6 +52,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/Select';
+import ActionLogPanel from '@/components/ActionLogPanel';
 import { toast } from 'react-toastify';
 import {
   Settings,
@@ -75,9 +76,10 @@ import {
   Sparkles,
   ChevronDown,
   Volume2,
+  History,
 } from 'lucide-react';
 
-type SettingsTab = 'behavior' | 'voice' | 'keyboard' | 'presets' | 'data' | 'commands';
+type SettingsTab = 'behavior' | 'voice' | 'keyboard' | 'presets' | 'data' | 'commands' | 'logs';
 
 interface SettingsPanelProps {
   visible: boolean;
@@ -92,6 +94,7 @@ const TAB_CONFIG: { key: SettingsTab; label: string; icon: React.ComponentType<{
   { key: 'presets', label: '配置方案', icon: Layers },
   { key: 'commands', label: '快捷指令', icon: Sparkles },
   { key: 'data', label: '数据管理', icon: Database },
+  { key: 'logs', label: '操作日志', icon: History },
 ];
 
 export default function SettingsPanel({ visible, onClose, onTrashEmptied }: SettingsPanelProps) {
@@ -369,6 +372,9 @@ export default function SettingsPanel({ visible, onClose, onTrashEmptied }: Sett
               updateModel={updateModel}
               onTrashEmptied={onTrashEmptied}
             />
+          )}
+          {activeTab === 'logs' && (
+            <ActionLogPanel />
           )}
         </div>
 
