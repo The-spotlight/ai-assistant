@@ -347,7 +347,7 @@ export default function ModelSettings({ open, onClose }: ModelSettingsProps) {
         onCancel={onClose}
         footer={null}
         width={520}
-        bodyStyle={{ padding: 24 }}
+        styles={{ body: { padding: 24 } }}
       >
         <div className="flex flex-col gap-6">
           {customModels.length > 0 && (
