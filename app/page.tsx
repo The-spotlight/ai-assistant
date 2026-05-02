@@ -18,9 +18,7 @@ import {
   SortableContext,
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
-  useSortable,
 } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
 import ChatSession from '@/components/ChatSession';
 import CompareView from '@/components/CompareView';
 import FavoriteToastPanel from '@/components/FavoriteToastPanel';
@@ -33,20 +31,20 @@ import SettingsPanel from '@/components/SettingsPanel';
 import UserStatsPanel from '@/components/UserStatsPanel';
 import UserDropdown from '@/components/UserDropdown';
 import ResizablePanel, { useLayoutContext, AdaptiveText } from '@/components/ResizablePanel';
+import ConversationListItem, {
+  formatCreatedAtDisplay,
+  formatFullDateTime,
+  type ConversationRow,
+} from '@/components/ConversationListItem';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/Tooltip';
+import { formatRelativeTime } from '@/lib/date-utils';
 import { DEFAULT_OPENROUTER_MODEL_ID, DEFAULT_OPENROUTER_MODEL_LABEL } from '@/lib/openrouter-models';
 import { CONVERSATION_STORAGE_KEY, getOrCreateDeviceId } from '@/lib/device';
 import { useSettings } from '@/lib/settings';
-
-type ConversationRow = {
-  id: string;
-  title: string | null;
-  modelId: string | null;
-  isPinned: boolean | null;
-  pinnedAt: string | null;
-  orderIndex: number | null;
-  createdAt: string;
-  updatedAt: string;
-};
 
 type ChatPayload = {
   conversationId: string;
@@ -113,21 +111,6 @@ type CompareModeState = {
   activeSide: CompareSide;
   selectingForCompare: boolean;
 };
-
-function formatRelativeTime(iso: string): string {
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return '';
-  const diff = Date.now() - d.getTime();
-  const sec = Math.floor(diff / 1000);
-  if (sec < 45) return '刚刚';
-  const min = Math.floor(sec / 60);
-  if (min < 60) return `${min} 分钟前`;
-  const hr = Math.floor(min / 60);
-  if (hr < 24) return `${hr} 小时前`;
-  const day = Math.floor(hr / 24);
-  if (day < 7) return `${day} 天前`;
-  return d.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' });
-}
 
 function IconPlus(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -423,187 +406,6 @@ interface SidebarContentProps {
   exitCompareMode: () => void;
   setCompareActiveSide: (side: CompareSide) => void;
   toggleCompareSelecting: () => void;
-}
-
-/** useSortable 必须在子组件顶层调用，不能在 SidebarContent 的 map 里调用（会与搜索视图切换时 hooks 数量冲突）。 */
-function SortableConversationRow({
-  conversation,
-  isNarrow,
-  isWide,
-  itemPadding,
-  titleLines,
-  showTime,
-  selectedConversationId,
-  editingConversationId,
-  editingTitle,
-  setEditingTitle,
-  editingInputRef,
-  startEditing,
-  selectConversation,
-  togglePin,
-  deleteConversation,
-  onSaveAsTemplate,
-  compareMode,
-}: {
-  conversation: ConversationRow;
-  isNarrow: boolean;
-  isWide: boolean;
-  itemPadding: string;
-  titleLines: string;
-  showTime: boolean;
-  selectedConversationId: string | undefined;
-  editingConversationId: string | null;
-  editingTitle: string;
-  setEditingTitle: (v: string) => void;
-  editingInputRef: React.RefObject<HTMLInputElement | null>;
-  startEditing: (conversationId: string, currentTitle: string | null) => void;
-  selectConversation: (id: string) => Promise<void>;
-  togglePin: (id: string, e: React.MouseEvent) => Promise<void>;
-  deleteConversation: (id: string, e: React.MouseEvent) => Promise<void>;
-  onSaveAsTemplate: (conversationId: string) => Promise<void>;
-  compareMode: CompareModeState;
-}) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: conversation.id });
-
-  const style: React.CSSProperties = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-    zIndex: isDragging ? 999 : 'auto',
-  };
-
-  const isNormalActive = selectedConversationId === conversation.id;
-  const isCompareLeftActive = compareMode.left?.conversationId === conversation.id;
-  const isCompareRightActive = compareMode.right?.conversationId === conversation.id;
-  const isActiveInCompare = compareMode.isActive && (isCompareLeftActive || isCompareRightActive);
-  const active = isNormalActive || isActiveInCompare;
-
-  let borderColor = 'border-transparent';
-  let bgColor = 'hover:bg-[#fafafa]';
-  
-  if (active) {
-    borderColor = 'border-black/[0.08]';
-    bgColor = 'bg-[#f4f4f5]';
-  }
-
-  let sideIndicator = null;
-  if (compareMode.isActive) {
-    if (isCompareLeftActive) {
-      sideIndicator = (
-        <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#171717] rounded-l-xl z-10" title="左侧" />
-      );
-    } else if (isCompareRightActive) {
-      sideIndicator = (
-        <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#a3a3a3] rounded-l-xl z-10" title="右侧" />
-      );
-    }
-  }
-
-  return (
-    <div
-      ref={setNodeRef}
-      style={style}
-      className={`group relative flex items-stretch gap-0 overflow-hidden rounded-xl border transition-all duration-150 ${
-        borderColor
-      } ${bgColor}`}
-    >
-      {sideIndicator}
-      <div
-        {...attributes}
-        {...listeners}
-        className="flex shrink-0 items-center justify-center px-1.5 text-[#d4d4d4] opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing"
-        title="拖动排序"
-      >
-        <IconGripVertical className={`h-4 w-4 ${isNarrow ? 'h-3.5 w-3.5' : ''}`} />
-      </div>
-      <button
-        type="button"
-        onClick={() => {
-          if (editingConversationId !== conversation.id) {
-            void selectConversation(conversation.id);
-          }
-        }}
-        onDoubleClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          startEditing(conversation.id, conversation.title);
-        }}
-        className={`min-w-0 flex-1 ${itemPadding} text-left`}
-        title={editingConversationId === conversation.id ? '编辑中...' : `双击重命名: ${conversation.title ?? '新对话'}`}
-      >
-        {editingConversationId === conversation.id ? (
-          <input
-            ref={editingInputRef}
-            type="text"
-            value={editingTitle}
-            onChange={(e) => setEditingTitle(e.target.value)}
-            onClick={(e) => e.stopPropagation()}
-            className={`w-full min-w-0 bg-white border border-[#171717]/[0.12] rounded-lg px-2 py-1 text-[13px] font-medium leading-snug text-[#171717] shadow-sm focus:outline-none focus:ring-2 focus:ring-[#171717]/20 focus:border-[#171717]/20 transition-all ${
-              isNarrow ? 'text-[12px] px-1.5 py-0.5' : ''
-            } ${isWide ? 'text-sm px-2.5 py-1.5' : ''}`}
-            placeholder="输入新标题..."
-          />
-        ) : (
-          <>
-            <span
-              className={`${titleLines} text-[13px] font-medium leading-snug text-[#171717] ${
-                isNarrow ? 'text-[12px]' : ''
-              } ${isWide ? 'text-sm' : ''}`}
-            >
-              {conversation.title?.trim() || '新对话'}
-            </span>
-            {showTime && (
-              <span className={`mt-1 block text-[11px] text-[#a3a3a3] ${isWide ? 'text-xs' : ''}`}>
-                {formatRelativeTime(conversation.updatedAt)}
-              </span>
-            )}
-          </>
-        )}
-      </button>
-      <button
-        type="button"
-        aria-label="置顶会话"
-        onClick={(e) => togglePin(conversation.id, e)}
-        className={`flex w-9 shrink-0 items-center justify-center text-[#a3a3a3] opacity-0 transition hover:bg-amber-50 hover:text-[#f59e0b] group-hover:opacity-100 ${
-          isNarrow ? 'w-7' : ''
-        }`}
-        title="置顶会话"
-      >
-        <IconPin className={`h-4 w-4 ${isNarrow ? 'h-3.5 w-3.5' : ''}`} />
-      </button>
-      <button
-        type="button"
-        aria-label="另存为模板"
-        onClick={(e) => {
-          e.stopPropagation();
-          void onSaveAsTemplate(conversation.id);
-        }}
-        className={`flex w-9 shrink-0 items-center justify-center text-[#a3a3a3] opacity-0 transition hover:bg-[#f5f5f5] hover:text-[#171717] group-hover:opacity-100 ${
-          isNarrow ? 'w-7' : ''
-        }`}
-        title="另存为模板"
-      >
-        <IconSaveAs className={`h-4 w-4 ${isNarrow ? 'h-3.5 w-3.5' : ''}`} />
-      </button>
-      <button
-        type="button"
-        aria-label="删除会话"
-        onClick={(e) => deleteConversation(conversation.id, e)}
-        className={`flex w-9 shrink-0 items-center justify-center text-[#a3a3a3] opacity-0 transition hover:bg-red-50 hover:text-red-600 group-hover:opacity-100 ${
-          isNarrow ? 'w-7' : ''
-        }`}
-      >
-        <IconTrash className={`h-4 w-4 ${isNarrow ? 'h-3.5 w-3.5' : ''}`} />
-      </button>
-    </div>
-  );
 }
 
 function SidebarContent({
@@ -974,11 +776,21 @@ function SidebarContent({
                       )}
                     </div>
                     {showTime && editingConversationId !== c.id && (
-                      <span className={`mt-1 block text-[11px] text-[#a3a3a3] ${
-                        isWide ? 'text-xs' : ''
-                      }`}>
-                        {formatRelativeTime(c.updatedAt)}
-                      </span>
+                      <div className="mt-1 flex flex-col gap-0.5">
+                        <span className={`block text-[11px] text-[#a3a3a3] ${isWide ? 'text-xs' : ''}`}>
+                          {formatRelativeTime(c.updatedAt)}
+                        </span>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className={`block text-[10px] text-[#a3a3a3] ${isWide ? 'text-[11px]' : ''} cursor-default`}>
+                              {formatCreatedAtDisplay(c.createdAt, c.updatedAt)}
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            {formatFullDateTime(c.createdAt)}
+                          </TooltipContent>
+                        </Tooltip>
+                      </div>
                     )}
                   </button>
                   <button
@@ -1151,7 +963,7 @@ function SidebarContent({
                   </p>
                 )}
                 {unpinnedConversations.map((conversation) => (
-                  <SortableConversationRow
+                  <ConversationListItem
                     key={conversation.id}
                     conversation={conversation}
                     isNarrow={isNarrow}
@@ -1187,11 +999,14 @@ function SidebarContent({
                       {activeConversation.title?.trim() || '新对话'}
                     </span>
                     {showTime && (
-                      <span className={`mt-1 block text-[11px] text-[#a3a3a3] ${
-                        isWide ? 'text-xs' : ''
-                      }`}>
-                        {formatRelativeTime(activeConversation.updatedAt)}
-                      </span>
+                      <div className="mt-1 flex flex-col gap-0.5">
+                        <span className={`block text-[11px] text-[#a3a3a3] ${isWide ? 'text-xs' : ''}`}>
+                          {formatRelativeTime(activeConversation.updatedAt)}
+                        </span>
+                        <span className={`block text-[10px] text-[#a3a3a3] ${isWide ? 'text-[11px]' : ''}`}>
+                          {formatCreatedAtDisplay(activeConversation.createdAt, activeConversation.updatedAt)}
+                        </span>
+                      </div>
                     )}
                   </div>
                 </div>
