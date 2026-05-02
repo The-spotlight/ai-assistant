@@ -118,9 +118,7 @@ export default function AppearanceSettings({ onClose }: { onClose: () => void })
   };
 
   return (
-    <div className="w-80 max-h-[80vh] overflow-y-auto p-4">
-      <h3 className="text-sm font-medium text-[#171717] mb-4">外观设置</h3>
-      
+    <div className="w-full max-w-md mx-auto max-h-[80vh] overflow-y-auto p-4">
       <div className="flex flex-col gap-6">
         <div className="flex flex-col gap-3">
           <span className="text-sm font-medium text-[#171717]">聊天背景</span>
