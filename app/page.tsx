@@ -36,6 +36,7 @@ import ResizablePanel, { useLayoutContext, AdaptiveText } from '@/components/Res
 import { DEFAULT_OPENROUTER_MODEL_ID, DEFAULT_OPENROUTER_MODEL_LABEL } from '@/lib/openrouter-models';
 import { CONVERSATION_STORAGE_KEY, getOrCreateDeviceId } from '@/lib/device';
 import { useSettings } from '@/lib/settings';
+import { addActionLog } from '@/lib/action-log';
 
 type ConversationRow = {
   id: string;
@@ -1519,6 +1520,11 @@ export default function Home() {
               createdAt: data.createdAt,
             });
             setFavoriteToastVisible(true);
+            
+            addActionLog('favorite_message', '收藏了一条消息', { 
+              messageId, 
+              conversationId: chatPayload.conversationId 
+            });
           }
         }
       } else {
@@ -1532,6 +1538,10 @@ export default function Home() {
 
           if (r.ok) {
             await loadFavorites(deviceId);
+            addActionLog('unfavorite_message', '取消收藏了一条消息', { 
+              messageId, 
+              conversationId: chatPayload.conversationId 
+            });
           }
         }
       }
@@ -2014,6 +2024,8 @@ export default function Home() {
       await loadFavorites(deviceId);
       await loadTrash(deviceId);
       await loadTemplates(deviceId);
+      
+      addActionLog('create_conversation', '创建了新对话', { conversationId: id });
     } catch {
       /* ignore */
     }
@@ -2174,6 +2186,8 @@ export default function Home() {
     
     await loadTrash(deviceId);
     await loadFavorites(deviceId);
+    
+    addActionLog('delete_conversation', '删除了一个对话', { conversationId: id });
 
     if (chatPayload?.conversationId !== id) return;
 
@@ -2192,6 +2206,8 @@ export default function Home() {
       setChatPayload({ conversationId: newId, messages: [] });
       await loadConversations(deviceId);
       await loadFavorites(deviceId);
+      
+      addActionLog('create_conversation', '创建了新对话', { conversationId: newId });
     }
   }
 
