@@ -1,3 +1,76 @@
+export const BUBBLE_COLOR_PRESETS = {
+  blue: {
+    name: '蓝色系',
+    userBubble: '#3b82f6',
+    userText: '#ffffff',
+    aiBubble: '#f3f4f6',
+    aiText: '#1f2937',
+  },
+  gray: {
+    name: '灰色系',
+    userBubble: '#4b5563',
+    userText: '#ffffff',
+    aiBubble: '#f9fafb',
+    aiText: '#111827',
+  },
+  green: {
+    name: '绿色系',
+    userBubble: '#059669',
+    userText: '#ffffff',
+    aiBubble: '#ecfdf5',
+    aiText: '#064e3b',
+  },
+  purple: {
+    name: '紫色系',
+    userBubble: '#7c3aed',
+    userText: '#ffffff',
+    aiBubble: '#faf5ff',
+    aiText: '#4c1d95',
+  },
+  orange: {
+    name: '橙色系',
+    userBubble: '#ea580c',
+    userText: '#ffffff',
+    aiBubble: '#fff7ed',
+    aiText: '#7c2d12',
+  },
+  pink: {
+    name: '粉色系',
+    userBubble: '#db2777',
+    userText: '#ffffff',
+    aiBubble: '#fdf2f8',
+    aiText: '#831843',
+  },
+  darkBlue: {
+    name: '深蓝系（深色主题）',
+    userBubble: '#2563eb',
+    userText: '#ffffff',
+    aiBubble: '#1f2937',
+    aiText: '#f9fafb',
+  },
+  darkGray: {
+    name: '深灰系（深色主题）',
+    userBubble: '#4b5563',
+    userText: '#ffffff',
+    aiBubble: '#111827',
+    aiText: '#f3f4f6',
+  },
+} as const;
+
+export type BubbleColorPresetKey = keyof typeof BUBBLE_COLOR_PRESETS;
+
+export const BUBBLE_BORDER_RADIUS_MIN = 0;
+export const BUBBLE_BORDER_RADIUS_MAX = 20;
+export const BUBBLE_BORDER_RADIUS_DEFAULT = 16;
+
+export const MESSAGE_FONT_SIZES = {
+  small: { name: '小', value: '13px', lineHeight: '1.5' },
+  medium: { name: '中', value: '14px', lineHeight: '1.6' },
+  large: { name: '大', value: '15px', lineHeight: '1.7' },
+} as const;
+
+export type MessageFontSizeKey = keyof typeof MESSAGE_FONT_SIZES;
+
 export const THEME_PRESETS = {
   default: {
     name: '默认',
@@ -249,6 +322,13 @@ export const DEFAULT_BACKGROUND_SETTINGS: BackgroundSettings = {
   presetImageId: null,
 };
 
+export interface BubbleColorSettings {
+  userBubble: string;
+  userText: string;
+  aiBubble: string;
+  aiText: string;
+}
+
 export interface AppearanceSettings {
   theme: ThemeKey;
   fontSize: FontSizeKey;
@@ -258,7 +338,18 @@ export interface AppearanceSettings {
   avatarBorder: AvatarBorderKey;
   background: BackgroundSettings;
   darkMode: boolean;
+  bubbleColorPreset: BubbleColorPresetKey | null;
+  customBubbleColors: BubbleColorSettings;
+  bubbleBorderRadius: number;
+  messageFontSize: MessageFontSizeKey;
 }
+
+export const DEFAULT_CUSTOM_BUBBLE_COLORS: BubbleColorSettings = {
+  userBubble: '#3b82f6',
+  userText: '#ffffff',
+  aiBubble: '#f3f4f6',
+  aiText: '#1f2937',
+};
 
 export const DEFAULT_SETTINGS: AppearanceSettings = {
   theme: 'default',
@@ -269,4 +360,8 @@ export const DEFAULT_SETTINGS: AppearanceSettings = {
   avatarBorder: 'none',
   background: DEFAULT_BACKGROUND_SETTINGS,
   darkMode: false,
+  bubbleColorPreset: 'blue',
+  customBubbleColors: DEFAULT_CUSTOM_BUBBLE_COLORS,
+  bubbleBorderRadius: BUBBLE_BORDER_RADIUS_DEFAULT,
+  messageFontSize: 'medium',
 };

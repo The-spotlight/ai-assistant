@@ -1,7 +1,7 @@
 'use client';
 
-import { useRef, useState } from 'react';
-import { Check, Upload, X, Moon, Sun } from 'lucide-react';
+import { useRef, useState, useMemo } from 'react';
+import { Check, Upload, X, Moon, Sun, RotateCcw, MessageSquare, Palette } from 'lucide-react';
 import {
   useSettings,
   THEME_PRESETS,
@@ -12,6 +12,13 @@ import {
   PRESET_GRADIENTS,
   PRESET_BACKGROUND_IMAGES,
   IMAGE_DISPLAY_MODES,
+  BUBBLE_COLOR_PRESETS,
+  MESSAGE_FONT_SIZES,
+  BUBBLE_BORDER_RADIUS_MIN,
+  BUBBLE_BORDER_RADIUS_MAX,
+  BUBBLE_BORDER_RADIUS_DEFAULT,
+  DEFAULT_CUSTOM_BUBBLE_COLORS,
+  DEFAULT_SETTINGS,
   type ThemeKey,
   type CodeHighlightKey,
   type FontSizeKey,
@@ -20,6 +27,9 @@ import {
   type GradientPresetId,
   type ImagePresetId,
   type ImageDisplayModeKey,
+  type BubbleColorPresetKey,
+  type BubbleColorSettings,
+  type MessageFontSizeKey,
 } from '@/lib/settings';
 import { Button } from '@/components/ui/Button';
 import { Switch } from '@/components/ui/Switch';
@@ -82,6 +92,29 @@ export default function AppearanceSettings({ onClose }: { onClose: () => void })
       default:
         return { backgroundColor: '#ffffff' };
     }
+  };
+
+  const effectiveBubbleColors = useMemo(() => {
+    if (appearance.bubbleColorPreset && appearance.bubbleColorPreset in BUBBLE_COLOR_PRESETS) {
+      return BUBBLE_COLOR_PRESETS[appearance.bubbleColorPreset];
+    }
+    return appearance.customBubbleColors;
+  }, [appearance.bubbleColorPreset, appearance.customBubbleColors]);
+
+  const handleCustomColorChange = (field: keyof BubbleColorSettings, value: string) => {
+    const newColors = {
+      ...appearance.customBubbleColors,
+      [field]: value,
+    };
+    updateAppearance('customBubbleColors', newColors);
+    updateAppearance('bubbleColorPreset', null);
+  };
+
+  const handleResetMessageStyle = () => {
+    updateAppearance('bubbleColorPreset', DEFAULT_SETTINGS.bubbleColorPreset);
+    updateAppearance('customBubbleColors', { ...DEFAULT_CUSTOM_BUBBLE_COLORS });
+    updateAppearance('bubbleBorderRadius', BUBBLE_BORDER_RADIUS_DEFAULT);
+    updateAppearance('messageFontSize', DEFAULT_SETTINGS.messageFontSize);
   };
 
   return (
@@ -363,6 +396,238 @@ export default function AppearanceSettings({ onClose }: { onClose: () => void })
           </div>
         </div>
 
+        <div className="flex flex-col gap-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <MessageSquare className="h-4 w-4 text-[#171717]" />
+              <span className="text-sm font-medium text-[#171717]">消息样式</span>
+            </div>
+            <button
+              type="button"
+              onClick={handleResetMessageStyle}
+              className="flex items-center gap-1 px-2 py-1 text-xs text-[#525252] hover:text-[#171717] hover:bg-[#fafafa] rounded-md transition-colors"
+              title="恢复默认消息样式"
+            >
+              <RotateCcw className="h-3 w-3" />
+              <span>重置</span>
+            </button>
+          </div>
+
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-2">
+              <span className="text-xs font-medium text-[#525252]">气泡颜色</span>
+              <div className="flex gap-1.5 flex-wrap">
+                {(Object.entries(BUBBLE_COLOR_PRESETS) as [BubbleColorPresetKey, typeof BUBBLE_COLOR_PRESETS[BubbleColorPresetKey]][]).map(
+                  ([key, preset]) => {
+                    const isSelected = appearance.bubbleColorPreset === key;
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => updateAppearance('bubbleColorPreset', key)}
+                        className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                          isSelected
+                            ? 'ring-2 ring-[#171717] bg-[#fafafa]'
+                            : 'bg-[#fafafa] hover:bg-[#f5f5f5] text-[#525252]'
+                        }`}
+                        title={preset.name}
+                      >
+                        <div className="flex items-center gap-0.5">
+                          <div
+                            className="w-3 h-3 rounded-full"
+                            style={{ backgroundColor: preset.userBubble }}
+                          />
+                          <div
+                            className="w-3 h-3 rounded-full"
+                            style={{ backgroundColor: preset.aiBubble }}
+                          />
+                        </div>
+                        <span className="truncate">{preset.name.replace('（深色主题）', '')}</span>
+                      </button>
+                    );
+                  }
+                )}
+                <button
+                  type="button"
+                  onClick={() => updateAppearance('bubbleColorPreset', null)}
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                    appearance.bubbleColorPreset === null
+                      ? 'ring-2 ring-[#171717] bg-[#fafafa]'
+                      : 'bg-[#fafafa] hover:bg-[#f5f5f5] text-[#525252]'
+                  }`}
+                >
+                  <Palette className="h-3 w-3" />
+                  <span>自定义</span>
+                </button>
+              </div>
+            </div>
+
+            {appearance.bubbleColorPreset === null && (
+              <div className="flex flex-col gap-2 p-3 bg-[#fafafa] rounded-lg">
+                <span className="text-xs font-medium text-[#525252]">自定义颜色</span>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] text-[#737373]">用户气泡</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={appearance.customBubbleColors.userBubble}
+                        onChange={(e) => handleCustomColorChange('userBubble', e.target.value)}
+                        className="w-8 h-8 rounded cursor-pointer border-0 p-0"
+                      />
+                      <span className="text-[10px] font-mono text-[#737373]">
+                        {appearance.customBubbleColors.userBubble}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] text-[#737373]">用户文字</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={appearance.customBubbleColors.userText}
+                        onChange={(e) => handleCustomColorChange('userText', e.target.value)}
+                        className="w-8 h-8 rounded cursor-pointer border-0 p-0"
+                      />
+                      <span className="text-[10px] font-mono text-[#737373]">
+                        {appearance.customBubbleColors.userText}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] text-[#737373]">AI 气泡</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={appearance.customBubbleColors.aiBubble}
+                        onChange={(e) => handleCustomColorChange('aiBubble', e.target.value)}
+                        className="w-8 h-8 rounded cursor-pointer border-0 p-0"
+                      />
+                      <span className="text-[10px] font-mono text-[#737373]">
+                        {appearance.customBubbleColors.aiBubble}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-[10px] text-[#737373]">AI 文字</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        value={appearance.customBubbleColors.aiText}
+                        onChange={(e) => handleCustomColorChange('aiText', e.target.value)}
+                        className="w-8 h-8 rounded cursor-pointer border-0 p-0"
+                      />
+                      <span className="text-[10px] font-mono text-[#737373]">
+                        {appearance.customBubbleColors.aiText}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-[#525252]">气泡圆角</span>
+                <span className="text-xs font-mono text-[#737373]">{appearance.bubbleBorderRadius}px</span>
+              </div>
+              <div className="flex items-center gap-3">
+                <input
+                  type="range"
+                  min={BUBBLE_BORDER_RADIUS_MIN}
+                  max={BUBBLE_BORDER_RADIUS_MAX}
+                  value={appearance.bubbleBorderRadius}
+                  onChange={(e) => updateAppearance('bubbleBorderRadius', parseInt(e.target.value, 10))}
+                  className="flex-1 h-2 bg-[#e5e5e5] rounded-full appearance-none cursor-pointer accent-[#171717]"
+                />
+                <input
+                  type="number"
+                  min={BUBBLE_BORDER_RADIUS_MIN}
+                  max={BUBBLE_BORDER_RADIUS_MAX}
+                  value={appearance.bubbleBorderRadius}
+                  onChange={(e) => {
+                    const val = parseInt(e.target.value, 10);
+                    if (!isNaN(val) && val >= BUBBLE_BORDER_RADIUS_MIN && val <= BUBBLE_BORDER_RADIUS_MAX) {
+                      updateAppearance('bubbleBorderRadius', val);
+                    }
+                  }}
+                  className="w-12 h-8 px-2 text-sm text-center border border-black/[0.08] rounded-lg focus:outline-none focus:ring-2 focus:ring-[#171717]/20"
+                />
+              </div>
+              <div className="flex justify-between text-[10px] text-[#a3a3a3]">
+                <span>直角 (0px)</span>
+                <span>默认 ({BUBBLE_BORDER_RADIUS_DEFAULT}px)</span>
+                <span>圆角 ({BUBBLE_BORDER_RADIUS_MAX}px)</span>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <span className="text-xs font-medium text-[#525252]">消息字体大小</span>
+              <div className="flex gap-2">
+                {(Object.entries(MESSAGE_FONT_SIZES) as [MessageFontSizeKey, typeof MESSAGE_FONT_SIZES[MessageFontSizeKey]][]).map(
+                  ([key, size]) => {
+                    const isSelected = appearance.messageFontSize === key;
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => updateAppearance('messageFontSize', key)}
+                        className={`flex-1 flex flex-col items-center gap-1 py-2 px-3 rounded-lg text-sm font-medium transition-all ${
+                          isSelected
+                            ? 'bg-[#171717] text-white'
+                            : 'bg-[#fafafa] text-[#525252] hover:bg-[#f5f5f5]'
+                        }`}
+                      >
+                        <span style={{ fontSize: size.value }}>{size.name}</span>
+                        <span className="text-[10px] opacity-70">{size.value}</span>
+                      </button>
+                    );
+                  }
+                )}
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <span className="text-xs font-medium text-[#525252]">实时预览</span>
+              <div
+                className="p-4 bg-[#fafafa] rounded-xl border border-black/[0.06]"
+              >
+                <div className="flex flex-col gap-3">
+                  <div className="flex justify-end">
+                    <div
+                      className="px-3 py-2 max-w-[80%]"
+                      style={{
+                        backgroundColor: effectiveBubbleColors.userBubble,
+                        color: effectiveBubbleColors.userText,
+                        borderRadius: appearance.bubbleBorderRadius,
+                        fontSize: MESSAGE_FONT_SIZES[appearance.messageFontSize].value,
+                        lineHeight: MESSAGE_FONT_SIZES[appearance.messageFontSize].lineHeight,
+                      }}
+                    >
+                      你好！这是一条用户消息
+                    </div>
+                  </div>
+                  <div className="flex justify-start">
+                    <div
+                      className="px-3 py-2 max-w-[80%] border shadow-sm"
+                      style={{
+                        backgroundColor: effectiveBubbleColors.aiBubble,
+                        color: effectiveBubbleColors.aiText,
+                        borderRadius: appearance.bubbleBorderRadius,
+                        fontSize: MESSAGE_FONT_SIZES[appearance.messageFontSize].value,
+                        lineHeight: MESSAGE_FONT_SIZES[appearance.messageFontSize].lineHeight,
+                        borderColor: 'rgba(0,0,0,0.06)',
+                      }}
+                    >
+                      你好！我是你的 AI 助手，有什么可以帮助你的？
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div className="flex flex-col gap-3">
           <span className="text-sm font-medium text-[#171717]">消息气泡样式</span>
           <div className="flex gap-2">
@@ -383,24 +648,39 @@ export default function AppearanceSettings({ onClose }: { onClose: () => void })
                     <div className="flex flex-col gap-1.5 w-full">
                       <div
                         className={`self-end ${
-                          key === 'compact' ? 'px-2 py-1 rounded-lg max-w-[70%]' : 'px-3 py-2 rounded-xl max-w-[80%]'
-                        } bg-[#171717]`}
+                          key === 'compact' ? 'px-2 py-1 max-w-[70%]' : 'px-3 py-2 max-w-[80%]'
+                        }`}
+                        style={{
+                          backgroundColor: effectiveBubbleColors.userBubble,
+                          borderRadius: appearance.bubbleBorderRadius,
+                        }}
                       >
                         <span
-                          className="text-[11px] text-white block"
-                          style={{ fontSize: FONT_SIZES[appearance.fontSize].value }}
+                          className="text-[11px] block"
+                          style={{ 
+                            color: effectiveBubbleColors.userText,
+                            fontSize: MESSAGE_FONT_SIZES[appearance.messageFontSize].value
+                          }}
                         >
                           你好
                         </span>
                       </div>
                       <div
                         className={`self-start ${
-                          key === 'compact' ? 'px-2 py-1 rounded-lg max-w-[70%]' : 'px-3 py-2 rounded-xl max-w-[80%]'
-                        } bg-[#f5f5f5]`}
+                          key === 'compact' ? 'px-2 py-1 max-w-[70%]' : 'px-3 py-2 max-w-[80%]'
+                        } border shadow-sm`}
+                        style={{
+                          backgroundColor: effectiveBubbleColors.aiBubble,
+                          borderRadius: appearance.bubbleBorderRadius,
+                          borderColor: 'rgba(0,0,0,0.06)',
+                        }}
                       >
                         <span
-                          className="text-[11px] text-[#171717] block"
-                          style={{ fontSize: FONT_SIZES[appearance.fontSize].value }}
+                          className="text-[11px] block"
+                          style={{ 
+                            color: effectiveBubbleColors.aiText,
+                            fontSize: MESSAGE_FONT_SIZES[appearance.messageFontSize].value
+                          }}
                         >
                           你好！有什么可以帮助你的？
                         </span>

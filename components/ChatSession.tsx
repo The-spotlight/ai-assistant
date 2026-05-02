@@ -22,7 +22,7 @@ import {
   getMatchingCommands,
 } from '@/lib/tools/quick-commands';
 import type { QuickCommand, CustomCommand } from '@/lib/tools/quick-commands';
-import { useSettings, FONT_SIZES, BUBBLE_STYLES, PRESET_GRADIENTS, IMAGE_DISPLAY_MODES, loadCustomCommands, type TimestampFormatKey, type SendShortcutKey, getCustomModelById, decryptApiKey } from '@/lib/settings';
+import { useSettings, FONT_SIZES, BUBBLE_STYLES, PRESET_GRADIENTS, IMAGE_DISPLAY_MODES, loadCustomCommands, type TimestampFormatKey, type SendShortcutKey, getCustomModelById, decryptApiKey, BUBBLE_COLOR_PRESETS, MESSAGE_FONT_SIZES, type BubbleColorSettings } from '@/lib/settings';
 import { useSpeech } from '@/lib/speech';
 import { useSpeechRecognition } from '@/lib/speech-recognition';
 import {
@@ -120,6 +120,14 @@ export default function ChatSession({
 
   const bubbleStyle = BUBBLE_STYLES[settings.bubbleStyle];
   const fontSizeConfig = FONT_SIZES[settings.fontSize];
+  const messageFontSizeConfig = MESSAGE_FONT_SIZES[settings.messageFontSize];
+
+  const effectiveBubbleColors = useMemo((): BubbleColorSettings => {
+    if (settings.bubbleColorPreset && settings.bubbleColorPreset in BUBBLE_COLOR_PRESETS) {
+      return BUBBLE_COLOR_PRESETS[settings.bubbleColorPreset];
+    }
+    return settings.customBubbleColors;
+  }, [settings.bubbleColorPreset, settings.customBubbleColors]);
 
   const getChatBackgroundStyle = (): React.CSSProperties => {
     const bg = settings.background;
@@ -1232,12 +1240,15 @@ export default function ChatSession({
             }
           }
 
+          const borderRadius = settings.bubbleBorderRadius;
           const messageBubbleStyle = {
-            fontSize: fontSizeConfig.value,
-            lineHeight: fontSizeConfig.lineHeight,
-            backgroundColor: m.role === 'user' ? themeColors.userBubble : themeColors.aiBubble,
-            color: m.role === 'user' ? themeColors.userText : themeColors.aiText,
-            borderRadius: m.role === 'user' ? undefined : undefined,
+            fontSize: messageFontSizeConfig.value,
+            lineHeight: messageFontSizeConfig.lineHeight,
+            backgroundColor: m.role === 'user' ? effectiveBubbleColors.userBubble : effectiveBubbleColors.aiBubble,
+            color: m.role === 'user' ? effectiveBubbleColors.userText : effectiveBubbleColors.aiText,
+            borderRadius: m.role === 'user'
+              ? `${borderRadius}px ${borderRadius}px ${Math.max(0, borderRadius - 10)}px ${borderRadius}px`
+              : `${Math.max(0, borderRadius - 10)}px ${borderRadius}px ${borderRadius}px ${borderRadius}px`,
           };
 
           return (
@@ -1281,8 +1292,8 @@ export default function ChatSession({
                 <div
                   className={`min-w-0 relative ${
                     m.role === 'user'
-                      ? 'rounded-2xl rounded-br-md'
-                      : 'rounded-2xl rounded-tl-md border shadow-sm'
+                      ? ''
+                      : 'border shadow-sm'
                   } ${bubbleStyle.padding} ${
                     isHighlighted ? 'ring-2 ring-[#f59e0b]' : ''
                   }`}
