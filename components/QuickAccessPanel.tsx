@@ -6,8 +6,10 @@ import { formatRelativeTime } from '@/lib/date-utils';
 import {
   getRecentConversations,
   getFrequentConversations,
+  CONVERSATION_HISTORY_CHANGED_EVENT,
   type ConversationHistoryItem,
 } from '@/lib/conversation-history';
+import { DRAFT_CHANGED_EVENT } from '@/lib/draft-history';
 import type { ConversationRow } from '@/components/ConversationListItem';
 
 const DRAFT_KEY_PREFIX = 'chat_draft_';
@@ -136,6 +138,8 @@ function getDraftConversations(): DraftConversation[] {
   }
 }
 
+const MAX_ITEMS_PER_TAB = 5;
+
 export default function QuickAccessPanel({
   convList,
   selectedConversationId,
@@ -163,19 +167,43 @@ export default function QuickAccessPanel({
 
   const [activeTab, setActiveTab] = useState<TabType>('recent');
   const [isExpanded, setIsExpanded] = useState(true);
-  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [refreshCounter, setRefreshCounter] = useState(0);
 
-  useEffect(() => {
-    const handleStorageChange = () => {
-      setRefreshTrigger((prev) => prev + 1);
-    };
-
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
+  const triggerRefresh = useCallback(() => {
+    setRefreshCounter((prev) => prev + 1);
   }, []);
 
+  useEffect(() => {
+    const handleHistoryChanged = () => {
+      triggerRefresh();
+    };
+
+    const handleDraftChanged = () => {
+      triggerRefresh();
+    };
+
+    const handleStorageChanged = (e: StorageEvent) => {
+      if (
+        e.key?.startsWith(DRAFT_KEY_PREFIX) ||
+        e.key === 'ai_assistant_conversation_history'
+      ) {
+        triggerRefresh();
+      }
+    };
+
+    window.addEventListener(CONVERSATION_HISTORY_CHANGED_EVENT, handleHistoryChanged);
+    window.addEventListener(DRAFT_CHANGED_EVENT, handleDraftChanged);
+    window.addEventListener('storage', handleStorageChanged);
+
+    return () => {
+      window.removeEventListener(CONVERSATION_HISTORY_CHANGED_EVENT, handleHistoryChanged);
+      window.removeEventListener(DRAFT_CHANGED_EVENT, handleDraftChanged);
+      window.removeEventListener('storage', handleStorageChanged);
+    };
+  }, [triggerRefresh]);
+
   const recentItems = useMemo(() => {
-    const recent = getRecentConversations(5);
+    const recent = getRecentConversations(MAX_ITEMS_PER_TAB);
     return recent
       .map((item) => {
         const conv = convList.find((c) => c.id === item.conversationId);
@@ -184,10 +212,10 @@ export default function QuickAccessPanel({
       .filter((item): item is ConversationHistoryItem & { conversation: ConversationRow } =>
         item !== null
       );
-  }, [convList, refreshTrigger]);
+  }, [convList, refreshCounter]);
 
   const frequentItems = useMemo(() => {
-    const frequent = getFrequentConversations(5);
+    const frequent = getFrequentConversations(MAX_ITEMS_PER_TAB);
     return frequent
       .map((item) => {
         const conv = convList.find((c) => c.id === item.conversationId);
@@ -196,7 +224,7 @@ export default function QuickAccessPanel({
       .filter((item): item is ConversationHistoryItem & { conversation: ConversationRow } =>
         item !== null
       );
-  }, [convList, refreshTrigger]);
+  }, [convList, refreshCounter]);
 
   const draftItems = useMemo(() => {
     const drafts = getDraftConversations();
@@ -207,8 +235,9 @@ export default function QuickAccessPanel({
       })
       .filter((item): item is DraftConversation & { conversation: ConversationRow } =>
         item !== null
-      );
-  }, [convList, refreshTrigger]);
+      )
+      .slice(0, MAX_ITEMS_PER_TAB);
+  }, [convList, refreshCounter]);
 
   const hasItems = recentItems.length > 0 || frequentItems.length > 0 || draftItems.length > 0;
 

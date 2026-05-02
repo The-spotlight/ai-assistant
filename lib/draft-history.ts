@@ -1,11 +1,22 @@
 const DRAFT_KEY_PREFIX = 'chat_draft_';
 const HISTORY_KEY_PREFIX = 'chat_history_';
 const MAX_HISTORY_SIZE = 20;
+export const DRAFT_CHANGED_EVENT = 'ai-assistant-draft-changed';
+
+function dispatchDraftChangedEvent(): void {
+  try {
+    const event = new CustomEvent(DRAFT_CHANGED_EVENT);
+    window.dispatchEvent(event);
+  } catch (e) {
+    console.error('Failed to dispatch draft changed event:', e);
+  }
+}
 
 export function saveDraft(conversationId: string, content: string): void {
   try {
     const key = `${DRAFT_KEY_PREFIX}${conversationId}`;
     localStorage.setItem(key, content);
+    dispatchDraftChangedEvent();
   } catch (e) {
     console.error('Failed to save draft:', e);
   }
@@ -25,6 +36,7 @@ export function clearDraft(conversationId: string): void {
   try {
     const key = `${DRAFT_KEY_PREFIX}${conversationId}`;
     localStorage.removeItem(key);
+    dispatchDraftChangedEvent();
   } catch (e) {
     console.error('Failed to clear draft:', e);
   }
