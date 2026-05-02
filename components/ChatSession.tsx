@@ -328,7 +328,32 @@ export default function ChatSession({
   } = useTextSelection();
 
   // 重写/展开后的内容状态（用于撤销功能）
-  const [rewrittenContents, setRewrittenContents] = useState<Map<string, RewrittenContentState>>(new Map());
+  const [rewrittenContents, setRewrittenContents] = useState<Map<string, RewrittenContentState>>(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const saved = localStorage.getItem(`rewritten_contents_${conversationId}`);
+        if (saved) {
+          const parsed = JSON.parse(saved) as Array<[string, RewrittenContentState]>;
+          return new Map(parsed);
+        }
+      } catch {
+        // 忽略解析错误
+      }
+    }
+    return new Map();
+  });
+
+  // 持久化 rewrittenContents 到 localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const serialized = Array.from(rewrittenContents.entries());
+        localStorage.setItem(`rewritten_contents_${conversationId}`, JSON.stringify(serialized));
+      } catch {
+        // 忽略保存错误
+      }
+    }
+  }, [rewrittenContents, conversationId]);
 
   // 获取自定义模型配置
   const customModelConfig = useMemo(() => {
@@ -403,6 +428,109 @@ export default function ChatSession({
     };
   }, [showToolbar, isLoading]);
 
+  // 保存消息编辑到数据库
+  const saveMessageEditToDatabase = useCallback(async (
+    messageId: string,
+    originalText: string,
+    newText: string,
+    action: 'rewrite' | 'expand'
+  ) => {
+    try {
+      const currentMessage = messages.find(m => m.id === messageId);
+      if (!currentMessage) return null;
+
+      const escapedOriginal = originalText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const regex = new RegExp(escapedOriginal);
+      
+      let newContent = currentMessage.content;
+      if (regex.test(currentMessage.content)) {
+        newContent = currentMessage.content.replace(regex, newText);
+      } else {
+        newContent = `${currentMessage.content}\n\n---\n\n**修改建议：**\n\n~~${originalText}~~\n\n**${newText}**`;
+      }
+
+      const response = await fetch(
+        `/api/conversations/${conversationId}/messages/${encodeURIComponent(messageId)}/edit`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Device-Id': deviceId,
+          },
+          body: JSON.stringify({
+            newContent,
+            originalText,
+            newText,
+            action,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('保存编辑失败');
+      }
+
+      const data = await response.json();
+      
+      setMessages(prevMessages => 
+        prevMessages.map(msg => 
+          msg.id === messageId 
+            ? { ...msg, content: newContent }
+            : msg
+        )
+      );
+
+      return data;
+    } catch (error) {
+      console.error('[ChatSession] 保存编辑到数据库失败:', error);
+      throw error;
+    }
+  }, [messages, conversationId, deviceId]);
+
+  // 还原消息到原始内容
+  const restoreMessageToOriginal = useCallback(async (messageId: string) => {
+    try {
+      const response = await fetch(
+        `/api/conversations/${conversationId}/messages/${encodeURIComponent(messageId)}/restore`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Device-Id': deviceId,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || '还原失败');
+      }
+
+      const data = await response.json();
+      
+      if (data.message?.content != null) {
+        setMessages(prevMessages => 
+          prevMessages.map(msg => 
+            msg.id === messageId 
+              ? { ...msg, content: data.message.content }
+              : msg
+          )
+        );
+      }
+
+      setRewrittenContents(prev => {
+        const newMap = new Map(prev);
+        newMap.delete(messageId);
+        return newMap;
+      });
+
+      return data;
+    } catch (error) {
+      console.error('[ChatSession] 还原消息失败:', error);
+      throw error;
+    }
+  }, [conversationId, deviceId]);
+
   // 处理划词工具栏操作
   const handleSelectionAction = useCallback(async (action: SelectionAction) => {
     if (!selection.messageId || !selection.selectedText) {
@@ -450,7 +578,19 @@ export default function ChatSession({
           });
           return newMap;
         });
-        message.success(action === 'rewrite' ? '重写完成' : '展开完成');
+
+        try {
+          await saveMessageEditToDatabase(
+            selection.messageId,
+            selection.selectedText,
+            result,
+            action as 'rewrite' | 'expand'
+          );
+          message.success(action === 'rewrite' ? '重写完成，已保存' : '展开完成，已保存');
+        } catch (saveError) {
+          console.error('[ChatSession] 保存到数据库失败，但本地显示已更新:', saveError);
+          message.success(action === 'rewrite' ? '重写完成' : '展开完成');
+        }
       }
     } catch (error) {
       console.error('[ChatSession] 文本操作失败:', error);
@@ -458,7 +598,7 @@ export default function ChatSession({
     } finally {
       stopProcessing();
     }
-  }, [selection, closeToolbar, startProcessing, stopProcessing, customModelConfig]);
+  }, [selection, closeToolbar, startProcessing, stopProcessing, customModelConfig, saveMessageEditToDatabase]);
 
   // 撤销重写/展开
   const handleUndoRewrite = useCallback((messageId: string) => {
@@ -1702,8 +1842,9 @@ export default function ChatSession({
                           isHighlighted={currentMessageId === m.id}
                           highlightCharIndex={currentMessageId === m.id ? currentCharIndex : -1}
                         />
-                        {rewrittenContents.has(m.id) && (
-                          <div className="mt-2 flex items-center gap-2">
+                        
+                        <div className="mt-2 flex items-center gap-2">
+                          {rewrittenContents.has(m.id) && (
                             <button
                               type="button"
                               onClick={() => {
@@ -1719,8 +1860,27 @@ export default function ChatSession({
                               <RotateCcw className="h-3 w-3" />
                               {rewrittenContents.get(m.id)?.isShowingOriginal ? '恢复修改' : '撤销修改'}
                             </button>
-                          </div>
-                        )}
+                          )}
+                          
+                          {rewrittenContents.has(m.id) && (
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                try {
+                                  await restoreMessageToOriginal(m.id);
+                                  message.success('已还原至原始文本');
+                                } catch (error) {
+                                  console.error('还原失败:', error);
+                                  message.error(error instanceof Error ? error.message : '还原失败');
+                                }
+                              }}
+                              className="inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] transition-colors text-[#dc2626] hover:bg-[#fef2f2] hover:text-[#991b1b]"
+                            >
+                              <X className="h-3 w-3" />
+                              一键还原
+                            </button>
+                          )}
+                        </div>
                       </>
                     ))
                   )}
