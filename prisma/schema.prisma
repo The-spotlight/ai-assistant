@@ -48,6 +48,7 @@ model Message {
   content         String       @db.Text
   toolInvocations Json?
   clientMessageId String?
+  modelId         String?
   promptTokens    Int?
   completionTokens Int?
   totalTokens     Int?
