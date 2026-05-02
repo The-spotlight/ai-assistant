@@ -41,6 +41,8 @@ import {
   Play,
   Clock,
   Bell,
+  Lock,
+  Unlock,
 } from 'lucide-react';
 import { useMessageFeedback, MessageFeedbackButton } from '@/components/MessageFeedback';
 import MessageStatus, { type MessageStatus as MessageStatusType } from '@/components/MessageStatus';
@@ -53,6 +55,14 @@ import FollowUpSuggestions from '@/components/FollowUpSuggestions';
 import Timeline from '@/components/Timeline';
 import ModelLabel from '@/components/ModelLabel';
 import DateTimePicker from '@/components/DateTimePicker';
+import EncryptionModal from '@/components/EncryptionModal';
+import {
+  isConversationEncrypted,
+  encryptConversation,
+  verifyPassword,
+  decryptConversation,
+  setDecryptedSession,
+} from '@/lib/encryption';
 import {
   type ScheduledMessage,
   fetchScheduledMessages,
@@ -224,6 +234,11 @@ export default function ChatSession({
   const [showShareModal, setShowShareModal] = useState(false);
   const [showShareHistory, setShowShareHistory] = useState(false);
 
+  // 加密相关状态
+  const [isEncrypted, setIsEncrypted] = useState(false);
+  const [showEncryptionModal, setShowEncryptionModal] = useState(false);
+  const [encryptionModalMode, setEncryptionModalMode] = useState<'set-password' | 'verify-password' | 'remove-encryption'>('set-password');
+
   // 自定义指令列表 - 使用初始化函数同步加载
   const [customCommands, setCustomCommands] = useState<CustomCommand[]>(() => {
     if (typeof window !== 'undefined') {
@@ -286,6 +301,66 @@ export default function ChatSession({
       isInitializedRef.current = true;
     }
   }, [messages]);
+
+  // 检查对话加密状态
+  useEffect(() => {
+    setIsEncrypted(isConversationEncrypted(conversationId));
+  }, [conversationId]);
+
+  // 开始加密流程
+  const handleStartEncryption = useCallback(() => {
+    setEncryptionModalMode('set-password');
+    setShowEncryptionModal(true);
+    setShowMenu(false);
+  }, []);
+
+  // 开始关闭加密流程
+  const handleStartRemoveEncryption = useCallback(() => {
+    setEncryptionModalMode('remove-encryption');
+    setShowEncryptionModal(true);
+    setShowMenu(false);
+  }, []);
+
+  // 处理设置密码
+  const handleSetPassword = useCallback(async (password: string): Promise<boolean> => {
+    const success = await encryptConversation(conversationId, password, messages.length > 0 ? messages[0].content : null);
+    if (success) {
+      setIsEncrypted(true);
+    }
+    return success;
+  }, [conversationId, messages]);
+
+  // 处理验证密码
+  const handleVerifyPassword = useCallback(async (password: string): Promise<boolean> => {
+    const isValid = await verifyPassword(conversationId, password);
+    if (isValid) {
+      setDecryptedSession(conversationId);
+      const decrypted = await decryptConversation(conversationId, password);
+      if (decrypted) {
+        return true;
+      }
+    }
+    return false;
+  }, [conversationId]);
+
+  // 处理关闭加密
+  const handleRemoveEncryption = useCallback(async (password: string): Promise<boolean> => {
+    const isValid = await verifyPassword(conversationId, password);
+    if (isValid) {
+      const { removeEncryption } = await import('@/lib/encryption');
+      const success = await removeEncryption(conversationId, password);
+      if (success) {
+        setIsEncrypted(false);
+      }
+      return success;
+    }
+    return false;
+  }, [conversationId]);
+
+  // 处理加密成功
+  const handleEncryptionSuccess = useCallback(() => {
+    setShowEncryptionModal(false);
+  }, []);
 
   // 标记消息状态为已发送
   const markMessageSent = useCallback((messageId: string) => {
@@ -1150,6 +1225,24 @@ export default function ChatSession({
                     <div className="h-px bg-black/[0.06] dark:bg-white/10" />
                     <button
                       type="button"
+                      onClick={isEncrypted ? handleStartRemoveEncryption : handleStartEncryption}
+                      className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-[#171717] dark:text-white transition-colors hover:bg-[#fafafa] dark:hover:bg-[#3d3d3d]"
+                    >
+                      {isEncrypted ? (
+                        <>
+                          <Unlock className="h-4 w-4 text-[#737373] dark:text-[#a3a3a3]" />
+                          <span>关闭加密</span>
+                        </>
+                      ) : (
+                        <>
+                          <Lock className="h-4 w-4 text-[#737373] dark:text-[#a3a3a3]" />
+                          <span>加密对话</span>
+                        </>
+                      )}
+                    </button>
+                    <div className="h-px bg-black/[0.06] dark:bg-white/10" />
+                    <button
+                      type="button"
                       onClick={handleExport}
                       className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-[#171717] dark:text-white transition-colors hover:bg-[#fafafa] dark:hover:bg-[#3d3d3d]"
                     >
@@ -1923,6 +2016,18 @@ export default function ChatSession({
           setScheduledTime(date);
           setShowDateTimePicker(false);
         }}
+      />
+
+      {/* 加密弹窗 */}
+      <EncryptionModal
+        isOpen={showEncryptionModal}
+        mode={encryptionModalMode}
+        conversationId={conversationId}
+        onClose={() => setShowEncryptionModal(false)}
+        onSuccess={handleEncryptionSuccess}
+        onSetPassword={handleSetPassword}
+        onVerifyPassword={handleVerifyPassword}
+        onRemoveEncryption={handleRemoveEncryption}
       />
 
     </div>
