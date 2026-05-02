@@ -37,6 +37,17 @@ import { DEFAULT_OPENROUTER_MODEL_ID, DEFAULT_OPENROUTER_MODEL_LABEL } from '@/l
 import { CONVERSATION_STORAGE_KEY, getOrCreateDeviceId } from '@/lib/device';
 import { useSettings } from '@/lib/settings';
 import { getScheduledConversationIds } from '@/lib/scheduled-messages';
+import EncryptionModal from '@/components/EncryptionModal';
+import {
+  isConversationEncrypted,
+  isConversationDecrypted,
+  encryptConversation,
+  verifyPassword,
+  decryptConversation,
+  setDecryptedSession,
+  getEncryptedConversation,
+  loadEncryptedConversations,
+} from '@/lib/encryption';
 
 type ConversationRow = {
   id: string;
@@ -383,6 +394,43 @@ function IconArrowLeft(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
+function IconLock(props: React.SVGProps<SVGSVGElement> & { filled?: boolean }) {
+  const { filled, ...rest } = props;
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill={filled ? 'currentColor' : 'none'}
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      {...rest}
+    >
+      <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+      <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+    </svg>
+  );
+}
+
+function IconUnlock(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      {...props}
+    >
+      <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+      <path d="M7 11V7a5 5 0 0 1 9.9-1" />
+    </svg>
+  );
+}
+
 function IconArrowRight(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg
@@ -434,6 +482,8 @@ interface SidebarContentProps {
   setCompareActiveSide: (side: CompareSide) => void;
   toggleCompareSelecting: () => void;
   scheduledConversationIds: Set<string>;
+  onStartEncryption: (conversationId: string) => void;
+  onStartRemoveEncryption: (conversationId: string) => void;
 }
 
 /** useSortable 必须在子组件顶层调用，不能在 SidebarContent 的 map 里调用（会与搜索视图切换时 hooks 数量冲突）。 */
@@ -456,6 +506,8 @@ function SortableConversationRow({
   onSaveAsTemplate,
   compareMode,
   scheduledConversationIds,
+  onStartEncryption,
+  onStartRemoveEncryption,
 }: {
   conversation: ConversationRow;
   isNarrow: boolean;
@@ -475,6 +527,8 @@ function SortableConversationRow({
   onSaveAsTemplate: (conversationId: string) => Promise<void>;
   compareMode: CompareModeState;
   scheduledConversationIds: Set<string>;
+  onStartEncryption: (conversationId: string) => void;
+  onStartRemoveEncryption: (conversationId: string) => void;
 }) {
   const {
     attributes,
@@ -566,13 +620,35 @@ function SortableConversationRow({
         ) : (
           <>
             <div className="flex items-center gap-1.5">
-              <span
-                className={`${titleLines} text-[13px] font-medium leading-snug text-[#171717] ${
-                  isNarrow ? 'text-[12px]' : ''
-                } ${isWide ? 'text-sm' : ''}`}
-              >
-                {conversation.title?.trim() || '新对话'}
-              </span>
+              {(() => {
+                const isEncrypted = isConversationEncrypted(conversation.id);
+                if (isEncrypted) {
+                  return (
+                    <span className="inline-flex items-center gap-1" title="已加密对话">
+                      <IconLock 
+                        className={`h-3.5 w-3.5 text-[#3b82f6] ${isNarrow ? 'h-3 w-3' : ''}`}
+                        filled
+                      />
+                      <span
+                        className={`${titleLines} text-[13px] font-medium leading-snug text-[#3b82f6] ${
+                          isNarrow ? 'text-[12px]' : ''
+                        } ${isWide ? 'text-sm' : ''}`}
+                      >
+                        已加密对话
+                      </span>
+                    </span>
+                  );
+                }
+                return (
+                  <span
+                    className={`${titleLines} text-[13px] font-medium leading-snug text-[#171717] ${
+                      isNarrow ? 'text-[12px]' : ''
+                    } ${isWide ? 'text-sm' : ''}`}
+                  >
+                    {conversation.title?.trim() || '新对话'}
+                  </span>
+                );
+              })()}
               {(() => {
                 const hasScheduled = scheduledConversationIds.has(conversation.id);
                 if (hasScheduled) {
@@ -606,6 +682,33 @@ function SortableConversationRow({
       >
         <IconPin className={`h-4 w-4 ${isNarrow ? 'h-3.5 w-3.5' : ''}`} />
       </button>
+      {(() => {
+        const isEncrypted = isConversationEncrypted(conversation.id);
+        return (
+          <button
+            type="button"
+            aria-label={isEncrypted ? '关闭加密' : '加密对话'}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (isEncrypted) {
+                onStartRemoveEncryption(conversation.id);
+              } else {
+                onStartEncryption(conversation.id);
+              }
+            }}
+            className={`flex w-9 shrink-0 items-center justify-center text-[#a3a3a3] opacity-0 transition hover:bg-blue-50 hover:text-[#3b82f6] group-hover:opacity-100 ${
+              isNarrow ? 'w-7' : ''
+            }`}
+            title={isEncrypted ? '关闭加密' : '加密对话'}
+          >
+            {isEncrypted ? (
+              <IconUnlock className={`h-4 w-4 ${isNarrow ? 'h-3.5 w-3.5' : ''}`} />
+            ) : (
+              <IconLock className={`h-4 w-4 ${isNarrow ? 'h-3.5 w-3.5' : ''}`} />
+            )}
+          </button>
+        );
+      })()}
       <button
         type="button"
         aria-label="另存为模板"
@@ -667,6 +770,8 @@ function SidebarContent({
   setCompareActiveSide,
   toggleCompareSelecting,
   scheduledConversationIds,
+  onStartEncryption,
+  onStartRemoveEncryption,
 }: SidebarContentProps) {
   const { widthCategory, sidebarWidth } = useLayoutContext();
 
@@ -996,11 +1101,31 @@ function SidebarContent({
                         />
                       ) : (
                         <div className="flex items-center gap-1.5">
-                          <span className={`${titleLines} text-[13px] font-medium leading-snug text-[#171717] ${
-                            isNarrow ? 'text-[12px]' : ''
-                          } ${isWide ? 'text-sm' : ''}`}>
-                            {c.title?.trim() || '新对话'}
-                          </span>
+                          {(() => {
+                            const isEncrypted = isConversationEncrypted(c.id);
+                            if (isEncrypted) {
+                              return (
+                                <span className="inline-flex items-center gap-1" title="已加密对话">
+                                  <IconLock 
+                                    className={`h-3.5 w-3.5 text-[#3b82f6] ${isNarrow ? 'h-3 w-3' : ''}`}
+                                    filled
+                                  />
+                                  <span className={`${titleLines} text-[13px] font-medium leading-snug text-[#3b82f6] ${
+                                    isNarrow ? 'text-[12px]' : ''
+                                  } ${isWide ? 'text-sm' : ''}`}>
+                                    已加密对话
+                                  </span>
+                                </span>
+                              );
+                            }
+                            return (
+                              <span className={`${titleLines} text-[13px] font-medium leading-snug text-[#171717] ${
+                                isNarrow ? 'text-[12px]' : ''
+                              } ${isWide ? 'text-sm' : ''}`}>
+                                {c.title?.trim() || '新对话'}
+                              </span>
+                            );
+                          })()}
                           {(() => {
                             const hasScheduled = scheduledConversationIds.has(c.id);
                             if (hasScheduled) {
@@ -1036,6 +1161,33 @@ function SidebarContent({
                   >
                     <IconPin className={`h-4 w-4 ${isNarrow ? 'h-3.5 w-3.5' : ''}`} filled />
                   </button>
+                  {(() => {
+                    const isEncrypted = isConversationEncrypted(c.id);
+                    return (
+                      <button
+                        type="button"
+                        aria-label={isEncrypted ? '关闭加密' : '加密对话'}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (isEncrypted) {
+                            onStartRemoveEncryption(c.id);
+                          } else {
+                            onStartEncryption(c.id);
+                          }
+                        }}
+                        className={`flex w-9 shrink-0 items-center justify-center text-[#a3a3a3] opacity-0 transition hover:bg-blue-50 hover:text-[#3b82f6] group-hover:opacity-100 ${
+                          isNarrow ? 'w-7' : ''
+                        }`}
+                        title={isEncrypted ? '关闭加密' : '加密对话'}
+                      >
+                        {isEncrypted ? (
+                          <IconUnlock className={`h-4 w-4 ${isNarrow ? 'h-3.5 w-3.5' : ''}`} />
+                        ) : (
+                          <IconLock className={`h-4 w-4 ${isNarrow ? 'h-3.5 w-3.5' : ''}`} />
+                        )}
+                      </button>
+                    );
+                  })()}
                   <button
                     type="button"
                     aria-label="另存为模板"
@@ -1215,6 +1367,8 @@ function SidebarContent({
                     onSaveAsTemplate={onSaveAsTemplate}
                     compareMode={compareMode}
                     scheduledConversationIds={scheduledConversationIds}
+                    onStartEncryption={onStartEncryption}
+                    onStartRemoveEncryption={onStartRemoveEncryption}
                   />
                 ))}
               </div>
@@ -1380,6 +1534,12 @@ export default function Home() {
   const prevAutoArchiveDaysRef = useRef<number | null>(null);
 
   const [scheduledConversationIds, setScheduledConversationIds] = useState<Set<string>>(new Set());
+
+  // 加密相关状态
+  const [showEncryptionModal, setShowEncryptionModal] = useState<boolean>(false);
+  const [encryptionModalMode, setEncryptionModalMode] = useState<'set-password' | 'verify-password' | 'remove-encryption'>('set-password');
+  const [encryptingConversationId, setEncryptingConversationId] = useState<string | null>(null);
+  const [pendingConversationId, setPendingConversationId] = useState<string | null>(null);
 
   const { behavior, keyboardShortcuts } = useSettings();
 
@@ -1980,6 +2140,18 @@ export default function Home() {
   async function selectConversation(id: string) {
     if (!deviceId) return;
     
+    // 检查对话是否已加密
+    const isEncrypted = isConversationEncrypted(id);
+    const isDecrypted = isConversationDecrypted(id);
+
+    // 如果已加密但未解密，显示密码验证弹窗
+    if (isEncrypted && !isDecrypted) {
+      setPendingConversationId(id);
+      setEncryptionModalMode('verify-password');
+      setShowEncryptionModal(true);
+      return;
+    }
+    
     if (compareMode.isActive) {
       const r = await fetch(`/api/conversations/${id}/messages`, {
         headers: { 'x-device-id': deviceId },
@@ -2331,6 +2503,91 @@ export default function Home() {
     [deviceId, loadConversations]
   );
 
+  // 加密相关处理函数
+  const handleStartEncryption = useCallback(
+    (conversationId: string) => {
+      setEncryptingConversationId(conversationId);
+      setEncryptionModalMode('set-password');
+      setShowEncryptionModal(true);
+    },
+    []
+  );
+
+  const handleStartRemoveEncryption = useCallback(
+    (conversationId: string) => {
+      setEncryptingConversationId(conversationId);
+      setEncryptionModalMode('remove-encryption');
+      setShowEncryptionModal(true);
+    },
+    []
+  );
+
+  const handleSetPassword = useCallback(
+    async (password: string): Promise<boolean> => {
+      if (!encryptingConversationId) return false;
+
+      const conversation = convList.find((c) => c.id === encryptingConversationId);
+      const originalTitle = conversation?.title ?? null;
+
+      const success = await encryptConversation(
+        encryptingConversationId,
+        password,
+        originalTitle
+      );
+
+      if (success) {
+        setDecryptedSession(encryptingConversationId, 30);
+      }
+
+      return success;
+    },
+    [encryptingConversationId, convList]
+  );
+
+  const handleVerifyPassword = useCallback(
+    async (password: string): Promise<boolean> => {
+      const targetId = pendingConversationId || encryptingConversationId;
+      if (!targetId) return false;
+
+      const isValid = await verifyPassword(targetId, password);
+
+      if (isValid) {
+        setDecryptedSession(targetId, 30);
+
+        if (pendingConversationId) {
+          setPendingConversationId(null);
+          void selectConversation(targetId);
+        }
+      }
+
+      return isValid;
+    },
+    [pendingConversationId, encryptingConversationId]
+  );
+
+  const handleRemoveEncryption = useCallback(
+    async (): Promise<boolean> => {
+      if (!encryptingConversationId) return false;
+
+      decryptConversation(encryptingConversationId);
+
+      return true;
+    },
+    [encryptingConversationId]
+  );
+
+  const handleCloseEncryptionModal = useCallback(() => {
+    setShowEncryptionModal(false);
+    setEncryptingConversationId(null);
+    setPendingConversationId(null);
+  }, []);
+
+  const handleEncryptionSuccess = useCallback(() => {
+    setShowEncryptionModal(false);
+    setEncryptingConversationId(null);
+    setPendingConversationId(null);
+  }, []);
+
   const loadingMain = !!(deviceId && !chatPayload && !bootstrapError);
 
   return (
@@ -2400,6 +2657,8 @@ export default function Home() {
               setCompareActiveSide={setCompareActiveSide}
               toggleCompareSelecting={toggleCompareSelecting}
               scheduledConversationIds={scheduledConversationIds}
+              onStartEncryption={handleStartEncryption}
+              onStartRemoveEncryption={handleStartRemoveEncryption}
             />
           </ResizablePanel>
         </div>
@@ -2576,6 +2835,20 @@ export default function Home() {
         mode="save-as"
         onSubmit={handleCreateTemplateFromConversation}
       />
+
+      {/* 加密弹窗 */}
+      {encryptingConversationId && (
+        <EncryptionModal
+          isOpen={showEncryptionModal}
+          mode={encryptionModalMode}
+          conversationId={encryptingConversationId}
+          onClose={handleCloseEncryptionModal}
+          onSuccess={handleEncryptionSuccess}
+          onSetPassword={handleSetPassword}
+          onVerifyPassword={handleVerifyPassword}
+          onRemoveEncryption={handleRemoveEncryption}
+        />
+      )}
 
       {/* 使用记录面板 */}
       <UserStatsPanel
