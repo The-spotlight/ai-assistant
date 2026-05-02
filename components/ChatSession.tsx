@@ -53,6 +53,7 @@ import { addSkillToHistory } from '@/lib/skill-history';
 import { TranslateButton, TranslationResult } from '@/components/MessageTranslator';
 import MessageTranslateProvider from '@/components/MessageTranslateProvider';
 import FollowUpSuggestions from '@/components/FollowUpSuggestions';
+import { message } from 'antd';
 
 const SUGGESTIONS = [
   '搜索今日新闻',
@@ -699,9 +700,12 @@ export default function ChatSession({
 
         // 关闭画板
         handleCloseArtboard();
+
+        // 显示成功提示
+        message.success('消息已更新');
       } catch (error) {
         console.error('[ChatSession] 更新消息失败:', error);
-        alert('更新消息失败，请稍后重试');
+        message.error('更新消息失败，请稍后重试');
       }
     },
     [artboardMessageId, conversationId, deviceId, setMessages, handleCloseArtboard]

@@ -136,28 +136,26 @@ export default function ArtboardPanel({
           </div>
         </div>
         <div className="flex items-center gap-1">
-          <Button
-            variant="ghost"
-            size="icon"
+          <button
+            type="button"
             onClick={() => setIsEditing(!isEditing)}
             title={isEditing ? '切换到预览模式' : '切换到编辑模式'}
-            className="h-8 w-8"
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-[#525252] hover:bg-[#fafafa] hover:text-[#171717] transition-colors"
           >
             {isEditing ? (
               <Eye className="h-4 w-4" />
             ) : (
               <Edit className="h-4 w-4" />
             )}
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
+          </button>
+          <button
+            type="button"
             onClick={onClose}
-            title="关闭画板 (ESC)"
-            className="h-8 w-8"
+            title="关闭画板"
+            className="flex h-8 w-8 items-center justify-center rounded-lg text-[#525252] hover:bg-[#fafafa] hover:text-[#171717] transition-colors"
           >
             <X className="h-4 w-4" />
-          </Button>
+          </button>
         </div>
       </div>
 
@@ -235,11 +233,6 @@ export default function ArtboardPanel({
             </Button>
           </div>
         </div>
-        <p className="mt-2 text-center text-[10px] text-[#a3a3a3]">
-          按 <kbd className="rounded border border-[rgba(0,0,0,0.08)] bg-[#fafafa] px-1 text-[#525252]">ESC</kbd> 关闭 ·
-          <kbd className="rounded border border-[rgba(0,0,0,0.08)] bg-[#fafafa] px-1 text-[#525252]">⌘</kbd> +
-          <kbd className="rounded border border-[rgba(0,0,0,0.08)] bg-[#fafafa] px-1 text-[#525252]">S</kbd> 保存
-        </p>
       </div>
     </div>
   );
