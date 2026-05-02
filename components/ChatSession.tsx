@@ -37,6 +37,7 @@ import {
   X,
   Reply,
   RefreshCw,
+  RotateCcw,
   Volume2,
   Pause,
   Play,
@@ -53,6 +54,12 @@ import { addSkillToHistory } from '@/lib/skill-history';
 import { TranslateButton, TranslationResult } from '@/components/MessageTranslator';
 import MessageTranslateProvider from '@/components/MessageTranslateProvider';
 import FollowUpSuggestions from '@/components/FollowUpSuggestions';
+import TextSelectionToolbar, { 
+  callTextAction, 
+  type SelectionAction,
+  useTextSelection,
+  type RewrittenContentState 
+} from '@/components/TextSelectionToolbar';
 import { message } from 'antd';
 
 const SUGGESTIONS = [
@@ -308,6 +315,180 @@ export default function ChatSession({
 
   // 右键菜单状态
   const { contextMenuState, handleContextMenu, closeContextMenu } = useMessageContextMenu();
+
+  // 划词工具栏状态
+  const {
+    selection,
+    showToolbar,
+    closeToolbar,
+    isProcessing,
+    processingAction,
+    startProcessing,
+    stopProcessing,
+  } = useTextSelection();
+
+  // 重写/展开后的内容状态（用于撤销功能）
+  const [rewrittenContents, setRewrittenContents] = useState<Map<string, RewrittenContentState>>(new Map());
+
+  // 获取自定义模型配置
+  const customModelConfig = useMemo(() => {
+    const currentModelId = model.defaultModel || modelId;
+    if (currentModelId.startsWith('custom_')) {
+      const customModel = getCustomModelById(currentModelId);
+      if (customModel) {
+        return {
+          baseUrl: customModel.baseUrl,
+          apiKey: decryptApiKey(customModel.encryptedApiKey),
+          modelId: customModel.modelId,
+          provider: customModel.provider,
+        };
+      }
+    }
+    return undefined;
+  }, [model.defaultModel, modelId]);
+
+  // 监听文本选择事件
+  useEffect(() => {
+    const handleSelectionChange = () => {
+      if (isLoading) return;
+
+      const currentSelection = window.getSelection();
+      if (!currentSelection || currentSelection.rangeCount === 0) {
+        return;
+      }
+
+      const selectedText = currentSelection.toString().trim();
+      if (!selectedText) {
+        return;
+      }
+
+      const range = currentSelection.getRangeAt(0);
+      const commonAncestor = range.commonAncestorContainer;
+
+      let messageEl: HTMLElement | null = null;
+      let checkNode: Node | null = commonAncestor;
+      
+      while (checkNode && checkNode !== document.body) {
+        if (checkNode.nodeType === Node.ELEMENT_NODE) {
+          const el = checkNode as HTMLElement;
+          const messageId = el.getAttribute('data-selection-message-id');
+          const messageRole = el.getAttribute('data-selection-message-role');
+          if (messageId && messageRole === 'assistant') {
+            messageEl = el;
+            break;
+          }
+        }
+        checkNode = checkNode.parentNode;
+      }
+
+      if (messageEl) {
+        const messageId = messageEl.getAttribute('data-selection-message-id');
+        const messageContent = messageEl.getAttribute('data-selection-message-content');
+        
+        if (messageId && messageContent) {
+          const rect = range.getBoundingClientRect();
+          showToolbar(
+            selectedText,
+            { x: rect.left + rect.width / 2, y: rect.top },
+            messageId,
+            messageContent
+          );
+        }
+      }
+    };
+
+    document.addEventListener('selectionchange', handleSelectionChange);
+    return () => {
+      document.removeEventListener('selectionchange', handleSelectionChange);
+    };
+  }, [showToolbar, isLoading]);
+
+  // 处理划词工具栏操作
+  const handleSelectionAction = useCallback(async (action: SelectionAction) => {
+    if (!selection.messageId || !selection.selectedText) {
+      closeToolbar();
+      return;
+    }
+
+    if (action === 'copy') {
+      try {
+        await navigator.clipboard.writeText(selection.selectedText);
+        message.success('已复制到剪贴板');
+      } catch {
+        message.error('复制失败');
+      }
+      closeToolbar();
+      return;
+    }
+
+    startProcessing(action);
+    closeToolbar();
+
+    try {
+      const result = await callTextAction(
+        action,
+        selection.selectedText,
+        selection.fullMessageContent,
+        customModelConfig
+      );
+
+      if (action === 'translate') {
+        try {
+          await navigator.clipboard.writeText(result);
+          message.success('翻译完成，已复制到剪贴板');
+        } catch {
+          message.info('翻译完成');
+        }
+      } else {
+        setRewrittenContents(prev => {
+          const newMap = new Map(prev);
+          newMap.set(selection.messageId!, {
+            originalText: selection.selectedText,
+            newText: result,
+            isShowingOriginal: false,
+            action,
+          });
+          return newMap;
+        });
+        message.success(action === 'rewrite' ? '重写完成' : '展开完成');
+      }
+    } catch (error) {
+      console.error('[ChatSession] 文本操作失败:', error);
+      message.error(error instanceof Error ? error.message : '操作失败，请稍后重试');
+    } finally {
+      stopProcessing();
+    }
+  }, [selection, closeToolbar, startProcessing, stopProcessing, customModelConfig]);
+
+  // 撤销重写/展开
+  const handleUndoRewrite = useCallback((messageId: string) => {
+    setRewrittenContents(prev => {
+      const newMap = new Map(prev);
+      const state = newMap.get(messageId);
+      if (state) {
+        newMap.set(messageId, {
+          ...state,
+          isShowingOriginal: true,
+        });
+      }
+      return newMap;
+    });
+  }, []);
+
+  // 重做重写/展开（撤销撤销）
+  const handleRedoRewrite = useCallback((messageId: string) => {
+    setRewrittenContents(prev => {
+      const newMap = new Map(prev);
+      const state = newMap.get(messageId);
+      if (state) {
+        newMap.set(messageId, {
+          ...state,
+          isShowingOriginal: false,
+        });
+      }
+      return newMap;
+    });
+  }, []);
 
   // 消息反馈相关状态（使用组件化的hook）
   const { feedbackMap, handleLike, handleDislike, handleUndoDislike } = useMessageFeedback(deviceId);
@@ -1395,6 +1576,9 @@ export default function ChatSession({
               </div>
               <div className="min-w-0 max-w-[min(100%,36rem)]">
                 <div
+                  data-selection-message-id={m.id}
+                  data-selection-message-role={m.role}
+                  data-selection-message-content={m.content}
                   className={`min-w-0 relative ${
                     m.role === 'user'
                       ? 'rounded-2xl rounded-br-md'
@@ -1492,11 +1676,52 @@ export default function ChatSession({
                     (m.role === 'user' ? (
                       <span className="whitespace-pre-wrap">{m.content}</span>
                     ) : (
-                      <MarkdownRenderer 
-                        content={m.content} 
-                        isHighlighted={currentMessageId === m.id}
-                        highlightCharIndex={currentMessageId === m.id ? currentCharIndex : -1}
-                      />
+                      <>
+                        <MarkdownRenderer 
+                          content={(() => {
+                            const rewrittenState = rewrittenContents.get(m.id);
+                            if (!rewrittenState) return m.content;
+                            
+                            if (rewrittenState.isShowingOriginal) {
+                              return m.content;
+                            }
+                            
+                            const { originalText, newText } = rewrittenState;
+                            const escapedOriginal = originalText.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+                            const regex = new RegExp(escapedOriginal);
+                            
+                            if (regex.test(m.content)) {
+                              return m.content.replace(
+                                regex,
+                                `~~${originalText}~~\n\n**${newText}**`
+                              );
+                            }
+                            
+                            return `${m.content}\n\n---\n\n**修改建议：**\n\n~~${originalText}~~\n\n**${newText}**`;
+                          })()} 
+                          isHighlighted={currentMessageId === m.id}
+                          highlightCharIndex={currentMessageId === m.id ? currentCharIndex : -1}
+                        />
+                        {rewrittenContents.has(m.id) && (
+                          <div className="mt-2 flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const state = rewrittenContents.get(m.id);
+                                if (state?.isShowingOriginal) {
+                                  handleRedoRewrite(m.id);
+                                } else {
+                                  handleUndoRewrite(m.id);
+                                }
+                              }}
+                              className="inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] transition-colors text-[#737373] hover:bg-[#f5f5f5] hover:text-[#171717]"
+                            >
+                              <RotateCcw className="h-3 w-3" />
+                              {rewrittenContents.get(m.id)?.isShowingOriginal ? '恢复修改' : '撤销修改'}
+                            </button>
+                          </div>
+                        )}
+                      </>
                     ))
                   )}
 
@@ -1991,6 +2216,15 @@ export default function ChatSession({
           }
         }}
         onClose={closeContextMenu}
+      />
+
+      {/* 划词工具栏 */}
+      <TextSelectionToolbar
+        selection={selection}
+        onAction={handleSelectionAction}
+        onClose={closeToolbar}
+        isProcessing={isProcessing}
+        processingAction={processingAction}
       />
 
     </div>
