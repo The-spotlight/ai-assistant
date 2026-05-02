@@ -1660,7 +1660,7 @@ export default function ChatSession({
                         </span>
                       )}
                     </div>
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-0.5">
                       <TranslateButton />
                       {/* 朗读按钮 */}
                       {(() => {
@@ -1674,11 +1674,10 @@ export default function ChatSession({
                               <button
                                 type="button"
                                 onClick={() => resume()}
-                                className={`inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] transition-colors text-[#171717] bg-[#f5f5f5]`}
+                                className="inline-flex items-center justify-center rounded px-1.5 py-1 text-[10px] transition-colors text-[#171717] bg-[#f5f5f5] hover:bg-[#e5e5e5]"
                                 title="继续朗读"
                               >
-                                <Play className="h-3 w-3" />
-                                继续
+                                <Play className="h-3.5 w-3.5" />
                               </button>
                             );
                           } else {
@@ -1686,11 +1685,10 @@ export default function ChatSession({
                               <button
                                 type="button"
                                 onClick={() => pause()}
-                                className={`inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] transition-colors text-[#171717] bg-[#f5f5f5]`}
+                                className="inline-flex items-center justify-center rounded px-1.5 py-1 text-[10px] transition-colors text-[#171717] bg-[#f5f5f5] hover:bg-[#e5e5e5]"
                                 title="暂停朗读"
                               >
-                                <Pause className="h-3 w-3" />
-                                暂停
+                                <Pause className="h-3.5 w-3.5" />
                               </button>
                             );
                           }
@@ -1706,15 +1704,14 @@ export default function ChatSession({
                               speak(m.id, m.content);
                             }}
                             disabled={isGlobalRegenerating}
-                            className={`inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] transition-colors ${
+                            className={`inline-flex items-center justify-center rounded px-1.5 py-1 text-[10px] transition-colors ${
                               isGlobalRegenerating
                                 ? 'text-[#a3a3a3] cursor-not-allowed'
                                 : 'text-[#737373] hover:bg-[#f5f5f5] hover:text-[#171717]'
                             }`}
                             title="朗读此消息"
                           >
-                            <Volume2 className="h-3 w-3" />
-                            朗读
+                            <Volume2 className="h-3.5 w-3.5" />
                           </button>
                         );
                       })()}
@@ -1722,7 +1719,7 @@ export default function ChatSession({
                       <button
                         type="button"
                         onClick={() => handleReply(m)}
-                        className={`inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] transition-colors ${
+                        className={`inline-flex items-center justify-center rounded px-1.5 py-1 text-[10px] transition-colors ${
                           isGlobalRegenerating
                             ? 'text-[#a3a3a3] cursor-not-allowed opacity-0 group-hover:opacity-100'
                             : 'text-[#737373] hover:bg-[#f5f5f5] hover:text-[#171717] opacity-0 group-hover:opacity-100'
@@ -1730,8 +1727,7 @@ export default function ChatSession({
                         title="引用回复此消息"
                         disabled={isGlobalRegenerating}
                       >
-                        <Reply className="h-3 w-3" />
-                        引用
+                        <Reply className="h-3.5 w-3.5" />
                       </button>
                       <MessageFeedbackButton
                         messageId={m.id}
@@ -1751,29 +1747,27 @@ export default function ChatSession({
                           role: m.role as 'user' | 'assistant',
                           createdAt: msg.createdAt,
                         })}
-                        className={`inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] transition-colors hover:bg-[#f5f5f5] ${
+                        className={`inline-flex items-center justify-center rounded px-1.5 py-1 text-[10px] transition-colors hover:bg-[#f5f5f5] ${
                           isMessagePinned(conversationId, m.id)
                             ? 'text-[#f59e0b]'
                             : 'text-[#737373] hover:text-[#171717]'
                         }`}
                         title={isMessagePinned(conversationId, m.id) ? '取消钉选' : '钉选此消息'}
                       >
-                        <IconPin className={`h-3 w-3 ${isMessagePinned(conversationId, m.id) ? 'fill-[#f59e0b]' : ''}`} filled={isMessagePinned(conversationId, m.id)} />
-                        {isMessagePinned(conversationId, m.id) ? '已钉选' : '钉选'}
+                        <IconPin className={`h-3.5 w-3.5 ${isMessagePinned(conversationId, m.id) ? 'fill-[#f59e0b]' : ''}`} filled={isMessagePinned(conversationId, m.id)} />
                       </button>
                       {onToggleFavorite && (
                         <button
                           type="button"
                           onClick={() => onToggleFavorite(m.id, !favoriteMessageIds.has(m.id))}
-                          className={`inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] transition-colors hover:bg-[#f5f5f5] ${
+                          className={`inline-flex items-center justify-center rounded px-1.5 py-1 text-[10px] transition-colors hover:bg-[#f5f5f5] ${
                             favoriteMessageIds.has(m.id)
                               ? 'text-[#f59e0b]'
                               : 'text-[#737373] hover:text-[#171717]'
                           }`}
                           title={favoriteMessageIds.has(m.id) ? '取消收藏' : '收藏此回复'}
                         >
-                          <Bookmark className={`h-3 w-3 ${favoriteMessageIds.has(m.id) ? 'fill-[#f59e0b]' : ''}`} />
-                          {favoriteMessageIds.has(m.id) ? '已收藏' : '收藏'}
+                          <Bookmark className={`h-3.5 w-3.5 ${favoriteMessageIds.has(m.id) ? 'fill-[#f59e0b]' : ''}`} />
                         </button>
                       )}
                       {canRegenerate && (
@@ -1781,15 +1775,14 @@ export default function ChatSession({
                           type="button"
                           onClick={() => handleRegenerate(index)}
                           disabled={isGlobalRegenerating}
-                          className={`inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] transition-colors ${
+                          className={`inline-flex items-center justify-center rounded px-1.5 py-1 text-[10px] transition-colors ${
                             isGlobalRegenerating
                               ? 'text-[#a3a3a3] cursor-not-allowed'
                               : 'text-[#737373] hover:bg-[#f5f5f5] hover:text-[#171717]'
                           }`}
                           title={isThisMessageRegenerating ? '正在生成，请稍候...' : '重新生成此回复'}
                         >
-                          <RefreshCw className={`h-3 w-3 ${isThisMessageRegenerating ? 'animate-spin' : ''}`} />
-                          {isThisMessageRegenerating ? '正在生成…' : '重新生成'}
+                          <RefreshCw className={`h-3.5 w-3.5 ${isThisMessageRegenerating ? 'animate-spin' : ''}`} />
                         </button>
                       )}
                     </div>
@@ -1861,7 +1854,7 @@ export default function ChatSession({
                         return null;
                       })()}
                     </div>
-                    <div className="flex items-center gap-1">
+                    <div className="flex items-center gap-0.5">
                       <TranslateButton />
                       {/* 钉选按钮 */}
                       <button
@@ -1872,37 +1865,34 @@ export default function ChatSession({
                           role: m.role as 'user' | 'assistant',
                           createdAt: msg.createdAt,
                         })}
-                        className={`inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] transition-colors hover:bg-[#f5f5f5] ${
+                        className={`inline-flex items-center justify-center rounded px-1.5 py-1 text-[10px] transition-colors hover:bg-[#f5f5f5] ${
                           isMessagePinned(conversationId, m.id)
                             ? 'text-[#f59e0b]'
                             : 'text-[#737373] hover:text-[#171717]'
                         }`}
                         title={isMessagePinned(conversationId, m.id) ? '取消钉选' : '钉选此消息'}
                       >
-                        <IconPin className={`h-3 w-3 ${isMessagePinned(conversationId, m.id) ? 'fill-[#f59e0b]' : ''}`} filled={isMessagePinned(conversationId, m.id)} />
-                        {isMessagePinned(conversationId, m.id) ? '已钉选' : '钉选'}
+                        <IconPin className={`h-3.5 w-3.5 ${isMessagePinned(conversationId, m.id) ? 'fill-[#f59e0b]' : ''}`} filled={isMessagePinned(conversationId, m.id)} />
                       </button>
                       {/* 引用按钮 - 悬停显示 */}
                       {!isLoading && regeneratePhase === 'idle' && (
                         <button
                           type="button"
                           onClick={() => handleReply(m)}
-                          className="inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] text-[#737373] transition-colors hover:bg-[#f5f5f5] hover:text-[#171717] opacity-0 group-hover:opacity-100"
+                          className="inline-flex items-center justify-center rounded px-1.5 py-1 text-[10px] text-[#737373] transition-colors hover:bg-[#f5f5f5] hover:text-[#171717] opacity-0 group-hover:opacity-100"
                           title="引用回复此消息"
                         >
-                          <Reply className="h-3 w-3" />
-                          引用
+                          <Reply className="h-3.5 w-3.5" />
                         </button>
                       )}
                       {!isLoading && regeneratePhase === 'idle' && (
                         <button
                           type="button"
                           onClick={() => handleEditMessage(m.id, m.content)}
-                          className="inline-flex items-center gap-1 rounded px-2 py-1 text-[10px] text-[#737373] transition-colors hover:bg-[#f5f5f5] hover:text-[#171717]"
+                          className="inline-flex items-center justify-center rounded px-1.5 py-1 text-[10px] text-[#737373] transition-colors hover:bg-[#f5f5f5] hover:text-[#171717]"
                           title="编辑此消息"
                         >
-                          <Edit3 className="h-3 w-3" />
-                          编辑
+                          <Edit3 className="h-3.5 w-3.5" />
                         </button>
                       )}
                     </div>
