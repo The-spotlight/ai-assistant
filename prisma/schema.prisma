@@ -217,3 +217,23 @@ model Session {
   @@index([expiresAt])
   @@index([refreshToken])
 }
+
+/// 定时消息
+model ScheduledMessage {
+  id              String       @id @default(cuid())
+  userId          String
+  user            User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  conversationId  String
+  conversation    Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  content         String       @db.Text
+  scheduledAt     DateTime
+  status          String       @default("pending") // pending, sent, cancelled
+  replyToId       String?
+  replyToSnapshot String?      @db.Text
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@index([userId, status, scheduledAt])
+  @@index([conversationId, status])
+  @@index([status, scheduledAt])
+}

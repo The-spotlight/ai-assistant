@@ -1,5 +1,3 @@
-import type { Message } from 'ai';
-
 export interface ScheduledMessage {
   id: string;
   conversationId: string;
@@ -11,81 +9,112 @@ export interface ScheduledMessage {
   replyToSnapshot?: string | null;
 }
 
-const SCHEDULED_MESSAGES_KEY = 'scheduled_messages';
+type ReplyToInfo = {
+  messageId: string;
+  content: string;
+  createdAt: string;
+  role: string;
+};
 
-export function generateId(): string {
-  return `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
-}
-
-export function getAllScheduledMessages(): ScheduledMessage[] {
+export async function fetchScheduledMessages(conversationId?: string): Promise<ScheduledMessage[]> {
   try {
-    if (typeof window === 'undefined') return [];
-    const data = localStorage.getItem(SCHEDULED_MESSAGES_KEY);
-    if (!data) return [];
-    return JSON.parse(data);
+    const url = conversationId 
+      ? `/api/scheduled-messages?conversationId=${encodeURIComponent(conversationId)}`
+      : '/api/scheduled-messages';
+    
+    const response = await fetch(url, {
+      credentials: 'include',
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Failed to fetch scheduled messages: ${response.status}`);
+    }
+    
+    const data = await response.json();
+    return data.scheduledMessages || [];
   } catch (e) {
-    console.error('Failed to get scheduled messages:', e);
+    console.error('Failed to fetch scheduled messages:', e);
     return [];
   }
 }
 
-export function getScheduledMessages(conversationId: string): ScheduledMessage[] {
-  return getAllScheduledMessages().filter(
-    (msg) => msg.conversationId === conversationId && msg.status === 'pending'
-  );
-}
-
-export function saveScheduledMessage(message: Omit<ScheduledMessage, 'id' | 'createdAt' | 'status'>): ScheduledMessage {
-  const allMessages = getAllScheduledMessages();
-  const newMessage: ScheduledMessage = {
-    ...message,
-    id: generateId(),
-    createdAt: new Date().toISOString(),
-    status: 'pending',
-  };
-  allMessages.push(newMessage);
+export async function createScheduledMessage(
+  conversationId: string,
+  content: string,
+  scheduledAt: Date,
+  replyTo?: ReplyToInfo | null
+): Promise<ScheduledMessage | null> {
   try {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(SCHEDULED_MESSAGES_KEY, JSON.stringify(allMessages));
+    const response = await fetch('/api/scheduled-messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify({
+        conversationId,
+        content: content.trim(),
+        scheduledAt: scheduledAt.toISOString(),
+        replyTo,
+      }),
+    });
+    
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ error: '创建定时消息失败' }));
+      throw new Error(error.error || '创建定时消息失败');
     }
+    
+    const data = await response.json();
+    return data.scheduledMessage;
   } catch (e) {
-    console.error('Failed to save scheduled message:', e);
+    console.error('Failed to create scheduled message:', e);
+    return null;
   }
-  return newMessage;
 }
 
-export function updateScheduledMessage(id: string, updates: Partial<ScheduledMessage>): ScheduledMessage | null {
-  const allMessages = getAllScheduledMessages();
-  const index = allMessages.findIndex((msg) => msg.id === id);
-  if (index === -1) return null;
-  const updatedMessage = { ...allMessages[index], ...updates };
-  allMessages[index] = updatedMessage;
+export async function cancelScheduledMessage(id: string): Promise<boolean> {
   try {
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(SCHEDULED_MESSAGES_KEY, JSON.stringify(allMessages));
+    const response = await fetch(`/api/scheduled-messages/${id}`, {
+      method: 'DELETE',
+      credentials: 'include',
+    });
+    
+    return response.ok;
+  } catch (e) {
+    console.error('Failed to cancel scheduled message:', e);
+    return false;
+  }
+}
+
+export async function updateScheduledMessage(
+  id: string,
+  updates: { scheduledAt?: Date }
+): Promise<ScheduledMessage | null> {
+  try {
+    const body: Record<string, string> = {};
+    if (updates.scheduledAt) {
+      body.scheduledAt = updates.scheduledAt.toISOString();
     }
+    
+    const response = await fetch(`/api/scheduled-messages/${id}`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify(body),
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to update scheduled message');
+    }
+    
+    const data = await response.json();
+    return data.scheduledMessage;
   } catch (e) {
     console.error('Failed to update scheduled message:', e);
+    return null;
   }
-  return updatedMessage;
-}
-
-export function cancelScheduledMessage(id: string): boolean {
-  const result = updateScheduledMessage(id, { status: 'cancelled' });
-  return result !== null;
-}
-
-export function markScheduledMessageAsSent(id: string): boolean {
-  const result = updateScheduledMessage(id, { status: 'sent' });
-  return result !== null;
-}
-
-export function getPendingMessages(): ScheduledMessage[] {
-  return getAllScheduledMessages().filter((msg) => msg.status === 'pending');
-}
-
-export function hasScheduledMessages(conversationId: string): boolean {
-  return getScheduledMessages(conversationId).length > 0;
 }
 
 export function formatScheduledTime(date: Date): string {
@@ -121,56 +150,13 @@ export function formatScheduledTime(date: Date): string {
   }
 }
 
-let activeTimers: Map<string, NodeJS.Timeout> = new Map();
-let scheduledCallback: ((message: ScheduledMessage) => void) | null = null;
-
-export function setScheduledCallback(callback: (message: ScheduledMessage) => void) {
-  scheduledCallback = callback;
+export function generateId(): string {
+  return `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
 }
 
-export function scheduleMessageTimer(message: ScheduledMessage) {
-  const now = Date.now();
-  const scheduledTime = new Date(message.scheduledAt).getTime();
-  const delay = scheduledTime - now;
-
-  if (delay <= 0) {
-    console.log('[ScheduledMessage] 定时时间已过，立即发送:', message.id);
-    if (scheduledCallback) {
-      scheduledCallback(message);
-    }
-    return;
-  }
-
-  console.log('[ScheduledMessage] 设置定时器:', message.id, '延迟:', delay, 'ms');
-
-  const existingTimer = activeTimers.get(message.id);
-  if (existingTimer) {
-    clearTimeout(existingTimer);
-  }
-
-  const timer = setTimeout(() => {
-    console.log('[ScheduledMessage] 定时器触发，发送消息:', message.id);
-    if (scheduledCallback) {
-      scheduledCallback(message);
-    }
-    activeTimers.delete(message.id);
-  }, delay);
-
-  activeTimers.set(message.id, timer);
-}
-
-export function cancelMessageTimer(messageId: string) {
-  const timer = activeTimers.get(messageId);
-  if (timer) {
-    clearTimeout(timer);
-    activeTimers.delete(messageId);
-  }
-}
-
-export function loadAndSchedulePendingMessages() {
-  const pending = getPendingMessages();
-  console.log('[ScheduledMessage] 加载待发送消息:', pending.length, '条');
-  pending.forEach((msg) => {
-    scheduleMessageTimer(msg);
-  });
+export async function getScheduledConversationIds(): Promise<Set<string>> {
+  const messages = await fetchScheduledMessages();
+  const conversationIds = new Set<string>();
+  messages.forEach((msg) => conversationIds.add(msg.conversationId));
+  return conversationIds;
 }
