@@ -52,6 +52,7 @@ import {
   formatRatingStars,
 } from '@/lib/conversation-rating';
 import { useMessageFeedback, MessageFeedbackButton } from '@/components/MessageFeedback';
+import { useMessageReaction, MessageReactionBar, MessageReactionDisplay, QUICK_REACTIONS } from '@/components/MessageReaction';
 import MessageStatus, { type MessageStatus as MessageStatusType } from '@/components/MessageStatus';
 import DateSeparator, { isSameDay } from '@/components/DateSeparator';
 import { saveDraft, loadDraft, clearDraft, addToHistory, getHistory } from '@/lib/draft-history';
@@ -322,6 +323,10 @@ export default function ChatSession({
   // 消息反馈相关状态（使用组件化的hook）
   const { feedbackMap, handleLike, handleDislike, handleUndoDislike } = useMessageFeedback(deviceId);
 
+  // 消息表情回应相关状态
+  const { reactionMap, sendReaction, loadMessageReactions } = useMessageReaction(deviceId, conversationId);
+  const [hoveredMessageId, setHoveredMessageId] = useState<string | null>(null);
+
   // 消息状态追踪：仅针对当前会话内的用户消息
   // 状态：'sending' | 'sent' | 'read'
   const [messageStatuses, setMessageStatuses] = useState<Map<string, MessageStatusType>>(new Map());
@@ -530,6 +535,21 @@ export default function ChatSession({
       }
     };
   }, []);
+
+  // 表情回应处理
+  const handleReaction = useCallback(async (messageId: string, emoji: string) => {
+    await sendReaction(messageId, emoji);
+  }, [sendReaction]);
+
+  // 消息悬停处理
+  const handleMessageHover = useCallback(async (messageId: string, isHovered: boolean) => {
+    if (isHovered) {
+      setHoveredMessageId(messageId);
+      await loadMessageReactions(messageId);
+    } else {
+      setHoveredMessageId(null);
+    }
+  }, [loadMessageReactions]);
 
   // 计算总 token 数和费用
   const { totalTokens, totalCost } = useMemo(() => {
@@ -1364,6 +1384,8 @@ export default function ChatSession({
                     messageRefs.current.delete(m.id);
                   }
                 }}
+                onMouseEnter={() => handleMessageHover(m.id, true)}
+                onMouseLeave={() => handleMessageHover(m.id, false)}
                 className={`flex w-full gap-3 transition-all duration-300 group ${
                   m.role === 'user' ? 'flex-row-reverse' : 'flex-row'
                 } ${
@@ -1400,8 +1422,28 @@ export default function ChatSession({
                   }}
                 >
                   {m.role === 'assistant' && favoriteMessageIds.has(m.id) && (
-                    <div className="absolute -top-1 -right-1">
+                    <div className="absolute -top-1 -right-1 z-10">
                       <Bookmark className="h-4 w-4 text-[#f59e0b] fill-[#f59e0b]" />
+                    </div>
+                  )}
+
+                  {/* 表情回应栏 - 悬停时显示 */}
+                  {hoveredMessageId === m.id && (
+                    <div className={`absolute -top-9 ${m.role === 'user' ? 'left-0' : 'right-0'} z-20`}>
+                      <MessageReactionBar
+                        messageId={m.id}
+                        reactions={reactionMap[m.id]?.reactions || []}
+                        myReaction={reactionMap[m.id]?.myReaction}
+                        onReaction={(emoji) => handleReaction(m.id, emoji)}
+                        visible={true}
+                      />
+                    </div>
+                  )}
+
+                  {/* 小表情指示器 - 有回应时显示在右下角 */}
+                  {reactionMap[m.id]?.myReaction && (
+                    <div className="absolute -bottom-2 -right-2 text-sm bg-white dark:bg-[#262626] rounded-full shadow-sm border border-black/[0.08] dark:border-white/10 w-6 h-6 flex items-center justify-center">
+                      {reactionMap[m.id]?.myReaction}
                     </div>
                   )}
                   
@@ -1518,6 +1560,14 @@ export default function ChatSession({
                     </div>
                   )}
                 </div>
+
+                {/* 表情回应显示 - 在气泡下方显示已回应的表情 */}
+                {reactionMap[m.id]?.reactions && reactionMap[m.id]?.reactions.length > 0 && (
+                  <MessageReactionDisplay
+                    reactions={reactionMap[m.id].reactions}
+                    onReaction={(emoji) => handleReaction(m.id, emoji)}
+                  />
+                )}
 
                 {/* 消息操作栏：收藏按钮 + 重新生成按钮 + token 信息 + 编辑按钮 + 引用按钮 */}
                 {m.role === 'assistant' && (
