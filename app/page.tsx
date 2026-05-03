@@ -38,6 +38,7 @@ import { CONVERSATION_STORAGE_KEY, getOrCreateDeviceId } from '@/lib/device';
 import { useSettings } from '@/lib/settings';
 import { getScheduledConversationIds } from '@/lib/scheduled-messages';
 import EncryptionModal from '@/components/EncryptionModal';
+import QuickActionsFAB from '@/components/QuickActionsFAB';
 import {
   isConversationEncrypted,
   isConversationDecrypted,
@@ -485,6 +486,7 @@ interface SidebarContentProps {
   scheduledConversationIds: Set<string>;
   onStartEncryption: (conversationId: string) => void;
   onStartRemoveEncryption: (conversationId: string) => void;
+  searchInputRef?: React.RefObject<HTMLInputElement | null>;
 }
 
 /** useSortable 必须在子组件顶层调用，不能在 SidebarContent 的 map 里调用（会与搜索视图切换时 hooks 数量冲突）。 */
@@ -773,6 +775,7 @@ function SidebarContent({
   scheduledConversationIds,
   onStartEncryption,
   onStartRemoveEncryption,
+  searchInputRef,
 }: SidebarContentProps) {
   const { widthCategory, sidebarWidth } = useLayoutContext();
 
@@ -1226,6 +1229,7 @@ function SidebarContent({
           <IconSearch className={`h-4 w-4 text-[#a3a3a3] ${isNarrow ? 'h-3.5 w-3.5' : ''}`} />
         </div>
         <input
+          ref={searchInputRef as React.RefObject<HTMLInputElement>}
           type="text"
           value={searchQuery}
           onChange={handleSearchChange}
@@ -1481,6 +1485,7 @@ export default function Home() {
   const [isSearching, setIsSearching] = useState<boolean>(false);
   const [showSearchResults, setShowSearchResults] = useState<boolean>(false);
   const [highlightMessageId, setHighlightMessageId] = useState<string | null>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
   
   // 收藏相关状态
   const [favorites, setFavorites] = useState<FavoriteItem[]>([]);
@@ -1847,6 +1852,10 @@ export default function Home() {
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
     }
+  }, []);
+
+  const focusSearch = useCallback(() => {
+    searchInputRef.current?.focus();
   }, []);
 
   // 处理搜索结果点击
@@ -2659,6 +2668,7 @@ export default function Home() {
               scheduledConversationIds={scheduledConversationIds}
               onStartEncryption={handleStartEncryption}
               onStartRemoveEncryption={handleStartRemoveEncryption}
+              searchInputRef={searchInputRef}
             />
           </ResizablePanel>
         </div>
@@ -2889,6 +2899,15 @@ export default function Home() {
           </button>
         </div>
       )}
+
+      {/* 全局快捷入口浮动按钮 */}
+      <QuickActionsFAB
+        onNewChat={newChat}
+        onSearch={focusSearch}
+        onFavorites={handleOpenFavorites}
+        onSettings={() => setShowSettingsPanel(true)}
+        isImmersiveMode={isImmersiveMode}
+      />
     </div>
   );
 }
