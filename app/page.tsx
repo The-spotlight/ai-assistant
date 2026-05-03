@@ -33,6 +33,7 @@ import SettingsPanel from '@/components/SettingsPanel';
 import UserStatsPanel from '@/components/UserStatsPanel';
 import UserDropdown from '@/components/UserDropdown';
 import ResizablePanel, { useLayoutContext, AdaptiveText } from '@/components/ResizablePanel';
+import ConversationGraphPanel from '@/components/ConversationGraphPanel';
 import { DEFAULT_OPENROUTER_MODEL_ID, DEFAULT_OPENROUTER_MODEL_LABEL } from '@/lib/openrouter-models';
 import { CONVERSATION_STORAGE_KEY, getOrCreateDeviceId } from '@/lib/device';
 import { useSettings } from '@/lib/settings';
@@ -338,6 +339,26 @@ function IconFeedback(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
+function IconGitBranch(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      {...props}
+    >
+      <line x1="6" y1="3" x2="6" y2="15" />
+      <circle cx="18" cy="6" r="3" />
+      <circle cx="6" cy="18" r="3" />
+      <path d="M18 9a9 9 0 0 1-9 9" />
+    </svg>
+  );
+}
+
 function IconColumns(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg
@@ -418,6 +439,7 @@ interface SidebarContentProps {
   onOpenTemplates: () => void;
   onOpenFeedback: () => void;
   onOpenExport: () => void;
+  onOpenGraph: () => void;
   onSaveAsTemplate: (conversationId: string) => Promise<void>;
   compareMode: CompareModeState;
   enterCompareMode: () => void;
@@ -633,6 +655,7 @@ function SidebarContent({
   onOpenTemplates,
   onOpenFeedback,
   onOpenExport,
+  onOpenGraph,
   onSaveAsTemplate,
   compareMode,
   enterCompareMode,
@@ -1258,6 +1281,15 @@ function SidebarContent({
         </button>
         <button
           type="button"
+          onClick={onOpenGraph}
+          className={`relative flex items-center justify-center rounded-lg p-2 transition-colors text-[#a3a3a3] hover:bg-[#f5f5f5] hover:text-[#171717] ${isNarrow ? 'p-1.5' : ''}`}
+          title="对话关系图"
+          aria-label="打开对话关系图"
+        >
+          <IconGitBranch className={`h-5 w-5 ${isNarrow ? 'h-4 w-4' : ''}`} />
+        </button>
+        <button
+          type="button"
           onClick={onOpenExport}
           className={`relative flex items-center justify-center rounded-lg p-2 transition-colors text-[#a3a3a3] hover:bg-[#f5f5f5] hover:text-[#171717] ${isNarrow ? 'p-1.5' : ''}`}
           title="批量导出对话"
@@ -1308,6 +1340,7 @@ export default function Home() {
   const [showExportPanel, setShowExportPanel] = useState<boolean>(false);
   const [showSettingsPanel, setShowSettingsPanel] = useState<boolean>(false);
   const [showUserStatsPanel, setShowUserStatsPanel] = useState<boolean>(false);
+  const [showGraphPanel, setShowGraphPanel] = useState<boolean>(false);
 
   // 模板相关状态
   const [templates, setTemplates] = useState<TemplateItem[]>([]);
@@ -1452,6 +1485,16 @@ export default function Home() {
   // 关闭反馈统计面板
   const handleCloseFeedback = useCallback(() => {
     setShowFeedbackPanel(false);
+  }, []);
+
+  // 打开关系图面板
+  const handleOpenGraph = useCallback(() => {
+    setShowGraphPanel(true);
+  }, []);
+
+  // 关闭关系图面板
+  const handleCloseGraph = useCallback(() => {
+    setShowGraphPanel(false);
   }, []);
 
   // 从面板中取消收藏
@@ -2348,6 +2391,7 @@ export default function Home() {
               onOpenTemplates={handleOpenTemplates}
               onOpenFeedback={handleOpenFeedback}
               onOpenExport={handleOpenExport}
+              onOpenGraph={handleOpenGraph}
               onSaveAsTemplate={handleSaveAsTemplate}
               compareMode={compareMode}
               enterCompareMode={enterCompareMode}
@@ -2518,6 +2562,17 @@ export default function Home() {
           visible={showExportPanel}
           onClose={handleCloseExport}
           conversations={convList}
+          deviceId={deviceId}
+        />
+      )}
+
+      {/* 对话关系图面板 */}
+      {deviceId && (
+        <ConversationGraphPanel
+          visible={showGraphPanel}
+          onClose={handleCloseGraph}
+          conversations={convList}
+          onConversationClick={selectConversation}
           deviceId={deviceId}
         />
       )}
