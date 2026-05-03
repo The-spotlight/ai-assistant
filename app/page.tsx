@@ -2311,6 +2311,7 @@ export default function Home() {
             <UserDropdown
               onOpenSettings={() => setShowSettingsPanel(true)}
               onOpenUserStats={() => setShowUserStatsPanel(true)}
+              isImmersiveMode={isImmersiveMode}
             />
           </div>
         </div>
