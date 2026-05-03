@@ -43,6 +43,8 @@ import {
   Bell,
   Lock,
   Unlock,
+  Sparkles,
+  Undo2,
 } from 'lucide-react';
 import { useMessageFeedback, MessageFeedbackButton } from '@/components/MessageFeedback';
 import MessageStatus, { type MessageStatus as MessageStatusType } from '@/components/MessageStatus';
@@ -300,6 +302,11 @@ export default function ChatSession({
   const [selectionPosition, setSelectionPosition] = useState<{ x: number; y: number } | null>(null);
   const showSelectionToolbar = selectedText !== null && selectionPosition !== null;
 
+  // 输入优化相关状态
+  const [isOptimizingInput, setIsOptimizingInput] = useState(false);
+  const [optimizationOriginalInput, setOptimizationOriginalInput] = useState<string | null>(null);
+  const [hasOptimized, setHasOptimized] = useState(false);
+
   // 初始化时记录历史消息 ID，这些消息不显示状态
   useEffect(() => {
     if (!isInitializedRef.current && messages.length > 0) {
@@ -400,6 +407,77 @@ export default function ChatSession({
       document.removeEventListener('mousedown', handleMouseDown);
     };
   }, [selectedText, handleCloseSelectionToolbar]);
+
+  // 优化用户输入
+  const handleOptimizeInput = useCallback(async () => {
+    if (!input.trim() || isOptimizingInput || isLoading) return;
+
+    setIsOptimizingInput(true);
+    setOptimizationOriginalInput(input);
+
+    try {
+      // 准备自定义模型配置
+      let customModelConfig: any = undefined;
+      const currentModelId = model.defaultModel || modelId;
+      if (currentModelId.startsWith('custom_')) {
+        const customModel = getCustomModelById(currentModelId);
+        if (customModel) {
+          customModelConfig = {
+            baseUrl: customModel.baseUrl,
+            apiKey: decryptApiKey(customModel.encryptedApiKey),
+            modelId: customModel.modelId,
+            provider: customModel.provider,
+          };
+        }
+      }
+
+      const response = await fetch('/api/optimize-input', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Device-Id': deviceId,
+        },
+        body: JSON.stringify({
+          conversationId,
+          deviceId,
+          input: input.trim(),
+          customModelConfig,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('API 请求失败');
+      }
+
+      const data = await response.json();
+      
+      if (data.success && data.optimized) {
+        setInput(data.optimized);
+        setHasOptimized(true);
+        // 聚焦输入框
+        inputRef.current?.focus();
+      } else {
+        // 优化失败，恢复原始输入状态
+        setOptimizationOriginalInput(null);
+        console.error('[ChatSession] 输入优化失败:', data.error);
+      }
+    } catch (error) {
+      console.error('[ChatSession] 输入优化出错:', error);
+      setOptimizationOriginalInput(null);
+    } finally {
+      setIsOptimizingInput(false);
+    }
+  }, [input, isOptimizingInput, isLoading, model.defaultModel, modelId, conversationId, deviceId, setInput]);
+
+  // 撤销优化，恢复原始输入
+  const handleUndoOptimize = useCallback(() => {
+    if (optimizationOriginalInput !== null) {
+      setInput(optimizationOriginalInput);
+      setOptimizationOriginalInput(null);
+      setHasOptimized(false);
+      inputRef.current?.focus();
+    }
+  }, [optimizationOriginalInput, setInput]);
 
   // 开始加密流程
   const handleStartEncryption = useCallback(() => {
@@ -906,6 +984,9 @@ export default function ChatSession({
       setScheduledTime(null);
       setReplyingTo(null);
       replyingToRef.current = null;
+      // 清除优化状态
+      setOptimizationOriginalInput(null);
+      setHasOptimized(false);
     }
   }, [scheduledTime, input, conversationId]);
 
@@ -941,9 +1022,11 @@ export default function ChatSession({
       clearDraft(conversationId);
       addToHistory(conversationId, prompt);
       setHistoryIndex(-1);
-      // 提交后清除引用状态
+      // 提交后清除引用状态和优化状态
       setReplyingTo(null);
       replyingToRef.current = null;
+      setOptimizationOriginalInput(null);
+      setHasOptimized(false);
     } else if (customCommand) {
       // 如果是自定义指令，直接发送预设提示词
       append({ role: 'user', content: customCommand.prompt });
@@ -953,6 +1036,8 @@ export default function ChatSession({
       setHistoryIndex(-1);
       setReplyingTo(null);
       replyingToRef.current = null;
+      setOptimizationOriginalInput(null);
+      setHasOptimized(false);
     } else if (systemCommand && argument === null) {
       // 如果有系统指令但没有参数（没有空格，如 /搜索），不提交，等待用户输入参数
       return;
@@ -962,11 +1047,13 @@ export default function ChatSession({
       clearDraft(conversationId);
       addToHistory(conversationId, input);
       setHistoryIndex(-1);
-      // 提交后清除引用状态
+      // 提交后清除引用状态和优化状态
       // 注意：这里需要延迟一点，确保 useChat 已经读取了 body 中的引用信息
       setTimeout(() => {
         setReplyingTo(null);
         replyingToRef.current = null;
+        setOptimizationOriginalInput(null);
+        setHasOptimized(false);
       }, 0);
     }
   }, [input, customCommands, append, setInput, handleSubmit, generateQuickCommandPrompt, conversationId]);
@@ -2031,16 +2118,58 @@ export default function ChatSession({
             style={{ boxShadow: 'rgba(0,0,0,0.06) 0px 0px 0px 1px' }}
             data-onboarding="input-area"
           >
-            <input
-              ref={inputRef}
-              value={input}
-              onChange={handleCustomInputChange}
-              onKeyDown={handleKeyDown}
-              placeholder="有问题，尽管问… 输入 / 查看快捷指令"
-              disabled={isLoading}
-              className="min-h-[44px] flex-1 border-0 bg-transparent px-3 text-[15px] text-[#171717] placeholder:text-[#808080] focus:outline-none focus:ring-0 disabled:opacity-60"
-            />
+            <div className="relative flex-1">
+              <input
+                ref={inputRef}
+                value={input}
+                onChange={handleCustomInputChange}
+                onKeyDown={handleKeyDown}
+                placeholder={isOptimizingInput ? "正在优化..." : "有问题，尽管问… 输入 / 查看快捷指令"}
+                disabled={isLoading || isOptimizingInput}
+                className="min-h-[44px] w-full border-0 bg-transparent px-3 pr-20 text-[15px] text-[#171717] placeholder:text-[#808080] focus:outline-none focus:ring-0 disabled:opacity-60"
+              />
+              {/* 优化状态指示器 */}
+              {isOptimizingInput && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                  <Sparkles className="h-4 w-4 text-[#f59e0b] animate-pulse" />
+                  <span className="text-xs text-[#f59e0b]">优化中...</span>
+                </div>
+              )}
+              {/* 已优化提示 */}
+              {hasOptimized && !isOptimizingInput && optimizationOriginalInput !== null && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                  <span className="text-xs text-[#10b981]">已优化</span>
+                </div>
+              )}
+            </div>
             <div className="flex items-center justify-end gap-1 sm:shrink-0">
+              {/* 撤销优化按钮 */}
+              {hasOptimized && !isOptimizingInput && optimizationOriginalInput !== null && (
+                <button
+                  type="button"
+                  onClick={handleUndoOptimize}
+                  className="flex h-9 items-center justify-center gap-1 rounded-lg px-2 text-xs text-[#6366f1] transition-colors hover:bg-white/40 hover:text-[#4f46e5]"
+                  title="撤销优化，恢复原始内容"
+                >
+                  <Undo2 className="h-4 w-4" />
+                  撤销
+                </button>
+              )}
+              {/* 优化按钮 */}
+              <button
+                type="button"
+                onClick={handleOptimizeInput}
+                disabled={isLoading || isOptimizingInput || !input.trim()}
+                className={`flex h-9 items-center justify-center gap-1 rounded-lg px-2 text-xs transition-colors ${
+                  isOptimizingInput || !input.trim() || isLoading
+                    ? 'text-[#a3a3a3] cursor-not-allowed'
+                    : 'text-[#4d4d4d] hover:bg-white/40 hover:text-[#171717]'
+                }`}
+                title={isOptimizingInput ? "正在优化，请稍候..." : "优化提问，让表述更清晰"}
+              >
+                <Sparkles className={`h-4 w-4 ${isOptimizingInput ? 'animate-spin' : ''}`} />
+                优化
+              </button>
               <button
                 type="button"
                 onClick={() => setShowDateTimePicker(true)}
@@ -2065,7 +2194,7 @@ export default function ChatSession({
               </button>
               <button
                 type="submit"
-                disabled={isLoading || !input.trim()}
+                disabled={isLoading || !input.trim() || isOptimizingInput}
                 className={`min-h-[40px] min-w-[88px] rounded-md px-5 text-sm font-medium text-white transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
                   scheduledTime
                     ? 'bg-[#2563eb] hover:bg-[#1d4ed8]'
