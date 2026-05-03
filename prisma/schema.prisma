@@ -211,6 +211,23 @@ model MessageFeedback {
   @@index([userId, conversationId])
 }
 
+/// 用户反馈（应用内反馈表单）
+model UserFeedback {
+  id            String   @id @default(cuid())
+  userId        String?
+  user          User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  deviceId      String
+  feedbackType  String   // bug, feature, experience, other
+  description   String   @db.Text
+  contactInfo   String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([deviceId, createdAt(sort: Desc)])
+  @@index([feedbackType, createdAt(sort: Desc)])
+}
+
 /// 消息表情回应
 model MessageReaction {
   id            String   @id @default(cuid())
@@ -234,21 +251,22 @@ model MessageReaction {
 
 /// 用户
 model User {
-  id            String          @id @default(cuid())
-  username      String          @unique
-  email         String?         @unique
-  passwordHash  String
-  createdAt     DateTime        @default(now())
-  updatedAt     DateTime        @updatedAt
-  sessions      Session[]
-  conversations Conversation[]
-  messages      Message[]
-  favorites     Favorite[]
-  templates     Template[]
-  shares        Share[]
-  userSettings  UserSetting[]
-  feedbacks     MessageFeedback[]
-  reactions     MessageReaction[]
+  id              String          @id @default(cuid())
+  username        String          @unique
+  email           String?         @unique
+  passwordHash    String
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  sessions        Session[]
+  conversations   Conversation[]
+  messages        Message[]
+  favorites       Favorite[]
+  templates       Template[]
+  shares          Share[]
+  userSettings    UserSetting[]
+  feedbacks       MessageFeedback[]
+  userFeedbacks   UserFeedback[]
+  reactions       MessageReaction[]
 
   @@index([username])
 }

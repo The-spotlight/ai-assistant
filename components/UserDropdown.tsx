@@ -2,11 +2,12 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Dropdown, Menu, Drawer } from 'antd';
-import { User, Settings, BarChart3, Palette, Bot, Sparkles, Square, Circle, Frame, Edit3, LogOut, Package } from 'lucide-react';
+import { User, Settings, BarChart3, Palette, Bot, Sparkles, Square, Circle, Frame, Edit3, LogOut, Package, MessageSquare } from 'lucide-react';
 import AppearanceSettings from './AppearanceSettings';
 import ModelSettings from './ModelSettings';
 import UserProfileEditor from './UserProfileEditor';
 import ChangelogPanel from './ChangelogPanel';
+import FeedbackFormModal from './FeedbackFormModal';
 import { useSettings, AVATAR_SHAPES, AVATAR_BORDERS, UserProfile, loadUserProfile, PRESET_AVATARS } from '@/lib/settings';
 import { logout } from '@/lib/auth';
 import { hasUnreadVersion } from '@/lib/changelog';
@@ -14,6 +15,7 @@ import { hasUnreadVersion } from '@/lib/changelog';
 interface UserDropdownProps {
   onOpenSettings: () => void;
   onOpenUserStats: () => void;
+  isImmersiveMode?: boolean;
 }
 
 type DrawerContent = 'appearance' | null;
@@ -125,11 +127,12 @@ function renderAvatar(avatar: string) {
   return <img src={avatar} alt="头像" className="w-full h-full object-cover" />;
 }
 
-export default function UserDropdown({ onOpenSettings, onOpenUserStats }: UserDropdownProps) {
+export default function UserDropdown({ onOpenSettings, onOpenUserStats, isImmersiveMode = false }: UserDropdownProps) {
   const [drawerContent, setDrawerContent] = useState<DrawerContent>(null);
   const [showEditor, setShowEditor] = useState(false);
   const [showModelModal, setShowModelModal] = useState(false);
   const [showChangelog, setShowChangelog] = useState(false);
+  const [showFeedbackModal, setShowFeedbackModal] = useState(false);
   const [profile, setProfile] = useState<UserProfile>(loadUserProfile());
   const activityStatus = useUserActivity();
   const { appearance, updateAppearance } = useSettings();
@@ -157,6 +160,10 @@ export default function UserDropdown({ onOpenSettings, onOpenUserStats }: UserDr
 
   const handleChangelogClick = () => {
     setShowChangelog(true);
+  };
+
+  const handleFeedbackClick = () => {
+    setShowFeedbackModal(true);
   };
 
   const handleDrawerClose = () => {
@@ -298,6 +305,16 @@ export default function UserDropdown({ onOpenSettings, onOpenUserStats }: UserDr
       onClick: handleChangelogClick,
     },
     {
+      key: 'feedback',
+      label: (
+        <div className="flex items-center gap-2">
+          <MessageSquare className="h-4 w-4 text-[#525252] dark:text-[#d4d4d4]" />
+          <span className="text-sm text-gray-700 dark:text-gray-200">反馈与建议</span>
+        </div>
+      ),
+      onClick: handleFeedbackClick,
+    },
+    {
       type: 'divider' as const,
     },
     {
@@ -326,6 +343,10 @@ export default function UserDropdown({ onOpenSettings, onOpenUserStats }: UserDr
       },
     },
   ];
+
+  if (isImmersiveMode) {
+    return null;
+  }
 
   return (
     <>
@@ -385,6 +406,11 @@ export default function UserDropdown({ onOpenSettings, onOpenUserStats }: UserDr
       <ChangelogPanel
         open={showChangelog}
         onClose={() => setShowChangelog(false)}
+      />
+
+      <FeedbackFormModal
+        open={showFeedbackModal}
+        onClose={() => setShowFeedbackModal(false)}
       />
     </>
   );
