@@ -2,12 +2,13 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Dropdown, Menu, Drawer } from 'antd';
-import { User, Settings, BarChart3, Palette, Bot, Sparkles, Square, Circle, Frame, Edit3, LogOut, Package, MessageSquare } from 'lucide-react';
+import { User, Settings, BarChart3, Palette, Bot, Sparkles, Square, Circle, Frame, Edit3, LogOut, Package, MessageSquare, Activity } from 'lucide-react';
 import AppearanceSettings from './AppearanceSettings';
 import ModelSettings from './ModelSettings';
 import UserProfileEditor from './UserProfileEditor';
 import ChangelogPanel from './ChangelogPanel';
 import FeedbackFormModal from './FeedbackFormModal';
+import SystemHealthPanel from './SystemHealthPanel';
 import { useSettings, AVATAR_SHAPES, AVATAR_BORDERS, UserProfile, loadUserProfile, PRESET_AVATARS } from '@/lib/settings';
 import { logout } from '@/lib/auth';
 import { hasUnreadVersion } from '@/lib/changelog';
@@ -133,6 +134,7 @@ export default function UserDropdown({ onOpenSettings, onOpenUserStats, isImmers
   const [showModelModal, setShowModelModal] = useState(false);
   const [showChangelog, setShowChangelog] = useState(false);
   const [showFeedbackModal, setShowFeedbackModal] = useState(false);
+  const [showSystemHealth, setShowSystemHealth] = useState(false);
   const [profile, setProfile] = useState<UserProfile>(loadUserProfile());
   const activityStatus = useUserActivity();
   const { appearance, updateAppearance } = useSettings();
@@ -164,6 +166,10 @@ export default function UserDropdown({ onOpenSettings, onOpenUserStats, isImmers
 
   const handleFeedbackClick = () => {
     setShowFeedbackModal(true);
+  };
+
+  const handleSystemHealthClick = () => {
+    setShowSystemHealth(true);
   };
 
   const handleDrawerClose = () => {
@@ -284,6 +290,16 @@ export default function UserDropdown({ onOpenSettings, onOpenUserStats, isImmers
         </div>
       ),
       onClick: onOpenUserStats,
+    },
+    {
+      key: 'system-health',
+      label: (
+        <div className="flex items-center gap-2">
+          <Activity className="h-4 w-4 text-[#525252] dark:text-[#d4d4d4]" />
+          <span className="text-sm text-gray-700 dark:text-gray-200">系统状态</span>
+        </div>
+      ),
+      onClick: handleSystemHealthClick,
     },
     {
       type: 'divider' as const,
@@ -411,6 +427,11 @@ export default function UserDropdown({ onOpenSettings, onOpenUserStats, isImmers
       <FeedbackFormModal
         open={showFeedbackModal}
         onClose={() => setShowFeedbackModal(false)}
+      />
+
+      <SystemHealthPanel
+        open={showSystemHealth}
+        onClose={() => setShowSystemHealth(false)}
       />
     </>
   );
