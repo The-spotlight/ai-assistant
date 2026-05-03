@@ -45,6 +45,7 @@ import {
   Mic,
   Star,
   Smile,
+  BarChart3,
 } from 'lucide-react';
 import {
   getConversationRating,
@@ -67,6 +68,15 @@ import { TranslateButton, TranslationResult } from '@/components/MessageTranslat
 import MessageTranslateProvider from '@/components/MessageTranslateProvider';
 import FollowUpSuggestions from '@/components/FollowUpSuggestions';
 import EmojiPicker from '@/components/EmojiPicker';
+import SentimentSummaryCard, { SentimentIndicator } from '@/components/SentimentSummaryCard';
+import {
+  getConversationSentiment,
+  saveConversationSentiment,
+  clearConversationSentiment,
+  getMessageSentiment,
+  type ConversationSentiment,
+  type MessageSentiment,
+} from '@/lib/sentiment-analysis';
 
 function IconPin(props: React.SVGProps<SVGSVGElement> & { filled?: boolean }) {
   const { filled, ...rest } = props;
@@ -308,6 +318,19 @@ export default function ChatSession({
     togglePinMessage(conversationId, message);
     setPinnedMessagesRefreshKey(prev => prev + 1);
   }, [conversationId]);
+
+  // 情感分析相关状态
+  const [isAnalyzingSentiment, setIsAnalyzingSentiment] = useState(false);
+  const [sentimentRefreshKey, setSentimentRefreshKey] = useState(0);
+  const [showSentimentSummary, setShowSentimentSummary] = useState(false);
+  const currentSentimentAnalysis = useMemo(() => {
+    if (typeof window === 'undefined') return null;
+    const analysis = getConversationSentiment(conversationId);
+    if (analysis && analysis.messageSentiments.length > 0) {
+      return analysis;
+    }
+    return null;
+  }, [conversationId, sentimentRefreshKey]);
 
   // 自定义指令列表 - 使用初始化函数同步加载
   const [customCommands, setCustomCommands] = useState<CustomCommand[]>(() => {
@@ -664,6 +687,104 @@ export default function ChatSession({
       alert('导出失败，请稍后重试');
     }
   }, [conversationId, deviceId]);
+
+  // 情感分析处理
+  const handleSentimentAnalysis = useCallback(async (forceReAnalyze: boolean = false) => {
+    // 收集所有用户消息
+    const userMessages = messages.filter(m => m.role === 'user');
+    
+    if (userMessages.length === 0) {
+      alert('当前对话没有用户消息，无法进行情感分析');
+      setShowMenu(false);
+      return;
+    }
+
+    // 如果不是强制重新分析，检查是否已有缓存
+    if (!forceReAnalyze && currentSentimentAnalysis) {
+      setShowSentimentSummary(true);
+      setShowMenu(false);
+      return;
+    }
+
+    setIsAnalyzingSentiment(true);
+    setShowMenu(false);
+
+    try {
+      // 获取自定义模型配置（如果使用的是自定义模型）
+      let customModelConfig: {
+        baseUrl: string;
+        apiKey: string;
+        modelId: string;
+        provider?: string;
+      } | undefined = undefined;
+
+      const currentModelId = model.defaultModel || modelId;
+      if (currentModelId.startsWith('custom_')) {
+        const customModel = getCustomModelById(currentModelId);
+        if (customModel) {
+          customModelConfig = {
+            baseUrl: customModel.baseUrl,
+            apiKey: decryptApiKey(customModel.encryptedApiKey),
+            modelId: customModel.modelId,
+            provider: customModel.provider,
+          };
+        }
+      }
+
+      // 调用情感分析 API
+      const response = await fetch('/api/sentiment-analysis', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Device-Id': deviceId,
+        },
+        body: JSON.stringify({
+          conversationId,
+          deviceId,
+          messages: userMessages.map(m => ({
+            id: m.id,
+            content: m.content,
+          })),
+          customModelConfig,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || '情感分析失败');
+      }
+
+      const data = await response.json();
+      
+      if (!data.success || !data.results) {
+        throw new Error(data.error || '情感分析失败');
+      }
+
+      // 保存分析结果到本地存储
+      const savedAnalysis = saveConversationSentiment(
+        conversationId,
+        data.results
+      );
+
+      setSentimentRefreshKey(prev => prev + 1);
+      setShowSentimentSummary(true);
+      setIsAnalyzingSentiment(false);
+    } catch (error) {
+      console.error('情感分析失败:', error);
+      alert(error instanceof Error ? error.message : '情感分析失败，请稍后重试');
+      setIsAnalyzingSentiment(false);
+    }
+  }, [conversationId, deviceId, messages, model, modelId, currentSentimentAnalysis]);
+
+  // 关闭情感摘要卡片
+  const handleCloseSentimentSummary = useCallback(() => {
+    setShowSentimentSummary(false);
+  }, []);
+
+  // 重新分析情感
+  const handleReAnalyzeSentiment = useCallback(() => {
+    handleSentimentAnalysis(true);
+  }, [handleSentimentAnalysis]);
 
   // 复制分享链接
   const [copySuccess, setCopySuccess] = useState<string | null>(null);
@@ -1270,6 +1391,16 @@ export default function ChatSession({
                     </button>
                     <button
                       type="button"
+                      onClick={() => handleSentimentAnalysis(false)}
+                      disabled={messages.filter(m => m.role === 'user').length === 0 || isAnalyzingSentiment}
+                      className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-[#171717] dark:text-white transition-colors hover:bg-[#fafafa] dark:hover:bg-[#3d3d3d] disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <BarChart3 className={`h-4 w-4 ${currentSentimentAnalysis ? 'text-[#3b82f6]' : 'text-[#737373] dark:text-[#a3a3a3]'}`} />
+                      <span>{currentSentimentAnalysis ? '查看情感分析' : '情感分析'}</span>
+                    </button>
+                    <div className="h-px bg-black/[0.06] dark:bg-white/10" />
+                    <button
+                      type="button"
                       onClick={handleExport}
                       className="flex w-full items-center gap-2 px-3 py-2.5 text-left text-sm text-[#171717] dark:text-white transition-colors hover:bg-[#fafafa] dark:hover:bg-[#3d3d3d]"
                     >
@@ -1377,6 +1508,32 @@ export default function ChatSession({
           </div>
         )}
 
+        {/* 情感分析加载状态 */}
+        {isAnalyzingSentiment && (
+          <div className="sticky top-0 z-10 mb-4 rounded-xl border border-[#fef3c7] bg-[#fffbeb] p-4 dark:border-[#92400e]/30 dark:bg-[#451a03]/30">
+            <div className="flex items-center gap-3">
+              <RefreshCw className="h-5 w-5 animate-spin text-[#f59e0b]" />
+              <div>
+                <p className="text-sm font-medium text-[#92400e] dark:text-[#fcd34d]">
+                  正在分析对话情感...
+                </p>
+                <p className="text-xs text-[#b45309] dark:text-[#fbbf24]">
+                  AI 正在分析每条消息的情感倾向
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 情感分析摘要卡片 */}
+        {!isAnalyzingSentiment && currentSentimentAnalysis && showSentimentSummary && (
+          <SentimentSummaryCard
+            sentimentData={currentSentimentAnalysis}
+            onClose={handleCloseSentimentSummary}
+            onReAnalyze={handleReAnalyzeSentiment}
+          />
+        )}
+
         {messages.map((m, index) => {
           const isHighlighted = highlightMessageId === m.id || highlightedMessageId === m.id;
           const msg = m as MessageWithTokens;
@@ -1402,6 +1559,12 @@ export default function ChatSession({
             msg.promptTokens != null && msg.completionTokens != null
               ? calculateMessageCost(msg.promptTokens, msg.completionTokens, modelId)
               : null;
+
+          // 获取当前消息的情感分析结果
+          const messageSentiment = (() => {
+            if (!currentSentimentAnalysis || m.role !== 'user') return null;
+            return currentSentimentAnalysis.messageSentiments.find(s => s.messageId === m.id) || null;
+          })();
 
           // 解析引用快照
           const hasReply = msg.replyToId || msg.replyToSnapshot;
@@ -1496,6 +1659,11 @@ export default function ChatSession({
                     <div className="absolute -top-1 -right-1 z-10">
                       <Bookmark className="h-4 w-4 text-[#f59e0b] fill-[#f59e0b]" />
                     </div>
+                  )}
+
+                  {/* 情感颜色指示器 - 仅用户消息且有分析结果时显示 */}
+                  {messageSentiment && (
+                    <SentimentIndicator sentiment={messageSentiment.sentiment} />
                   )}
 
                   {/* 表情回应栏 - 悬停时显示（仅 AI 消息） */}
