@@ -3,11 +3,41 @@
 import { useState, useEffect, useCallback, createContext, useContext, type ReactNode } from 'react';
 
 export const NOTE_COLORS = {
-  yellow: { bg: '#FFF9C4', border: '#FDD835', text: '#5D4037', light: '#FFFDE7' },
-  blue: { bg: '#BBDEFB', border: '#42A5F5', text: '#1565C0', light: '#E3F2FD' },
-  green: { bg: '#C8E6C9', border: '#66BB6A', text: '#2E7D32', light: '#E8F5E9' },
-  pink: { bg: '#F8BBD9', border: '#EC407A', text: '#AD1457', light: '#FCE4EC' },
-  purple: { bg: '#E1BEE7', border: '#AB47BC', text: '#6A1B9A', light: '#F3E5F5' },
+  yellow: { 
+    bg: '#FFFDF7', 
+    border: '#F5E6D3', 
+    text: '#8B6914', 
+    light: '#FFFBF0',
+    accent: '#E8C07D'
+  },
+  blue: { 
+    bg: '#F8FAFF', 
+    border: '#E2E8F0', 
+    text: '#4A5568', 
+    light: '#F5F8FF',
+    accent: '#A0AEC0'
+  },
+  green: { 
+    bg: '#F8FFF9', 
+    border: '#E2F0E5', 
+    text: '#4A6741', 
+    light: '#F5FFF7',
+    accent: '#90B77D'
+  },
+  pink: { 
+    bg: '#FFFBFD', 
+    border: '#F5E6EF', 
+    text: '#8B5A7A', 
+    light: '#FFF7FC',
+    accent: '#D4A5C0'
+  },
+  purple: { 
+    bg: '#FBFAFF', 
+    border: '#EDE9F5', 
+    text: '#6B5A8B', 
+    light: '#F9F7FF',
+    accent: '#B4A5D4'
+  },
 } as const;
 
 export type NoteColorKey = keyof typeof NOTE_COLORS;
@@ -29,15 +59,15 @@ export interface QuickNote {
 const STORAGE_KEY = 'ai-assistant-quick-notes';
 const MAX_NOTES = 5;
 
-const DEFAULT_NOTE_SIZE = { width: 320, height: 240 };
+const DEFAULT_NOTE_SIZE = { width: 300, height: 220 };
 
 function getDefaultPosition(index: number) {
   if (typeof window === 'undefined') {
-    return { x: 400 + index * 30, y: 100 + index * 30 };
+    return { x: 400 + index * 20, y: 80 + index * 20 };
   }
   return {
-    x: Math.max(0, window.innerWidth - 400) + index * 30,
-    y: 100 + index * 30,
+    x: Math.max(20, window.innerWidth - 380) + index * 20,
+    y: 80 + index * 20,
   };
 }
 

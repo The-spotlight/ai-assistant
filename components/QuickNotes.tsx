@@ -8,7 +8,7 @@ import {
   type NoteColorKey,
   type QuickNote,
 } from '@/lib/quick-notes';
-import { StickyNote, Minus, X, Maximize2, Trash2, Plus } from 'lucide-react';
+import { StickyNote, Minus, X, Trash2, ChevronLeft, ChevronRight } from 'lucide-react';
 
 function NoteEditor({
   note,
@@ -149,11 +149,11 @@ function NoteEditor({
       onKeyDown={handleKeyDown}
       onInput={handleInput}
       placeholder={placeholderText}
-      className="w-full h-full resize-none bg-transparent border-none outline-none p-3 text-sm leading-relaxed"
+      className="w-full h-full resize-none bg-transparent border-none outline-none px-4 py-3 text-sm leading-relaxed"
       style={{
         color: colors.text,
         fontFamily: 'system-ui, -apple-system, sans-serif',
-        lineHeight: '1.6',
+        lineHeight: '1.7',
       }}
     />
   );
@@ -176,13 +176,12 @@ function NoteDots({
             key={colorKey}
             type="button"
             onClick={() => onSelect(index)}
-            className={`w-3 h-3 rounded-full transition-all duration-200 ${
-              isActive ? 'scale-125 ring-2 ring-opacity-50' : 'hover:scale-110'
+            className={`w-2.5 h-2.5 rounded-full transition-all duration-200 ${
+              isActive ? '' : 'hover:opacity-70'
             }`}
             style={{
-              backgroundColor: colors.bg,
-              border: `2px solid ${colors.border}`,
-              boxShadow: isActive ? `0 0 0 2px ${colors.border}` : 'none',
+              backgroundColor: isActive ? colors.accent : colors.border,
+              transform: isActive ? 'scale(1.3)' : 'scale(1)',
             }}
             aria-label={`切换到便签 ${index + 1}`}
             title={`便签 ${index + 1}`}
@@ -196,15 +195,13 @@ function NoteDots({
 function NoteFloatingWindow({
   note,
   index,
-  isActive,
   onClose,
 }: {
   note: QuickNote;
   index: number;
-  isActive: boolean;
   onClose: () => void;
 }) {
-  const { updateNote, setActiveNoteIndex, activeNoteIndex, clearNote, notes, setIsPanelOpen } = useQuickNotes();
+  const { updateNote, setActiveNoteIndex, activeNoteIndex, clearNote, notes } = useQuickNotes();
   const containerRef = useRef<HTMLDivElement>(null);
   const headerRef = useRef<HTMLDivElement>(null);
   
@@ -215,6 +212,16 @@ function NoteFloatingWindow({
 
   const colors = NOTE_COLORS[note.color];
 
+  const handlePrevNote = useCallback(() => {
+    const newIndex = (activeNoteIndex - 1 + NOTE_COLOR_KEYS.length) % NOTE_COLOR_KEYS.length;
+    setActiveNoteIndex(newIndex);
+  }, [activeNoteIndex, setActiveNoteIndex]);
+
+  const handleNextNote = useCallback(() => {
+    const newIndex = (activeNoteIndex + 1) % NOTE_COLOR_KEYS.length;
+    setActiveNoteIndex(newIndex);
+  }, [activeNoteIndex, setActiveNoteIndex]);
+
   const handleHeaderMouseDown = useCallback(
     (e: React.MouseEvent) => {
       if ((e.target as HTMLElement).closest('button')) return;
@@ -224,9 +231,8 @@ function NoteFloatingWindow({
         x: e.clientX - note.position.x,
         y: e.clientY - note.position.y,
       });
-      setActiveNoteIndex(index);
     },
-    [note.position, index, setActiveNoteIndex]
+    [note.position]
   );
 
   const handleResizeMouseDown = useCallback(
@@ -251,8 +257,8 @@ function NoteFloatingWindow({
       const newX = e.clientX - dragOffset.x;
       const newY = e.clientY - dragOffset.y;
       
-      const clampedX = Math.max(0, Math.min(window.innerWidth - 100, newX));
-      const clampedY = Math.max(0, Math.min(window.innerHeight - 100, newY));
+      const clampedX = Math.max(20, Math.min(window.innerWidth - 120, newX));
+      const clampedY = Math.max(20, Math.min(window.innerHeight - 120, newY));
       
       updateNote(index, {
         position: { x: clampedX, y: clampedY },
@@ -279,8 +285,8 @@ function NoteFloatingWindow({
       const deltaX = e.clientX - resizeStart.x;
       const deltaY = e.clientY - resizeStart.y;
       
-      const newWidth = Math.max(250, Math.min(600, resizeStart.width + deltaX));
-      const newHeight = Math.max(150, Math.min(500, resizeStart.height + deltaY));
+      const newWidth = Math.max(280, Math.min(500, resizeStart.width + deltaX));
+      const newHeight = Math.max(160, Math.min(450, resizeStart.height + deltaY));
       
       updateNote(index, {
         size: { width: newWidth, height: newHeight },
@@ -317,38 +323,50 @@ function NoteFloatingWindow({
   return (
     <div
       ref={containerRef}
-      className="fixed z-50 flex flex-col rounded-lg shadow-xl transition-shadow duration-200"
+      className="fixed z-50 flex flex-col rounded-xl shadow-lg transition-all duration-200"
       style={{
         left: note.position.x,
         top: note.position.y,
         width: note.size.width,
         height: note.size.height,
         backgroundColor: colors.bg,
-        border: `2px solid ${colors.border}`,
-        boxShadow: isActive
-          ? `0 8px 25px -5px rgba(0, 0, 0, 0.2), 0 4px 10px -2px rgba(0, 0, 0, 0.1)`
-          : `0 4px 15px -3px rgba(0, 0, 0, 0.1), 0 2px 6px -2px rgba(0, 0, 0, 0.05)`,
-        zIndex: isActive ? 60 : 50,
+        border: `1px solid ${colors.border}`,
+        boxShadow: '0 4px 20px -2px rgba(0, 0, 0, 0.08), 0 2px 8px -1px rgba(0, 0, 0, 0.04)',
       }}
-      onMouseDown={() => setActiveNoteIndex(index)}
     >
       <div
         ref={headerRef}
-        className="flex items-center justify-between px-2 py-1.5 cursor-move select-none rounded-t-md"
+        className="flex items-center justify-between px-3 py-2.5 cursor-move select-none rounded-t-xl border-b"
         style={{
           backgroundColor: colors.light,
-          borderBottom: `1px solid ${colors.border}`,
+          borderBottomColor: colors.border,
         }}
         onMouseDown={handleHeaderMouseDown}
       >
         <div className="flex items-center gap-2">
-          <StickyNote className="w-4 h-4" style={{ color: colors.text }} />
+          <button
+            type="button"
+            onClick={handlePrevNote}
+            className="p-1 rounded hover:bg-black/5 transition-colors"
+            aria-label="上一张便签"
+          >
+            <ChevronLeft className="w-3.5 h-3.5" style={{ color: colors.text, opacity: 0.6 }} />
+          </button>
+          <StickyNote className="w-4 h-4" style={{ color: colors.accent }} />
           <span
             className="text-xs font-medium"
             style={{ color: colors.text }}
           >
             便签 {index + 1}
           </span>
+          <button
+            type="button"
+            onClick={handleNextNote}
+            className="p-1 rounded hover:bg-black/5 transition-colors"
+            aria-label="下一张便签"
+          >
+            <ChevronRight className="w-3.5 h-3.5" style={{ color: colors.text, opacity: 0.6 }} />
+          </button>
         </div>
         
         <NoteDots
@@ -356,33 +374,33 @@ function NoteFloatingWindow({
           onSelect={setActiveNoteIndex}
         />
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-0.5">
           <button
             type="button"
             onClick={handleClear}
-            className="p-1 rounded hover:bg-black/5 transition-colors"
+            className="p-1.5 rounded-lg hover:bg-black/5 transition-colors"
             title="清空内容"
             aria-label="清空便签内容"
           >
-            <Trash2 className="w-3.5 h-3.5" style={{ color: colors.text, opacity: 0.6 }} />
+            <Trash2 className="w-3.5 h-3.5" style={{ color: colors.text, opacity: 0.5 }} />
           </button>
           <button
             type="button"
             onClick={handleMinimize}
-            className="p-1 rounded hover:bg-black/5 transition-colors"
+            className="p-1.5 rounded-lg hover:bg-black/5 transition-colors"
             title="最小化"
             aria-label="最小化便签"
           >
-            <Minus className="w-3.5 h-3.5" style={{ color: colors.text }} />
+            <Minus className="w-3.5 h-3.5" style={{ color: colors.text, opacity: 0.6 }} />
           </button>
           <button
             type="button"
             onClick={onClose}
-            className="p-1 rounded hover:bg-black/5 transition-colors"
-            title="关闭（所有便签）"
-            aria-label="关闭所有便签"
+            className="p-1.5 rounded-lg hover:bg-black/5 transition-colors"
+            title="关闭便签"
+            aria-label="关闭便签"
           >
-            <X className="w-3.5 h-3.5" style={{ color: colors.text }} />
+            <X className="w-3.5 h-3.5" style={{ color: colors.text, opacity: 0.6 }} />
           </button>
         </div>
       </div>
@@ -395,7 +413,8 @@ function NoteFloatingWindow({
         className="absolute bottom-0 right-0 w-5 h-5 cursor-se-resize"
         style={{
           background: `linear-gradient(135deg, transparent 50%, ${colors.border} 50%)`,
-          borderRadius: '0 0 6px 0',
+          borderRadius: '0 0 12px 0',
+          opacity: 0.5,
         }}
         onMouseDown={handleResizeMouseDown}
         title="调整大小"
@@ -411,7 +430,7 @@ function MinimizedNote({
   note: QuickNote;
   index: number;
 }) {
-  const { updateNote, notes, setIsPanelOpen } = useQuickNotes();
+  const { updateNote, setIsPanelOpen, setActiveNoteIndex } = useQuickNotes();
   const containerRef = useRef<HTMLDivElement>(null);
   
   const [isDragging, setIsDragging] = useState(false);
@@ -439,8 +458,8 @@ function MinimizedNote({
       const newX = e.clientX - dragOffset.x;
       const newY = e.clientY - dragOffset.y;
       
-      const clampedX = Math.max(0, Math.min(window.innerWidth - 60, newX));
-      const clampedY = Math.max(0, Math.min(window.innerHeight - 60, newY));
+      const clampedX = Math.max(10, Math.min(window.innerWidth - 50, newX));
+      const clampedY = Math.max(10, Math.min(window.innerHeight - 50, newY));
       
       updateNote(index, {
         minimizedPosition: { x: clampedX, y: clampedY },
@@ -462,13 +481,9 @@ function MinimizedNote({
 
   const handleRestore = useCallback(() => {
     updateNote(index, { isMinimized: false });
-  }, [index, updateNote]);
-
-  const handleClose = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    updateNote(index, { isMinimized: false });
-    setIsPanelOpen(false);
-  }, [index, updateNote, setIsPanelOpen]);
+    setActiveNoteIndex(index);
+    setIsPanelOpen(true);
+  }, [index, updateNote, setActiveNoteIndex, setIsPanelOpen]);
 
   const position = note.minimizedPosition || note.position;
   const hasContent = note.content.trim().length > 0;
@@ -476,29 +491,29 @@ function MinimizedNote({
   return (
     <div
       ref={containerRef}
-      className="fixed z-50 flex flex-col items-center justify-center cursor-move select-none rounded-lg shadow-lg transition-all duration-200 hover:scale-110"
+      className="fixed z-50 flex flex-col items-center justify-center cursor-move select-none rounded-xl shadow-md transition-all duration-200 hover:scale-105 hover:shadow-lg"
       style={{
         left: position.x,
         top: position.y,
-        width: 48,
-        height: 48,
+        width: 44,
+        height: 44,
         backgroundColor: colors.bg,
-        border: `2px solid ${colors.border}`,
+        border: `1px solid ${colors.border}`,
       }}
       onMouseDown={handleMouseDown}
     >
       <button
         type="button"
         onClick={handleRestore}
-        className="relative w-full h-full flex items-center justify-center"
+        className="relative w-full h-full flex items-center justify-center rounded-xl"
         aria-label="恢复便签"
       >
-        <StickyNote className="w-6 h-6" style={{ color: colors.text }} />
+        <StickyNote className="w-5 h-5" style={{ color: colors.accent }} />
         {hasContent && (
           <span
-            className="absolute -top-1 -right-1 flex items-center justify-center w-4 h-4 rounded-full text-[10px] font-bold"
+            className="absolute -top-1 -right-1 flex items-center justify-center w-4 h-4 rounded-full text-[9px] font-medium"
             style={{
-              backgroundColor: colors.border,
+              backgroundColor: colors.accent,
               color: 'white',
             }}
           >
@@ -511,8 +526,10 @@ function MinimizedNote({
 }
 
 function NoteButton() {
-  const { isPanelOpen, setIsPanelOpen, notes, updateNote } = useQuickNotes();
+  const { isPanelOpen, setIsPanelOpen, notes, activeNoteIndex } = useQuickNotes();
   
+  const activeNote = notes[activeNoteIndex];
+  const colors = NOTE_COLORS[activeNote?.color || 'yellow'];
   const hasAnyContent = notes.some((n) => n.content.trim().length > 0);
 
   const handleClick = useCallback(() => {
@@ -524,25 +541,27 @@ function NoteButton() {
       });
     }
     setIsPanelOpen(!isPanelOpen);
-  }, [isPanelOpen, setIsPanelOpen, notes, updateNote]);
+  }, [isPanelOpen, setIsPanelOpen, notes]);
+
+  const { updateNote } = useQuickNotes();
 
   return (
     <button
       type="button"
       onClick={handleClick}
-      className="fixed bottom-6 right-6 z-50 flex items-center justify-center w-14 h-14 rounded-full shadow-lg transition-all duration-200 hover:scale-110 hover:shadow-xl"
+      className="fixed bottom-5 right-5 z-50 flex items-center justify-center w-12 h-12 rounded-full shadow-md transition-all duration-200 hover:scale-110 hover:shadow-lg"
       style={{
-        backgroundColor: '#FFF9C4',
-        border: '3px solid #FDD835',
+        backgroundColor: colors.bg,
+        border: `2px solid ${colors.border}`,
       }}
       aria-label={isPanelOpen ? '关闭便签' : '打开便签'}
       title={isPanelOpen ? '关闭便签' : '打开便签'}
     >
-      <StickyNote className="w-7 h-7" style={{ color: '#5D4037' }} />
+      <StickyNote className="w-6 h-6" style={{ color: colors.accent }} />
       {hasAnyContent && (
         <span
-          className="absolute -top-1 -right-1 flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold text-white"
-          style={{ backgroundColor: '#EF5350' }}
+          className="absolute -top-1 -right-1 flex items-center justify-center w-4.5 h-4.5 rounded-full text-[10px] font-medium text-white"
+          style={{ backgroundColor: colors.accent, width: '18px', height: '18px' }}
         >
           {notes.filter((n) => n.content.trim().length > 0).length}
         </span>
@@ -553,41 +572,40 @@ function NoteButton() {
 
 export default function QuickNotes() {
   const { notes, activeNoteIndex, isPanelOpen, setIsPanelOpen } = useQuickNotes();
+  const activeNote = notes[activeNoteIndex];
 
-  if (!isPanelOpen) {
-    const minimizedNotes = notes.filter((n) => n.isMinimized);
-    if (minimizedNotes.length === 0) {
-      return <NoteButton />;
-    }
+  const minimizedNotes = notes.filter((n) => n.isMinimized);
+  const hasMinimizedNotes = minimizedNotes.length > 0;
+
+  if (!isPanelOpen && !hasMinimizedNotes) {
+    return <NoteButton />;
   }
 
   return (
     <>
-      {!isPanelOpen && (
+      {!isPanelOpen && hasMinimizedNotes && (
         <NoteButton />
       )}
       
-      {isPanelOpen &&
-        notes.map((note, index) => {
-          if (note.isMinimized) {
-            return (
-              <MinimizedNote
-                key={`minimized-${note.id}`}
-                note={note}
-                index={index}
-              />
-            );
-          }
-          return (
-            <NoteFloatingWindow
-              key={note.id}
-              note={note}
-              index={index}
-              isActive={index === activeNoteIndex}
-              onClose={() => setIsPanelOpen(false)}
-            />
-          );
-        })}
+      {minimizedNotes.map((note) => {
+        const noteIndex = notes.findIndex(n => n.id === note.id);
+        return (
+          <MinimizedNote
+            key={`minimized-${note.id}`}
+            note={note}
+            index={noteIndex}
+          />
+        );
+      })}
+      
+      {isPanelOpen && activeNote && (
+        <NoteFloatingWindow
+          key={activeNote.id}
+          note={activeNote}
+          index={activeNoteIndex}
+          onClose={() => setIsPanelOpen(false)}
+        />
+      )}
     </>
   );
 }
