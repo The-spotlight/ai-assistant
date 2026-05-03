@@ -2,12 +2,11 @@
 
 import { Modal } from 'antd';
 import { useState, useEffect, useCallback } from 'react';
-import { X, Check, Sparkles, Package, Eye, Clock } from 'lucide-react';
+import { X, Check, Sparkles, Package, Eye, Clock, ChevronRight } from 'lucide-react';
 import {
   CURRENT_VERSION,
   CHANGELOG_DATA,
   UPDATE_TYPE_LABELS,
-  UPDATE_TYPE_COLORS,
   isVersionNew,
   saveReadVersion,
   getLatestVersion,
@@ -28,11 +27,20 @@ function formatDate(dateString: string): string {
   return `${year}年${month}月${day}日`;
 }
 
+const UPDATE_TYPE_DOT_COLORS: Record<UpdateType, string> = {
+  feature: 'bg-[#16a34a]',
+  fix: 'bg-[#dc2626]',
+  improvement: 'bg-[#2563eb]',
+};
+
 function UpdateTypeTag({ type }: { type: UpdateType }) {
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${UPDATE_TYPE_COLORS[type]}`}>
-      {UPDATE_TYPE_LABELS[type]}
-    </span>
+    <div className="flex items-center gap-1.5 shrink-0">
+      <span className={`w-1.5 h-1.5 rounded-full ${UPDATE_TYPE_DOT_COLORS[type]}`} />
+      <span className="text-xs text-[#737373] whitespace-nowrap">
+        {UPDATE_TYPE_LABELS[type]}
+      </span>
+    </div>
   );
 }
 
@@ -49,27 +57,23 @@ function ChangelogItem({ entry, isLatest, isNew }: { entry: ChangelogEntry; isLa
   }, [entry.version]);
 
   return (
-    <div className={`flex flex-col gap-3 p-4 rounded-xl border transition-all ${
-      isNew && isLatest 
-        ? 'border-blue-200 bg-blue-50/50 ring-1 ring-blue-100' 
-        : 'border-gray-100 dark:border-white/5 bg-gray-50/50 dark:bg-white/2'
-    }`}>
-      <div className="flex items-center justify-between">
+    <div className="flex flex-col">
+      <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-3">
-          <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-sm font-medium ${
-            isLatest 
-              ? 'bg-[#171717] text-white' 
-              : 'bg-gray-100 dark:bg-white/5 text-gray-700 dark:text-gray-300'
-          }`}>
-            <Package className="w-3.5 h-3.5" />
-            <span>v{entry.version}</span>
+          <div className="flex items-center gap-2">
+            <Package className="w-4 h-4 text-[#525252]" />
+            <span className="text-sm font-medium text-[#171717]">
+              v{entry.version}
+            </span>
           </div>
-          <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
-            <Clock className="w-3 h-3" />
-            <span>{formatDate(entry.date)}</span>
+          <div className="flex items-center gap-1.5">
+            <Clock className="w-3.5 h-3.5 text-[#a3a3a3]" />
+            <span className="text-xs text-[#737373]">
+              {formatDate(entry.date)}
+            </span>
           </div>
           {isLatest && isNew && !markedAsRead && (
-            <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 text-xs font-medium animate-pulse">
+            <div className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-[#fefce8] text-[#854d0e] text-xs font-medium">
               <Sparkles className="w-3 h-3" />
               <span>新版本</span>
             </div>
@@ -79,10 +83,10 @@ function ChangelogItem({ entry, isLatest, isNew }: { entry: ChangelogEntry; isLa
           <button
             type="button"
             onClick={handleMarkAsRead}
-            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium transition-all ${
+            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-all ${
               markedAsRead 
-                ? 'bg-green-100 text-green-700' 
-                : 'bg-gray-100 dark:bg-white/5 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-white/10'
+                ? 'bg-[#f0fdf4] text-[#16a34a]' 
+                : 'bg-[#f5f5f5] text-[#525252] hover:bg-[#e5e5e5]'
             }`}
           >
             {markedAsRead ? (
@@ -100,13 +104,16 @@ function ChangelogItem({ entry, isLatest, isNew }: { entry: ChangelogEntry; isLa
         )}
       </div>
 
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-2 ml-1.5 border-l-2 border-[#f5f5f5] pl-3">
         {entry.items.map((item, index) => (
-          <div key={index} className="flex items-start gap-2.5">
-            <UpdateTypeTag type={item.type} />
-            <span className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">
-              {item.content}
-            </span>
+          <div key={index} className="flex items-start gap-2 py-1.5">
+            <ChevronRight className="w-3.5 h-3.5 text-[#a3a3a3] shrink-0 mt-0.5" />
+            <div className="flex items-start gap-2 flex-1 min-w-0">
+              <UpdateTypeTag type={item.type} />
+              <span className="text-xs text-[#525252] leading-relaxed">
+                {item.content}
+              </span>
+            </div>
           </div>
         ))}
       </div>
@@ -140,7 +147,7 @@ export default function ChangelogPanel({ open, onClose }: ChangelogPanelProps) {
       closeIcon={
         <button
           type="button"
-          className="flex h-8 w-8 items-center justify-center rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+          className="flex h-8 w-8 items-center justify-center rounded-md text-[#737373] transition-colors hover:bg-[#ebebeb] hover:text-[#171717]"
           aria-label="关闭"
         >
           <X className="h-4 w-4" />
@@ -148,38 +155,44 @@ export default function ChangelogPanel({ open, onClose }: ChangelogPanelProps) {
       }
     >
       <div className="flex flex-col max-h-[70vh]">
-        <div className="flex flex-col gap-2 px-5 py-4 border-b border-gray-100 dark:border-white/5 bg-gradient-to-r from-gray-50 to-white dark:from-white/2 dark:to-white/1">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-black/[0.06] bg-[#fafafa]">
           <div className="flex items-center gap-2">
             <Sparkles className="h-4.5 w-4.5 text-[#171717]" />
             <span className="text-sm font-semibold text-[#171717]">更新日志</span>
           </div>
-          <div className="flex items-center gap-2 text-xs text-gray-500">
-            <Package className="h-3.5 w-3.5" />
-            <span>当前版本 v{CURRENT_VERSION}</span>
+          <div className="flex items-center gap-2">
+            <Package className="w-3.5 h-3.5 text-[#737373]" />
+            <span className="text-xs text-[#737373]">
+              当前版本 v{CURRENT_VERSION}
+            </span>
             {isLatestNew && (
-              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-yellow-100 text-yellow-700">
-                <Sparkles className="h-2.5 w-2.5" />
-                <span>有新版本更新</span>
+              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-[#fefce8] text-[#854d0e]">
+                <Sparkles className="w-2.5 h-2.5" />
+                <span className="text-xs font-medium">有更新</span>
               </span>
             )}
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-5">
-          <div className="flex flex-col gap-4">
+        <div className="flex-1 overflow-y-auto p-5 bg-white">
+          <div className="flex flex-col gap-6">
             {CHANGELOG_DATA.map((entry, index) => (
-              <ChangelogItem
-                key={entry.version}
-                entry={entry}
-                isLatest={index === 0}
-                isNew={isVersionNew(entry.version)}
-              />
+              <div key={entry.version}>
+                {index > 0 && (
+                  <div className="mb-6 h-px bg-[#f5f5f5]" />
+                )}
+                <ChangelogItem
+                  entry={entry}
+                  isLatest={index === 0}
+                  isNew={isVersionNew(entry.version)}
+                />
+              </div>
             ))}
           </div>
         </div>
 
-        <div className="flex items-center justify-center px-5 py-3 border-t border-gray-100 dark:border-white/5 bg-gray-50 dark:bg-white/1">
-          <p className="text-xs text-gray-400">
+        <div className="flex items-center justify-center px-5 py-3 border-t border-black/[0.06] bg-[#fafafa]">
+          <p className="text-[10px] text-[#a3a3a3]">
             后续版本更新记录将在此处展示
           </p>
         </div>
