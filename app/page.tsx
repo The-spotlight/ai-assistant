@@ -906,7 +906,25 @@ function SidebarContent({
             新对话
           </AdaptiveText>
         </button>
-        
+
+        <button
+          type="button"
+          onClick={() => {
+            setShowQuickInput(true);
+            setQuickInputValue('');
+          }}
+          disabled={!deviceId || !!loadingMain}
+          className={`flex items-center justify-center gap-1.5 rounded-xl border border-[#fbbf24] bg-gradient-to-r from-yellow-50 to-amber-50 px-3 py-2.5 text-sm font-medium text-amber-700 shadow-sm transition hover:from-yellow-100 hover:to-amber-100 disabled:opacity-40 ${
+            isNarrow ? 'py-2 text-xs' : ''
+          }`}
+          title="快速创建对话"
+        >
+          <IconZap className={`h-4 w-4 ${isNarrow ? 'h-3.5 w-3.5' : ''}`} />
+          <AdaptiveText narrow="快速" wide="快速创建">
+            快速
+          </AdaptiveText>
+        </button>
+
         {!compareMode.isActive && convList.length >= 1 && (
           <button
             type="button"
@@ -2437,19 +2455,6 @@ export default function Home() {
             <p className="shrink-0 max-w-[min(52vw,14rem)] truncate text-right text-[11px] text-[#666666] dark:text-[#a3a3a3] sm:max-w-none sm:text-xs" title="当前对话模型">
               {DEFAULT_OPENROUTER_MODEL_LABEL}
             </p>
-            <button
-              type="button"
-              onClick={() => {
-                setShowQuickInput(true);
-                setQuickInputValue('');
-              }}
-              disabled={!deviceId || !!loadingMain}
-              className="flex h-8 w-8 items-center justify-center rounded-lg transition-colors text-[#a3a3a3] hover:bg-[#f5f5f5] hover:text-[#171717] dark:hover:bg-white/10 dark:hover:text-white disabled:opacity-40"
-              title="快速创建对话"
-              aria-label="快速创建对话"
-            >
-              <IconZap className="h-4 w-4" />
-            </button>
             <UserDropdown
               onOpenSettings={() => setShowSettingsPanel(true)}
               onOpenUserStats={() => setShowUserStatsPanel(true)}
