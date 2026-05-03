@@ -28,6 +28,7 @@ model Conversation {
   favorites Favorite[]
   shares    Share[]
   feedbacks MessageFeedback[]
+  scheduledMessages ScheduledMessage[]
 
   @@index([userId, updatedAt(sort: Desc)])
   @@index([updatedAt(sort: Desc)])
@@ -197,6 +198,7 @@ model User {
   shares        Share[]
   userSettings  UserSetting[]
   feedbacks     MessageFeedback[]
+  scheduledMessages ScheduledMessage[]
 
   @@index([username])
 }
