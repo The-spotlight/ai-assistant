@@ -2634,9 +2634,9 @@ export default function Home() {
       <div className={`mx-auto flex min-h-0 w-full max-w-[1280px] flex-1 flex-col gap-0 overflow-hidden px-3 pb-4 pt-4 sm:flex-row sm:px-5 sm:pb-6 sm:pt-5 transition-all duration-300 ease-in-out ${isImmersiveMode ? 'max-w-none px-0 py-0' : ''}`}>
         <div className={`transition-all duration-300 ease-in-out overflow-hidden ${
           isImmersiveMode ? 'opacity-0 w-0 shrink-0' : 'opacity-100'
-        }`}>
+        }`} data-onboarding="sidebar">
           <ResizablePanel defaultWidth={260} minWidth={200} maxWidth={500}>
-            <div data-onboarding="sidebar">
+            <div>
               <SidebarContent
                 deviceId={deviceId}
                 loadingMain={loadingMain}

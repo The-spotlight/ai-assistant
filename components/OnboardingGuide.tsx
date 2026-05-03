@@ -54,6 +54,39 @@ interface HighlightRect {
   height: number;
 }
 
+function getClipPathForHighlight(rect: HighlightRect, padding: number = 4): string {
+  const x = rect.left - padding;
+  const y = rect.top - padding;
+  const w = rect.width + padding * 2;
+  const h = rect.height + padding * 2;
+  const r = 16;
+
+  const points = [
+    'polygon(',
+    `0% 0%, 0% 100%, 100% 100%, 100% 0%, 0% 0%,`,
+    `${x}px ${y}px, ${x}px ${y + h}px,`,
+    `${x + w}px ${y + h}px, ${x + w}px ${y}px,`,
+    `${x}px ${y}px,`,
+    `${x + r}px ${y}px,`,
+    `c ${r * 0.55}px 0, ${r}px ${r * 0.45}px, ${r}px ${r}px,`,
+    `l 0 ${h - r * 2}px,`,
+    `c 0 ${r * 0.55}px, ${r * -0.45}px ${r}px, ${r * -1}px ${r}px,`,
+    `l ${w - r * 2}px 0,`,
+    `c ${r * 0.55}px 0, ${r}px ${r * -0.45}px, ${r}px ${r * -1}px,`,
+    `l 0 ${r * 2 - h}px,`,
+    `c 0 ${r * -0.55}px, ${r * -0.45}px ${r * -1}px, ${r * -1}px ${r * -1}px,`,
+    `l ${r * 2 - w}px 0,`,
+    ')',
+  ].join(' ');
+
+  return `polygon(
+    0% 0%, 0% 100%, 100% 100%, 100% 0%, 0% 0%,
+    ${x}px ${y}px, ${x}px ${y + h}px,
+    ${x + w}px ${y + h}px, ${x + w}px ${y}px,
+    ${x}px ${y}px
+  )`;
+}
+
 export default function OnboardingGuide() {
   const [isActive, setIsActive] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
@@ -71,6 +104,7 @@ export default function OnboardingGuide() {
   const [targetVisible, setTargetVisible] = useState(false);
   const animationRef = useRef<number>(0);
   const lastStepRef = useRef<number>(-1);
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const getTargetElement = useCallback((): HTMLElement | null => {
     if (currentStep >= ONBOARDING_STEPS.length) return null;
@@ -86,12 +120,14 @@ export default function OnboardingGuide() {
     }
 
     const rect = target.getBoundingClientRect();
-    const isVisible =
-      rect.top >= 0 &&
-      rect.left >= 0 &&
-      rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
-      rect.right <= (window.innerWidth || document.documentElement.clientWidth);
+    const hasSize = rect.width > 0 && rect.height > 0;
+    const isInViewport =
+      rect.right > 0 &&
+      rect.bottom > 0 &&
+      rect.left < window.innerWidth &&
+      rect.top < window.innerHeight;
 
+    const isVisible = hasSize && isInViewport;
     setTargetVisible(isVisible);
     return isVisible;
   }, [getTargetElement]);
@@ -108,10 +144,10 @@ export default function OnboardingGuide() {
     const padding = step.padding ?? 8;
 
     const newHighlightRect: HighlightRect = {
-      top: rect.top - padding,
-      left: rect.left - padding,
-      width: rect.width + padding * 2,
-      height: rect.height + padding * 2,
+      top: rect.top,
+      left: rect.left,
+      width: rect.width,
+      height: rect.height,
     };
 
     setHighlightRect(newHighlightRect);
@@ -126,24 +162,24 @@ export default function OnboardingGuide() {
 
     switch (step.placement) {
       case 'top':
-        top = newHighlightRect.top - tooltipHeight - gap;
+        top = newHighlightRect.top - padding - tooltipHeight - gap;
         left =
           newHighlightRect.left + newHighlightRect.width / 2 - tooltipWidth / 2;
         break;
       case 'bottom':
-        top = newHighlightRect.top + newHighlightRect.height + gap;
+        top = newHighlightRect.top + newHighlightRect.height + padding + gap;
         left =
           newHighlightRect.left + newHighlightRect.width / 2 - tooltipWidth / 2;
         break;
       case 'left':
         top =
           newHighlightRect.top + newHighlightRect.height / 2 - tooltipHeight / 2;
-        left = newHighlightRect.left - tooltipWidth - gap;
+        left = newHighlightRect.left - padding - tooltipWidth - gap;
         break;
       case 'right':
         top =
           newHighlightRect.top + newHighlightRect.height / 2 - tooltipHeight / 2;
-        left = newHighlightRect.left + newHighlightRect.width + gap;
+        left = newHighlightRect.left + newHighlightRect.width + padding + gap;
         break;
     }
 
@@ -152,7 +188,7 @@ export default function OnboardingGuide() {
       left = window.innerWidth - tooltipWidth - margin;
     }
     if (top < margin) {
-      top = newHighlightRect.top + newHighlightRect.height + gap;
+      top = newHighlightRect.top + newHighlightRect.height + padding + gap;
     }
     if (top + tooltipHeight > window.innerHeight - margin) {
       top = window.innerHeight - tooltipHeight - margin;
@@ -217,15 +253,24 @@ export default function OnboardingGuide() {
 
     lastStepRef.current = currentStep;
 
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current);
+    }
+
     const target = getTargetElement();
     if (target) {
       target.scrollIntoView({
         behavior: 'smooth',
         block: 'center',
-        inline: 'center',
+        inline: 'nearest',
       });
+
+      scrollTimeoutRef.current = setTimeout(() => {
+        checkTargetVisibility();
+        updatePositions();
+      }, 500);
     }
-  }, [currentStep, isActive, getTargetElement]);
+  }, [currentStep, isActive, getTargetElement, checkTargetVisibility, updatePositions]);
 
   const handleNext = useCallback(() => {
     if (currentStep < ONBOARDING_STEPS.length - 1) {
@@ -271,35 +316,38 @@ export default function OnboardingGuide() {
   const step = ONBOARDING_STEPS[currentStep];
   const isFirstStep = currentStep === 0;
   const isLastStep = currentStep === ONBOARDING_STEPS.length - 1;
+  const padding = step.padding ?? 8;
+
+  const highlightWithPadding = {
+    top: highlightRect.top - padding,
+    left: highlightRect.left - padding,
+    width: highlightRect.width + padding * 2,
+    height: highlightRect.height + padding * 2,
+  };
 
   return (
     <div className="fixed inset-0 z-[9999] pointer-events-none">
       <div
-        className="absolute inset-0 pointer-events-auto"
+        className="absolute inset-0 pointer-events-none"
         style={{
-          background: targetVisible
-            ? `
-          radial-gradient(
-            circle at ${highlightRect.left + highlightRect.width / 2}px ${highlightRect.top + highlightRect.height / 2}px,
-            transparent ${Math.max(highlightRect.width, highlightRect.height) / 2 + 4}px,
-            rgba(0, 0, 0, 0.7) ${Math.max(highlightRect.width, highlightRect.height) / 2 + 4}px
-          )
-        `
-            : 'rgba(0, 0, 0, 0.7)',
-          transition: 'background 0.3s ease',
+          backgroundColor: 'rgba(0, 0, 0, 0.7)',
+          clipPath: targetVisible
+            ? getClipPathForHighlight(highlightWithPadding, 0)
+            : 'none',
+          transition: 'clip-path 0.3s ease',
         }}
-        onClick={handleSkip}
       />
 
       {targetVisible && (
         <>
           <div
-            className="absolute rounded-2xl pointer-events-none"
+            className="absolute pointer-events-none"
             style={{
-              top: highlightRect.top - 4,
-              left: highlightRect.left - 4,
-              width: highlightRect.width + 8,
-              height: highlightRect.height + 8,
+              top: highlightWithPadding.top,
+              left: highlightWithPadding.left,
+              width: highlightWithPadding.width,
+              height: highlightWithPadding.height,
+              borderRadius: '16px',
               border: '2px solid #fff',
               boxShadow:
                 '0 0 0 4px rgba(255, 255, 255, 0.2), 0 0 40px rgba(255, 255, 255, 0.3)',
@@ -310,10 +358,10 @@ export default function OnboardingGuide() {
           <div
             className="absolute pointer-events-none"
             style={{
-              top: highlightRect.top - 8,
-              left: highlightRect.left - 8,
-              width: highlightRect.width + 16,
-              height: highlightRect.height + 16,
+              top: highlightWithPadding.top - 4,
+              left: highlightWithPadding.left - 4,
+              width: highlightWithPadding.width + 8,
+              height: highlightWithPadding.height + 8,
               borderRadius: '20px',
             }}
           />
