@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { getOrCreateDeviceId } from '@/lib/device';
 import { CloseButton } from '@/components/ui/Dialog';
-import { BarChart, Bar, XAxis, ResponsiveContainer, Tooltip, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, ResponsiveContainer, Tooltip } from 'recharts';
 import { Calendar, Clock, BarChart3, Loader2, User, TrendingUp, TrendingDown, AlertTriangle, Lightbulb, Info, Sparkles, RefreshCw } from 'lucide-react';
 import MarkdownRenderer from './MarkdownRenderer';
 import { getModelShortName } from '@/lib/model-pricing';
@@ -27,10 +27,19 @@ interface DailyActivity {
   hours: HourlyActivity[];
 }
 
+interface MostUsedFeature {
+  toolName: string;
+  count: number;
+  percentage: number;
+  label: string;
+  emoji: string;
+}
+
 interface ConversationPattern {
   avgMessagesPerConversation: number;
   avgConversationDurationMinutes: number;
   mostUsedModels: { modelId: string; count: number; percentage: number }[];
+  mostUsedFeatures: MostUsedFeature[];
   totalConversations: number;
   totalMessages: number;
 }
@@ -90,13 +99,6 @@ function formatRelativeTime(iso: string): string {
 function formatDate(dateStr: string): string {
   const date = new Date(dateStr);
   return `${date.getMonth() + 1}/${date.getDate()}`;
-}
-
-function formatHour(hour: number): string {
-  if (hour === 0) return '0:00';
-  if (hour < 12) return `${hour}:00`;
-  if (hour === 12) return '12:00';
-  return `${hour - 12}:00`;
 }
 
 function getHeatmapColor(value: number, maxValue: number): string {
@@ -496,44 +498,55 @@ export default function UserStatsPanel({ visible, onClose }: UserStatsPanelProps
                 </div>
                 <div className="bg-[#fafafa] rounded-xl p-4 border border-[#e5e5e5]">
                   <div className="mb-3">
-                    <ResponsiveContainer width="100%" height={160}>
-                      <BarChart data={habits.hourlyActivity} margin={{ top: 10, right: 10, left: -10, bottom: 5 }}>
-                        <XAxis
-                          dataKey="hour"
-                          tickFormatter={formatHour}
-                          tick={{ fill: '#737373', fontSize: 9 }}
-                          axisLine={{ stroke: '#e5e5e5' }}
-                          tickLine={{ stroke: '#e5e5e5' }}
-                          interval={3}
+                    <div className="grid grid-cols-12 gap-1 mb-1">
+                      {habits.hourlyActivity.slice(0, 12).map((hourly, index) => (
+                        <div
+                          key={index}
+                          className="aspect-square rounded-sm flex items-center justify-center cursor-pointer transition-transform hover:scale-110"
+                          style={{ backgroundColor: getHeatmapColor(hourly.count, maxHourlyCount) }}
+                          title={`${hourly.hour}:00 - ${hourly.hour + 1}:00: ${hourly.count} 条消息`}
                         />
-                        <Tooltip
-                          contentStyle={{
-                            backgroundColor: 'white',
-                            border: '1px solid #e5e5e5',
-                            borderRadius: '8px',
-                            fontSize: '12px',
-                          }}
-                          formatter={(value: unknown) => [`${value as number} 条消息`, '消息数']}
-                          labelFormatter={(hour: unknown) => `${hour as number}:00 - ${(hour as number) + 1}:00`}
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-12 gap-1 mb-1">
+                      <div className="col-span-3">
+                        <span className="text-[9px] text-[#737373]">0:00</span>
+                      </div>
+                      <div className="col-span-3">
+                        <span className="text-[9px] text-[#737373]">4:00</span>
+                      </div>
+                      <div className="col-span-3">
+                        <span className="text-[9px] text-[#737373]">8:00</span>
+                      </div>
+                      <div className="col-span-3">
+                        <span className="text-[9px] text-[#737373]">12:00</span>
+                      </div>
+                    </div>
+                    
+                    <div className="grid grid-cols-12 gap-1 mb-1 mt-3">
+                      {habits.hourlyActivity.slice(12, 24).map((hourly, index) => (
+                        <div
+                          key={index + 12}
+                          className="aspect-square rounded-sm flex items-center justify-center cursor-pointer transition-transform hover:scale-110"
+                          style={{ backgroundColor: getHeatmapColor(hourly.count, maxHourlyCount) }}
+                          title={`${hourly.hour}:00 - ${hourly.hour + 1}:00: ${hourly.count} 条消息`}
                         />
-                        <Bar dataKey="count" radius={[3, 3, 0, 0]}>
-                          {habits.hourlyActivity.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={getHeatmapColor(entry.count, maxHourlyCount)} />
-                          ))}
-                        </Bar>
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                  
-                  <div className="grid grid-cols-6 gap-1 mb-3">
-                    {habits.hourlyActivity.map((hourly, index) => (
-                      <div
-                        key={index}
-                        className="aspect-square rounded flex items-center justify-center"
-                        style={{ backgroundColor: getHeatmapColor(hourly.count, maxHourlyCount) }}
-                        title={`${hourly.hour}:00 - ${hourly.hour + 1}:00: ${hourly.count} 条消息`}
-                      />
-                    ))}
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-12 gap-1">
+                      <div className="col-span-3">
+                        <span className="text-[9px] text-[#737373]">12:00</span>
+                      </div>
+                      <div className="col-span-3">
+                        <span className="text-[9px] text-[#737373]">16:00</span>
+                      </div>
+                      <div className="col-span-3">
+                        <span className="text-[9px] text-[#737373]">20:00</span>
+                      </div>
+                      <div className="col-span-3">
+                        <span className="text-[9px] text-[#737373]">24:00</span>
+                      </div>
+                    </div>
                   </div>
 
                   <div className="flex items-center justify-between text-xs text-[#737373]">
@@ -549,6 +562,16 @@ export default function UserStatsPanel({ visible, onClose }: UserStatsPanelProps
                     </div>
                     <span>高</span>
                   </div>
+
+                  {maxHourlyCount > 0 && (
+                    <div className="mt-3 pt-3 border-t border-[#e5e5e5]">
+                      <p className="text-xs text-[#525252]">
+                        您最活跃的时段是 <span className="font-medium text-[#171717]">
+                          {habits.hourlyActivity.reduce((max, h) => h.count > max.count ? h : max, habits.hourlyActivity[0]).hour}:00
+                        </span>
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -571,23 +594,34 @@ export default function UserStatsPanel({ visible, onClose }: UserStatsPanelProps
                       </div>
                       <div className="text-[10px] text-[#737373]">平均会话时长（分钟）</div>
                     </div>
-                    <div className="text-center p-3 bg-white rounded-lg border border-[#e5e5e5]">
-                      <div className="text-xl font-bold text-[#171717]">
-                        {habits.conversationPattern.totalConversations}
-                      </div>
-                      <div className="text-[10px] text-[#737373]">总会话数</div>
-                    </div>
-                    <div className="text-center p-3 bg-white rounded-lg border border-[#e5e5e5]">
-                      <div className="text-xl font-bold text-[#171717]">
-                        {habits.conversationPattern.totalMessages}
-                      </div>
-                      <div className="text-[10px] text-[#737373]">总消息数</div>
-                    </div>
                   </div>
+
+                  {habits.conversationPattern.mostUsedFeatures.length > 0 && (
+                    <div className="mb-4">
+                      <div className="text-xs font-medium text-[#171717] mb-2">最常用功能</div>
+                      <div className="flex flex-wrap gap-2">
+                        {habits.conversationPattern.mostUsedFeatures.slice(0, 4).map((feature, index) => (
+                          <div
+                            key={index}
+                            className="flex items-center gap-1.5 px-3 py-1.5 bg-white rounded-lg border border-[#e5e5e5]"
+                          >
+                            <span className="text-base">{feature.emoji}</span>
+                            <span className="text-xs font-medium text-[#171717]">{feature.label}</span>
+                            <span className="text-[10px] text-[#737373]">
+                              {feature.count}次
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                      {habits.conversationPattern.mostUsedFeatures.length === 0 && (
+                        <p className="text-[11px] text-[#a3a3a3]">暂无工具使用记录</p>
+                      )}
+                    </div>
+                  )}
 
                   {habits.conversationPattern.mostUsedModels.length > 0 && (
                     <div>
-                      <div className="text-xs font-medium text-[#171717] mb-2">最常用模型</div>
+                      <div className="text-xs font-medium text-[#171717] mb-2">偏好模型</div>
                       <div className="flex flex-col gap-2">
                         {habits.conversationPattern.mostUsedModels.slice(0, 3).map((model, index) => (
                           <div key={index} className="flex items-center gap-3">
