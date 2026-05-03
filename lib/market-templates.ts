@@ -1,16 +1,6 @@
 import { prisma } from '@/lib/db';
 import type { MarketTemplate } from '@prisma/client';
 
-export type {
-  getMarketTemplates,
-  getMarketTemplateById,
-  getMarketTemplateBySlug,
-  useMarketTemplate,
-  getMarketTemplateCategories,
-  syncUsageCount,
-  incrementUsageCount,
-};
-
 const MARKET_CATEGORIES = ['工作', '学习', '生活', '其他'];
 
 async function getMarketTemplates(options?: {
@@ -579,3 +569,15 @@ export const DEFAULT_MARKET_TEMPLATES: Omit<
     meta: null,
   },
 ];
+
+export {
+  getMarketTemplates,
+  getMarketTemplateById,
+  getMarketTemplateBySlug,
+  useMarketTemplate,
+  getMarketTemplateCategories,
+  syncUsageCount,
+  incrementUsageCount,
+  MARKET_CATEGORIES,
+  DEFAULT_MARKET_TEMPLATES,
+};
