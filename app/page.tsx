@@ -39,6 +39,7 @@ import { useSettings } from '@/lib/settings';
 import { getScheduledConversationIds } from '@/lib/scheduled-messages';
 import EncryptionModal from '@/components/EncryptionModal';
 import QuickActionsFAB from '@/components/QuickActionsFAB';
+import OnboardingGuide from '@/components/OnboardingGuide';
 import {
   isConversationEncrypted,
   isConversationDecrypted,
@@ -2620,10 +2621,12 @@ export default function Home() {
             <p className="shrink-0 max-w-[min(52vw,14rem)] truncate text-right text-[11px] text-[#666666] dark:text-[#a3a3a3] sm:max-w-none sm:text-xs" title="当前对话模型">
               {DEFAULT_OPENROUTER_MODEL_LABEL}
             </p>
-            <UserDropdown
-              onOpenSettings={() => setShowSettingsPanel(true)}
-              onOpenUserStats={() => setShowUserStatsPanel(true)}
-            />
+            <div data-onboarding="user-avatar">
+              <UserDropdown
+                onOpenSettings={() => setShowSettingsPanel(true)}
+                onOpenUserStats={() => setShowUserStatsPanel(true)}
+              />
+            </div>
           </div>
         </div>
       </header>
@@ -2633,43 +2636,45 @@ export default function Home() {
           isImmersiveMode ? 'opacity-0 w-0 shrink-0' : 'opacity-100'
         }`}>
           <ResizablePanel defaultWidth={260} minWidth={200} maxWidth={500}>
-            <SidebarContent
-              deviceId={deviceId}
-              loadingMain={loadingMain}
-              newChat={newChat}
-              searchQuery={searchQuery}
-              handleSearchChange={handleSearchChange}
-              clearSearch={clearSearch}
-              isSearching={isSearching}
-              showSearchResults={showSearchResults}
-              searchResults={searchResults}
-              handleSearchResultClick={handleSearchResultClick}
-              convList={convList}
-              chatPayload={chatPayload}
-              selectConversation={selectConversation}
-              deleteConversation={deleteConversation}
-              togglePin={togglePin}
-              renameConversation={renameConversation}
-              reorderConversations={reorderConversations}
-              favorites={favorites}
-              trashList={trashList}
-              templates={templates}
-              onOpenFavorites={handleOpenFavorites}
-              onOpenTrash={handleOpenTrash}
-              onOpenTemplates={handleOpenTemplates}
-              onOpenFeedback={handleOpenFeedback}
-              onOpenExport={handleOpenExport}
-              onSaveAsTemplate={handleSaveAsTemplate}
-              compareMode={compareMode}
-              enterCompareMode={enterCompareMode}
-              exitCompareMode={exitCompareMode}
-              setCompareActiveSide={setCompareActiveSide}
-              toggleCompareSelecting={toggleCompareSelecting}
-              scheduledConversationIds={scheduledConversationIds}
-              onStartEncryption={handleStartEncryption}
-              onStartRemoveEncryption={handleStartRemoveEncryption}
-              searchInputRef={searchInputRef}
-            />
+            <div data-onboarding="sidebar">
+              <SidebarContent
+                deviceId={deviceId}
+                loadingMain={loadingMain}
+                newChat={newChat}
+                searchQuery={searchQuery}
+                handleSearchChange={handleSearchChange}
+                clearSearch={clearSearch}
+                isSearching={isSearching}
+                showSearchResults={showSearchResults}
+                searchResults={searchResults}
+                handleSearchResultClick={handleSearchResultClick}
+                convList={convList}
+                chatPayload={chatPayload}
+                selectConversation={selectConversation}
+                deleteConversation={deleteConversation}
+                togglePin={togglePin}
+                renameConversation={renameConversation}
+                reorderConversations={reorderConversations}
+                favorites={favorites}
+                trashList={trashList}
+                templates={templates}
+                onOpenFavorites={handleOpenFavorites}
+                onOpenTrash={handleOpenTrash}
+                onOpenTemplates={handleOpenTemplates}
+                onOpenFeedback={handleOpenFeedback}
+                onOpenExport={handleOpenExport}
+                onSaveAsTemplate={handleSaveAsTemplate}
+                compareMode={compareMode}
+                enterCompareMode={enterCompareMode}
+                exitCompareMode={exitCompareMode}
+                setCompareActiveSide={setCompareActiveSide}
+                toggleCompareSelecting={toggleCompareSelecting}
+                scheduledConversationIds={scheduledConversationIds}
+                onStartEncryption={handleStartEncryption}
+                onStartRemoveEncryption={handleStartRemoveEncryption}
+                searchInputRef={searchInputRef}
+              />
+            </div>
           </ResizablePanel>
         </div>
 
@@ -2908,6 +2913,9 @@ export default function Home() {
         onSettings={() => setShowSettingsPanel(true)}
         isImmersiveMode={isImmersiveMode}
       />
+
+      {/* 新用户引导 */}
+      <OnboardingGuide />
     </div>
   );
 }
