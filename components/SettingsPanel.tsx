@@ -15,11 +15,7 @@ import {
   DEFAULT_BEHAVIOR_SETTINGS,
   DEFAULT_MODEL_SETTINGS,
   COMMAND_ICONS,
-  loadCustomCommands,
-  saveCustomCommands,
-  addCustomCommand,
-  updateCustomCommand,
-  removeCustomCommand,
+  PRESET_PERSONAS,
   type CustomCommand,
   type ThemeKey,
   type CodeHighlightKey,
@@ -32,6 +28,7 @@ import {
   type BehaviorSettings,
   type ModelSettings,
   type SettingsPreset,
+  type AIPersona,
 } from '@/lib/settings';
 import {
   useSpeech,
@@ -75,9 +72,13 @@ import {
   Sparkles,
   ChevronDown,
   Volume2,
+  Briefcase,
+  Lightbulb,
+  GraduationCap,
+  Home,
 } from 'lucide-react';
 
-type SettingsTab = 'behavior' | 'voice' | 'keyboard' | 'presets' | 'data' | 'commands';
+type SettingsTab = 'behavior' | 'voice' | 'keyboard' | 'persona' | 'presets' | 'data' | 'commands';
 
 interface SettingsPanelProps {
   visible: boolean;
@@ -89,6 +90,7 @@ const TAB_CONFIG: { key: SettingsTab; label: string; icon: React.ComponentType<{
   { key: 'behavior', label: '行为', icon: MousePointerClick },
   { key: 'voice', label: '语音', icon: Volume2 },
   { key: 'keyboard', label: '快捷键', icon: Keyboard },
+  { key: 'persona', label: 'AI 角色', icon: Bot },
   { key: 'presets', label: '配置方案', icon: Layers },
   { key: 'commands', label: '快捷指令', icon: Sparkles },
   { key: 'data', label: '数据管理', icon: Database },
@@ -101,10 +103,12 @@ export default function SettingsPanel({ visible, onClose, onTrashEmptied }: Sett
     behavior,
     model,
     keyboardShortcuts,
+    personaId,
     updateAppearance,
     updateBehavior,
     updateModel,
     updateKeyboardShortcuts,
+    updatePersona,
     resetBehavior,
     resetKeyboardShortcuts,
     resetAll,
@@ -326,6 +330,12 @@ export default function SettingsPanel({ visible, onClose, onTrashEmptied }: Sett
             <KeyboardTab
               keyboardShortcuts={keyboardShortcuts}
               updateKeyboardShortcuts={updateKeyboardShortcuts}
+            />
+          )}
+          {activeTab === 'persona' && (
+            <PersonaTab
+              personaId={personaId}
+              updatePersona={updatePersona}
             />
           )}
           {activeTab === 'presets' && (
@@ -1199,6 +1209,79 @@ function KeyboardTab({
             )}
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+const getPersonaIcon = (iconName: string) => {
+  switch (iconName) {
+    case 'briefcase':
+      return Briefcase;
+    case 'lightbulb':
+      return Lightbulb;
+    case 'graduation-cap':
+      return GraduationCap;
+    case 'home':
+      return Home;
+    default:
+      return Bot;
+  }
+};
+
+function PersonaTab({
+  personaId,
+  updatePersona,
+}: {
+  personaId: string;
+  updatePersona: (personaId: string) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center gap-2">
+          <span className="text-sm font-medium text-[#171717]">AI 角色设置</span>
+        </div>
+        <p className="text-[11px] text-[#a3a3a3]">
+          选择不同的 AI 角色，AI 会按照设定的风格进行回复。角色切换仅作用于新对话。
+        </p>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3">
+        {PRESET_PERSONAS.map((persona) => {
+          const isSelected = personaId === persona.id;
+          const IconComponent = getPersonaIcon(persona.icon);
+
+          return (
+            <button
+              key={persona.id}
+              type="button"
+              onClick={() => updatePersona(persona.id)}
+              className={`flex items-start gap-4 p-4 rounded-xl border transition-all text-left ${
+                isSelected
+                  ? 'border-[#171717] bg-[#fafafa]'
+                  : 'border-black/[0.08] hover:bg-[#fafafa]'
+              }`}
+            >
+              <div className={`flex items-center justify-center w-10 h-10 rounded-lg ${
+                isSelected ? 'bg-[#171717] text-white' : 'bg-[#f5f5f5] text-[#525252]'
+              }`}>
+                <IconComponent className="w-5 h-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-[#171717]">{persona.name}</span>
+                  {isSelected && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#171717] text-white">
+                      已选中
+                    </span>
+                  )}
+                </div>
+                <p className="text-xs text-[#a3a3a3] mt-1">{persona.description}</p>
+              </div>
+            </button>
+          );
+        })}
       </div>
     </div>
   );

@@ -1548,7 +1548,7 @@ export default function Home() {
   const [encryptingConversationId, setEncryptingConversationId] = useState<string | null>(null);
   const [pendingConversationId, setPendingConversationId] = useState<string | null>(null);
 
-  const { behavior, keyboardShortcuts } = useSettings();
+  const { behavior, keyboardShortcuts, personaId } = useSettings();
 
   const loadScheduledMessages = useCallback(async () => {
     try {
@@ -2035,7 +2035,10 @@ export default function Home() {
         const res = await fetch('/api/conversations', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'x-device-id': did },
-          body: JSON.stringify({ deviceId: did }),
+          body: JSON.stringify({ 
+            deviceId: did, 
+            personaId: personaId,
+          }),
         });
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
@@ -2249,7 +2252,10 @@ export default function Home() {
       const res = await fetch('/api/conversations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-device-id': deviceId },
-        body: JSON.stringify({ deviceId }),
+        body: JSON.stringify({ 
+          deviceId, 
+          personaId: personaId,
+        }),
       });
       if (!res.ok) return;
       const { id } = (await res.json()) as { id: string };
@@ -2429,7 +2435,10 @@ export default function Home() {
       const cre = await fetch('/api/conversations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-device-id': deviceId },
-        body: JSON.stringify({ deviceId }),
+        body: JSON.stringify({ 
+          deviceId, 
+          personaId: personaId,
+        }),
       });
       if (!cre.ok) return;
       const { id: newId } = (await cre.json()) as { id: string };
