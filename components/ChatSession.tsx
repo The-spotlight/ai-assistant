@@ -56,6 +56,7 @@ import Timeline from '@/components/Timeline';
 import ModelLabel from '@/components/ModelLabel';
 import DateTimePicker from '@/components/DateTimePicker';
 import EncryptionModal from '@/components/EncryptionModal';
+import SelectionToolbar from '@/components/SelectionToolbar';
 import {
   isConversationEncrypted,
   isConversationDecrypted,
@@ -295,6 +296,10 @@ export default function ChatSession({
   const [scheduledMessages, setScheduledMessages] = useState<ScheduledMessage[]>([]);
   const isSchedulingRef = useRef(false);
 
+  const [selectedText, setSelectedText] = useState<string | null>(null);
+  const [selectionPosition, setSelectionPosition] = useState<{ x: number; y: number } | null>(null);
+  const showSelectionToolbar = selectedText !== null && selectionPosition !== null;
+
   // 初始化时记录历史消息 ID，这些消息不显示状态
   useEffect(() => {
     if (!isInitializedRef.current && messages.length > 0) {
@@ -308,6 +313,93 @@ export default function ChatSession({
   useEffect(() => {
     setIsEncrypted(isConversationEncrypted(conversationId));
   }, [conversationId]);
+
+  // 处理选中文本关闭
+  const handleCloseSelectionToolbar = useCallback(() => {
+    setSelectedText(null);
+    setSelectionPosition(null);
+  }, []);
+
+  // 处理选中文本提问
+  const handleSelectionQuestion = useCallback(
+    (question: string) => {
+      if (!selectedText) return;
+
+      const finalContent = `关于以下内容：\n\n${selectedText}\n\n我的问题是：${question}`;
+      append({ role: 'user', content: finalContent });
+      handleCloseSelectionToolbar();
+    },
+    [selectedText, append, handleCloseSelectionToolbar]
+  );
+
+  // 监听文本选择事件
+  useEffect(() => {
+    const handleMouseUp = (e: MouseEvent) => {
+      const selection = window.getSelection();
+      const selectedContent = selection?.toString().trim() || '';
+
+      if (!selectedContent || selectedContent.length === 0) {
+        return;
+      }
+
+      const isSelectionWithinAIMessage = (): boolean => {
+        if (!selection || selection.rangeCount === 0) return false;
+
+        const range = selection.getRangeAt(0);
+        let currentNode: Node | null = range.commonAncestorContainer;
+
+        while (currentNode) {
+          if (currentNode instanceof HTMLElement) {
+            if (currentNode.getAttribute('data-role') === 'assistant') {
+              return true;
+            }
+            const aiIndicator = currentNode.querySelector('[data-role="assistant"]');
+            if (aiIndicator) return true;
+          }
+          currentNode = currentNode.parentNode;
+        }
+
+        return false;
+      };
+
+      const isWithinAIMessage = isSelectionWithinAIMessage();
+
+      if (!isWithinAIMessage || !selection) {
+        return;
+      }
+
+      const range = selection.getRangeAt(0);
+      const rect = range.getBoundingClientRect();
+
+      setSelectedText(selectedContent);
+      setSelectionPosition({
+        x: rect.left + rect.width / 2,
+        y: rect.top,
+      });
+    };
+
+    const handleMouseDown = (e: MouseEvent) => {
+      if (
+        selectedText &&
+        !(e.target as HTMLElement).closest('[data-selection-toolbar]')
+      ) {
+        setTimeout(() => {
+          const currentSelection = window.getSelection();
+          if (!currentSelection || currentSelection.toString().trim().length === 0) {
+            handleCloseSelectionToolbar();
+          }
+        }, 0);
+      }
+    };
+
+    document.addEventListener('mouseup', handleMouseUp);
+    document.addEventListener('mousedown', handleMouseDown);
+
+    return () => {
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('mousedown', handleMouseDown);
+    };
+  }, [selectedText, handleCloseSelectionToolbar]);
 
   // 开始加密流程
   const handleStartEncryption = useCallback(() => {
@@ -1387,6 +1479,7 @@ export default function ChatSession({
                     messageRefs.current.delete(m.id);
                   }
                 }}
+                data-role={m.role}
                 className={`flex w-full gap-3 transition-all duration-300 group ${
                   m.role === 'user' ? 'flex-row-reverse' : 'flex-row'
                 } ${
@@ -2028,6 +2121,16 @@ export default function ChatSession({
         onVerifyPassword={handleVerifyPassword}
         onRemoveEncryption={handleRemoveEncryption}
       />
+
+      {/* 选中文字提问工具栏 */}
+      {showSelectionToolbar && selectedText && selectionPosition && (
+        <SelectionToolbar
+          selectedText={selectedText}
+          position={selectionPosition}
+          onClose={handleCloseSelectionToolbar}
+          onSend={handleSelectionQuestion}
+        />
+      )}
 
     </div>
   );
