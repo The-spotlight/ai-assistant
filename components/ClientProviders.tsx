@@ -1,10 +1,22 @@
 'use client';
 
+import { useEffect } from 'react';
 import { SettingsProvider } from '@/lib/settings';
 import { SpeechProvider } from '@/lib/speech';
 import { QuickNotesProvider } from '@/lib/quick-notes';
 import { ToastContainer, Slide } from 'react-toastify';
 import QuickNotes from '@/components/QuickNotes';
+import { wrapConsoleError } from '@/lib/error-log';
+import { getOrSetRuntimeStart } from '@/lib/runtime-info';
+
+function ErrorLogInitializer() {
+  useEffect(() => {
+    wrapConsoleError();
+    getOrSetRuntimeStart();
+  }, []);
+
+  return null;
+}
 
 export default function ClientProviders({
   children,
@@ -15,6 +27,7 @@ export default function ClientProviders({
     <SettingsProvider>
       <SpeechProvider>
         <QuickNotesProvider>
+          <ErrorLogInitializer />
           {children}
           <QuickNotes />
           <ToastContainer
