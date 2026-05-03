@@ -68,14 +68,12 @@ import { TranslateButton, TranslationResult } from '@/components/MessageTranslat
 import MessageTranslateProvider from '@/components/MessageTranslateProvider';
 import FollowUpSuggestions from '@/components/FollowUpSuggestions';
 import EmojiPicker from '@/components/EmojiPicker';
-import SentimentSummaryCard, { SentimentIndicator } from '@/components/SentimentSummaryCard';
+import SentimentFloatingCard, { SentimentDotIndicator } from '@/components/SentimentSummaryCard';
 import {
   getConversationSentiment,
   saveConversationSentiment,
   clearConversationSentiment,
-  getMessageSentiment,
   type ConversationSentiment,
-  type MessageSentiment,
 } from '@/lib/sentiment-analysis';
 
 function IconPin(props: React.SVGProps<SVGSVGElement> & { filled?: boolean }) {
@@ -1508,32 +1506,6 @@ export default function ChatSession({
           </div>
         )}
 
-        {/* 情感分析加载状态 */}
-        {isAnalyzingSentiment && (
-          <div className="sticky top-0 z-10 mb-4 rounded-xl border border-[#fef3c7] bg-[#fffbeb] p-4 dark:border-[#92400e]/30 dark:bg-[#451a03]/30">
-            <div className="flex items-center gap-3">
-              <RefreshCw className="h-5 w-5 animate-spin text-[#f59e0b]" />
-              <div>
-                <p className="text-sm font-medium text-[#92400e] dark:text-[#fcd34d]">
-                  正在分析对话情感...
-                </p>
-                <p className="text-xs text-[#b45309] dark:text-[#fbbf24]">
-                  AI 正在分析每条消息的情感倾向
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* 情感分析摘要卡片 */}
-        {!isAnalyzingSentiment && currentSentimentAnalysis && showSentimentSummary && (
-          <SentimentSummaryCard
-            sentimentData={currentSentimentAnalysis}
-            onClose={handleCloseSentimentSummary}
-            onReAnalyze={handleReAnalyzeSentiment}
-          />
-        )}
-
         {messages.map((m, index) => {
           const isHighlighted = highlightMessageId === m.id || highlightedMessageId === m.id;
           const msg = m as MessageWithTokens;
@@ -1659,11 +1631,6 @@ export default function ChatSession({
                     <div className="absolute -top-1 -right-1 z-10">
                       <Bookmark className="h-4 w-4 text-[#f59e0b] fill-[#f59e0b]" />
                     </div>
-                  )}
-
-                  {/* 情感颜色指示器 - 仅用户消息且有分析结果时显示 */}
-                  {messageSentiment && (
-                    <SentimentIndicator sentiment={messageSentiment.sentiment} />
                   )}
 
                   {/* 表情回应栏 - 悬停时显示（仅 AI 消息） */}
@@ -2017,7 +1984,14 @@ export default function ChatSession({
                       {msg.createdAt && (() => {
                         const formattedTime = formatTime(msg.createdAt, behavior.timestampFormat);
                         if (formattedTime) {
-                          return <span className="text-[10px] text-[#a3a3a3]">{formattedTime}</span>;
+                          return (
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[10px] text-[#a3a3a3]">{formattedTime}</span>
+                              {messageSentiment && (
+                                <SentimentDotIndicator sentiment={messageSentiment.sentiment} />
+                              )}
+                            </div>
+                          );
                         }
                         return null;
                       })()}
@@ -2284,6 +2258,15 @@ export default function ChatSession({
           setConversationRating(conversationId, rating);
           setRatingRefreshKey(prev => prev + 1);
         }}
+      />
+
+      {/* 情感分析浮层卡片 */}
+      <SentimentFloatingCard
+        sentimentData={currentSentimentAnalysis}
+        isAnalyzing={isAnalyzingSentiment}
+        visible={isAnalyzingSentiment || (!!currentSentimentAnalysis && showSentimentSummary)}
+        onClose={handleCloseSentimentSummary}
+        onReAnalyze={handleReAnalyzeSentiment}
       />
 
     </div>
