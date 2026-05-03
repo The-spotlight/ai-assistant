@@ -278,7 +278,7 @@ export default function SystemHealthPanel({ open, onClose }: SystemHealthPanelPr
       }
     >
       <div className="flex flex-col max-h-[80vh]">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-black/[0.06] bg-[#fafafa]">
+        <div className="flex items-center justify-between px-5 py-4 border-b border-black/[0.06]">
           <div className="flex items-center gap-2">
             <Activity className="h-4.5 w-4.5 text-[#171717]" />
             <span className="text-sm font-semibold text-[#171717]">系统状态</span>
@@ -435,7 +435,7 @@ export default function SystemHealthPanel({ open, onClose }: SystemHealthPanelPr
           )}
         </div>
 
-        <div className="flex items-center justify-between px-5 py-3 border-t border-black/[0.06] bg-[#fafafa]">
+        <div className="flex items-center justify-between px-5 py-3 border-t border-black/[0.06]">
           <div className="flex items-center gap-2">
             <Package className="w-3.5 h-3.5 text-[#737373]" />
             <span className="text-xs text-[#737373]">
