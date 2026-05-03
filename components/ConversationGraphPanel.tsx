@@ -53,6 +53,16 @@ function IconRefreshCw(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
+function IconInfo(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden {...props}>
+      <circle cx="12" cy="12" r="10" />
+      <line x1="12" y1="16" x2="12" y2="12" />
+      <line x1="12" y1="8" x2="12.01" y2="8" />
+    </svg>
+  );
+}
+
 type ConversationNode = {
   id: string;
   title: string;
@@ -61,9 +71,6 @@ type ConversationNode = {
   createdAt: string;
   x: number;
   y: number;
-  vx: number;
-  vy: number;
-  fixed?: boolean;
 };
 
 type ConversationEdge = {
@@ -73,6 +80,23 @@ type ConversationEdge = {
 };
 
 type NodeColorCategory = 'today' | 'week' | 'older';
+
+type StatsApiResponse = {
+  messageCounts: Record<string, number>;
+  conversations: Record<string, {
+    id: string;
+    title: string | null;
+    createdAt: string;
+    updatedAt: string;
+  }>;
+  crossConversationRelations: Array<{
+    sourceConversationId: string;
+    targetConversationId: string;
+    type: 'reference' | 'branch' | 'merge';
+    sourceMessageId: string;
+    targetMessageId: string;
+  }>;
+};
 
 function getColorCategory(updatedAt: string): NodeColorCategory {
   const now = Date.now();
@@ -123,6 +147,35 @@ function formatRelativeTime(iso: string): string {
   return d.toLocaleDateString('zh-CN', { month: 'numeric', day: 'numeric' });
 }
 
+function calculateSpiralLayout(
+  conversations: Array<{ id: string; createdAt: string }>,
+  centerX: number = 0,
+  centerY: number = 0
+): Map<string, { x: number; y: number }> {
+  const sorted = [...conversations].sort(
+    (a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()
+  );
+
+  const positions = new Map<string, { x: number; y: number }>();
+  const baseRadius = 100;
+  const radiusIncrement = 80;
+  const angleIncrement = (Math.PI * 2) / 5;
+
+  sorted.forEach((conv, index) => {
+    const layer = Math.floor(index / 5);
+    const positionInLayer = index % 5;
+    const radius = baseRadius + layer * radiusIncrement;
+    const angle = positionInLayer * angleIncrement + layer * 0.3;
+
+    const x = centerX + Math.cos(angle) * radius;
+    const y = centerY + Math.sin(angle) * radius;
+
+    positions.set(conv.id, { x, y });
+  });
+
+  return positions;
+}
+
 interface ConversationGraphPanelProps {
   visible: boolean;
   onClose: () => void;
@@ -145,7 +198,6 @@ export default function ConversationGraphPanel({
 }: ConversationGraphPanelProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const animationRef = useRef<number>(0);
   const nodesRef = useRef<ConversationNode[]>([]);
   const edgesRef = useRef<ConversationEdge[]>([]);
 
@@ -161,132 +213,103 @@ export default function ConversationGraphPanel({
     messageCount: number;
     updatedAt: string;
   } | null>(null);
-  const [nodeMessageCounts, setNodeMessageCounts] = useState<Map<string, number>>(new Map());
+  const [isLoading, setIsLoading] = useState(false);
+  const [hasRealRelations, setHasRealRelations] = useState(false);
+  const [showRelationInfo, setShowRelationInfo] = useState(false);
 
   const { widthCategory } = useLayoutContext();
-  const isNarrow = widthCategory === 'narrow';
 
-  const generateMockData = useCallback(() => {
-    if (conversations.length === 0) {
-      return { nodes: [], edges: [] };
-    }
-
-    const nodes: ConversationNode[] = [];
-    const edges: ConversationEdge[] = [];
-
-    const centerX = 0;
-    const centerY = 0;
-
-    conversations.forEach((conv, index) => {
-      const angle = (2 * Math.PI * index) / conversations.length;
-      const radius = 150 + Math.random() * 100;
-
-      nodes.push({
-        id: conv.id,
-        title: conv.title?.trim() || '新对话',
-        messageCount: nodeMessageCounts.get(conv.id) || Math.floor(Math.random() * 50) + 3,
-        updatedAt: conv.updatedAt,
-        createdAt: conv.createdAt,
-        x: centerX + Math.cos(angle) * radius,
-        y: centerY + Math.sin(angle) * radius,
-        vx: 0,
-        vy: 0,
-      });
-    });
-
-    if (nodes.length > 1) {
-      const typeWeights = [
-        { type: 'branch' as const, weight: 0.5 },
-        { type: 'reference' as const, weight: 0.35 },
-        { type: 'merge' as const, weight: 0.15 },
-      ];
-
-      const getRandomType = (): ConversationEdge['type'] => {
-        const rand = Math.random();
-        let cumulative = 0;
-        for (const { type, weight } of typeWeights) {
-          cumulative += weight;
-          if (rand < cumulative) return type;
-        }
-        return 'reference';
-      };
-
-      for (let i = 1; i < nodes.length; i++) {
-        const parentIndex = Math.floor(Math.random() * i);
-        edges.push({
-          source: nodes[parentIndex].id,
-          target: nodes[i].id,
-          type: getRandomType(),
-        });
-      }
-
-      if (nodes.length > 4) {
-        const extraEdgeCount = Math.min(Math.floor(nodes.length / 3), 5);
-        for (let i = 0; i < extraEdgeCount; i++) {
-          const sourceIdx = Math.floor(Math.random() * nodes.length);
-          let targetIdx = Math.floor(Math.random() * nodes.length);
-          while (targetIdx === sourceIdx) {
-            targetIdx = Math.floor(Math.random() * nodes.length);
-          }
-          const exists = edges.some(
-            (e) =>
-              (e.source === nodes[sourceIdx].id && e.target === nodes[targetIdx].id) ||
-              (e.source === nodes[targetIdx].id && e.target === nodes[sourceIdx].id)
-          );
-          if (!exists) {
-            edges.push({
-              source: nodes[sourceIdx].id,
-              target: nodes[targetIdx].id,
-              type: 'reference',
-            });
-          }
-        }
-      }
-    }
-
-    return { nodes, edges };
-  }, [conversations, nodeMessageCounts]);
-
-  const loadMessageCounts = useCallback(async () => {
+  const loadStatsData = useCallback(async () => {
     if (!deviceId || conversations.length === 0) return;
 
-    const counts = new Map<string, number>();
-    
-    for (const conv of conversations.slice(0, 10)) {
-      try {
-        const r = await fetch(`/api/conversations/${conv.id}/messages`, {
-          headers: { 'x-device-id': deviceId },
+    setIsLoading(true);
+    try {
+      const r = await fetch('/api/conversations/stats', {
+        headers: { 'x-device-id': deviceId },
+      });
+
+      if (r.ok) {
+        const data = (await r.json()) as StatsApiResponse;
+        
+        const positions = calculateSpiralLayout(conversations);
+        const nodes: ConversationNode[] = [];
+        const edges: ConversationEdge[] = [];
+
+        conversations.forEach((conv) => {
+          const pos = positions.get(conv.id) || { x: 0, y: 0 };
+          nodes.push({
+            id: conv.id,
+            title: conv.title?.trim() || '新对话',
+            messageCount: data.messageCounts[conv.id] ?? 0,
+            updatedAt: conv.updatedAt,
+            createdAt: conv.createdAt,
+            x: pos.x,
+            y: pos.y,
+          });
         });
-        if (r.ok) {
-          const data = await r.json();
-          counts.set(conv.id, data.messages?.length || 0);
-        }
-      } catch (e) {
-        console.error('Failed to load message count:', e);
+
+        const addedEdges = new Set<string>();
+        data.crossConversationRelations.forEach((rel) => {
+          const sourceExists = conversations.some((c) => c.id === rel.sourceConversationId);
+          const targetExists = conversations.some((c) => c.id === rel.targetConversationId);
+          
+          if (sourceExists && targetExists && rel.sourceConversationId !== rel.targetConversationId) {
+            const edgeKey = `${rel.sourceConversationId}-${rel.targetConversationId}`;
+            if (!addedEdges.has(edgeKey)) {
+              edges.push({
+                source: rel.sourceConversationId,
+                target: rel.targetConversationId,
+                type: rel.type,
+              });
+              addedEdges.add(edgeKey);
+            }
+          }
+        });
+
+        setHasRealRelations(edges.length > 0);
+
+        nodesRef.current = nodes;
+        edgesRef.current = edges;
       }
+    } catch (e) {
+      console.error('Failed to load stats:', e);
+      
+      const positions = calculateSpiralLayout(conversations);
+      const nodes: ConversationNode[] = [];
+
+      conversations.forEach((conv) => {
+        const pos = positions.get(conv.id) || { x: 0, y: 0 };
+        nodes.push({
+          id: conv.id,
+          title: conv.title?.trim() || '新对话',
+          messageCount: 0,
+          updatedAt: conv.updatedAt,
+          createdAt: conv.createdAt,
+          x: pos.x,
+          y: pos.y,
+        });
+      });
+
+      nodesRef.current = nodes;
+      edgesRef.current = [];
+      setHasRealRelations(false);
+    } finally {
+      setIsLoading(false);
     }
-    
-    setNodeMessageCounts(counts);
   }, [deviceId, conversations]);
 
   useEffect(() => {
-    if (visible && deviceId) {
-      loadMessageCounts();
-    }
-  }, [visible, deviceId, loadMessageCounts]);
-
-  useEffect(() => {
     if (!visible) return;
-
-    const { nodes, edges } = generateMockData();
-    nodesRef.current = nodes;
-    edgesRef.current = edges;
 
     setScale(1);
     setOffset({ x: 0, y: 0 });
     setHoveredNode(null);
     setTooltip(null);
-  }, [visible, generateMockData]);
+
+    if (deviceId) {
+      loadStatsData();
+    }
+  }, [visible, deviceId, loadStatsData]);
 
   const draw = useCallback(() => {
     const canvas = canvasRef.current;
@@ -316,7 +339,11 @@ export default function ConversationGraphPanel({
       ctx.fillStyle = '#a3a3a3';
       ctx.font = '14px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText('暂无对话数据', 0, 0);
+      if (isLoading) {
+        ctx.fillText('正在加载数据...', 0, 0);
+      } else {
+        ctx.fillText('暂无对话数据', 0, 0);
+      }
       ctx.restore();
       return;
     }
@@ -433,98 +460,12 @@ export default function ConversationGraphPanel({
     });
 
     ctx.restore();
-  }, [scale, offset, hoveredNode]);
-
-  const simulate = useCallback(() => {
-    const nodes = nodesRef.current;
-    const edges = edgesRef.current;
-
-    if (nodes.length === 0) return;
-
-    const damping = 0.9;
-    const repulsionStrength = 5000;
-    const attractionStrength = 0.01;
-    const centerPullStrength = 0.001;
-
-    nodes.forEach((node, i) => {
-      if (node.fixed) return;
-
-      let fx = 0;
-      let fy = 0;
-
-      nodes.forEach((other, j) => {
-        if (i === j) return;
-        const dx = node.x - other.x;
-        const dy = node.y - other.y;
-        const distSq = dx * dx + dy * dy;
-        const dist = Math.sqrt(distSq) || 1;
-        const force = repulsionStrength / distSq;
-        fx += (dx / dist) * force;
-        fy += (dy / dist) * force;
-      });
-
-      fx += -node.x * centerPullStrength;
-      fy += -node.y * centerPullStrength;
-
-      node.vx = (node.vx + fx) * damping;
-      node.vy = (node.vy + fy) * damping;
-    });
-
-    edges.forEach((edge) => {
-      const source = nodes.find((n) => n.id === edge.source);
-      const target = nodes.find((n) => n.id === edge.target);
-      if (!source || !target || source.fixed || target.fixed) return;
-
-      const dx = target.x - source.x;
-      const dy = target.y - source.y;
-      const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-      const targetDist = 180;
-      const diff = (dist - targetDist) * attractionStrength;
-
-      const ax = (dx / dist) * diff;
-      const ay = (dy / dist) * diff;
-
-      source.vx += ax;
-      source.vy += ay;
-      target.vx -= ax;
-      target.vy -= ay;
-    });
-
-    nodes.forEach((node) => {
-      if (node.fixed) return;
-      node.x += node.vx;
-      node.y += node.vy;
-    });
-  }, []);
+  }, [scale, offset, hoveredNode, isLoading]);
 
   useEffect(() => {
-    if (!visible) {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
-      return;
-    }
-
-    let frameCount = 0;
-    const maxFrames = 300;
-
-    const animate = () => {
-      if (frameCount < maxFrames) {
-        simulate();
-        frameCount++;
-      }
-      draw();
-      animationRef.current = requestAnimationFrame(animate);
-    };
-
-    animationRef.current = requestAnimationFrame(animate);
-
-    return () => {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
-    };
-  }, [visible, simulate, draw]);
+    if (!visible) return;
+    draw();
+  }, [visible, draw]);
 
   const getNodeAtPosition = useCallback(
     (clientX: number, clientY: number): ConversationNode | null => {
@@ -557,26 +498,14 @@ export default function ConversationGraphPanel({
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
-      const node = getNodeAtPosition(e.clientX, e.clientY);
-      if (node) {
-        const foundNode = nodesRef.current.find((n) => n.id === node.id);
-        if (foundNode) {
-          foundNode.fixed = true;
-        }
-      } else {
-        setIsDragging(true);
-        setDragStart({ x: e.clientX - offset.x, y: e.clientY - offset.y });
-      }
+      setIsDragging(true);
+      setDragStart({ x: e.clientX - offset.x, y: e.clientY - offset.y });
     },
-    [getNodeAtPosition, offset]
+    [offset]
   );
 
   const handleMouseMove = useCallback(
     (e: React.MouseEvent) => {
-      const canvas = canvasRef.current;
-      const container = containerRef.current;
-      if (!canvas || !container) return;
-
       if (isDragging) {
         setOffset({
           x: e.clientX - dragStart.x,
@@ -602,15 +531,6 @@ export default function ConversationGraphPanel({
               y: e.clientY,
             });
           }
-
-          const foundNode = nodesRef.current.find((n) => n.id === node.id);
-          if (foundNode && foundNode.fixed) {
-            const rect = container.getBoundingClientRect();
-            const worldX = (e.clientX - rect.left - rect.width / 2 - offset.x) / scale;
-            const worldY = (e.clientY - rect.top - rect.height / 2 - offset.y) / scale;
-            foundNode.x = worldX;
-            foundNode.y = worldY;
-          }
         } else {
           if (hoveredNode) {
             setHoveredNode(null);
@@ -620,13 +540,10 @@ export default function ConversationGraphPanel({
         }
       }
     },
-    [isDragging, dragStart, getNodeAtPosition, hoveredNode, tooltip, scale, offset]
+    [isDragging, dragStart, getNodeAtPosition, hoveredNode, tooltip]
   );
 
   const handleMouseUp = useCallback(() => {
-    nodesRef.current.forEach((node) => {
-      node.fixed = false;
-    });
     setIsDragging(false);
   }, []);
 
@@ -694,6 +611,17 @@ export default function ConversationGraphPanel({
           <span className="rounded-full px-2 py-0.5 text-xs bg-white/10 text-gray-300">
             {conversations.length} 个对话
           </span>
+          {!hasRealRelations && conversations.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowRelationInfo(!showRelationInfo)}
+              className="flex items-center gap-1 text-xs text-yellow-500 hover:text-yellow-400 transition-colors"
+              title="关于对话关系"
+            >
+              <IconInfo className="h-3.5 w-3.5" />
+              <span>无关联数据</span>
+            </button>
+          )}
         </div>
 
         <div className="flex items-center gap-1">
@@ -737,6 +665,34 @@ export default function ConversationGraphPanel({
         </div>
       </div>
 
+      {showRelationInfo && (
+        <div className="absolute top-14 left-4 right-4 z-10 max-w-md">
+          <div className="bg-[#262626] border border-yellow-500/30 rounded-lg shadow-xl px-4 py-3">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex-1">
+                <p className="text-sm font-medium text-yellow-400 mb-2">关于对话关系</p>
+                <p className="text-xs text-gray-300 leading-relaxed mb-2">
+                  当前数据模型中没有对话级别的关联关系。关系图中显示的边（引用）来自：
+                </p>
+                <ul className="text-xs text-gray-400 space-y-1 ml-4 list-disc">
+                  <li>跨对话的消息回复（消息 replyToId 指向其他对话的消息）</li>
+                </ul>
+                <p className="text-xs text-gray-400 mt-2">
+                  如果需要支持「分支」和「合并」类型的关联，需要在数据库中新增对话关系表。
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowRelationInfo(false)}
+                className="text-gray-400 hover:text-white transition-colors shrink-0"
+              >
+                <IconX className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div
         ref={containerRef}
         className="flex-1 relative overflow-hidden cursor-grab active:cursor-grabbing"
@@ -748,6 +704,15 @@ export default function ConversationGraphPanel({
         onWheel={handleWheel}
       >
         <canvas ref={canvasRef} className="absolute inset-0" />
+
+        {isLoading && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="flex flex-col items-center gap-3">
+              <span className="h-6 w-6 animate-spin rounded-full border-2 border-blue-500/30 border-t-blue-500" />
+              <p className="text-sm text-gray-400">正在加载对话数据...</p>
+            </div>
+          </div>
+        )}
 
         {tooltip && (
           <div
