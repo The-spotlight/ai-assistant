@@ -43,8 +43,8 @@ import {
   Bell,
   Lock,
   Unlock,
-  Sparkles,
-  Undo2,
+  Wand2,
+  RotateCcw,
 } from 'lucide-react';
 import { useMessageFeedback, MessageFeedbackButton } from '@/components/MessageFeedback';
 import MessageStatus, { type MessageStatus as MessageStatusType } from '@/components/MessageStatus';
@@ -2118,58 +2118,56 @@ export default function ChatSession({
             style={{ boxShadow: 'rgba(0,0,0,0.06) 0px 0px 0px 1px' }}
             data-onboarding="input-area"
           >
-            <div className="relative flex-1">
-              <input
-                ref={inputRef}
-                value={input}
-                onChange={handleCustomInputChange}
-                onKeyDown={handleKeyDown}
-                placeholder={isOptimizingInput ? "正在优化..." : "有问题，尽管问… 输入 / 查看快捷指令"}
-                disabled={isLoading || isOptimizingInput}
-                className="min-h-[44px] w-full border-0 bg-transparent px-3 pr-20 text-[15px] text-[#171717] placeholder:text-[#808080] focus:outline-none focus:ring-0 disabled:opacity-60"
-              />
-              {/* 优化状态指示器 */}
-              {isOptimizingInput && (
-                <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                  <Sparkles className="h-4 w-4 text-[#f59e0b] animate-pulse" />
-                  <span className="text-xs text-[#f59e0b]">优化中...</span>
-                </div>
-              )}
-              {/* 已优化提示 */}
-              {hasOptimized && !isOptimizingInput && optimizationOriginalInput !== null && (
-                <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                  <span className="text-xs text-[#10b981]">已优化</span>
-                </div>
-              )}
-            </div>
+            <input
+              ref={inputRef}
+              value={input}
+              onChange={handleCustomInputChange}
+              onKeyDown={handleKeyDown}
+              placeholder="有问题，尽管问… 输入 / 查看快捷指令"
+              disabled={isLoading || isOptimizingInput}
+              className="min-h-[44px] flex-1 border-0 bg-transparent px-3 text-[15px] text-[#171717] placeholder:text-[#808080] focus:outline-none focus:ring-0 disabled:opacity-60"
+            />
             <div className="flex items-center justify-end gap-1 sm:shrink-0">
-              {/* 撤销优化按钮 */}
-              {hasOptimized && !isOptimizingInput && optimizationOriginalInput !== null && (
+              {/* 优化按钮 - 整合所有状态 */}
+              {isOptimizingInput ? (
+                // 状态2：优化中
+                <button
+                  type="button"
+                  disabled
+                  className="flex h-9 items-center justify-center gap-1 rounded-lg px-2 text-xs text-[#f59e0b] cursor-not-allowed"
+                  title="正在优化，请稍候..."
+                >
+                  <Wand2 className="h-4 w-4 animate-spin" />
+                  优化中
+                </button>
+              ) : hasOptimized && optimizationOriginalInput !== null ? (
+                // 状态3：已优化 - 显示撤销按钮
                 <button
                   type="button"
                   onClick={handleUndoOptimize}
-                  className="flex h-9 items-center justify-center gap-1 rounded-lg px-2 text-xs text-[#6366f1] transition-colors hover:bg-white/40 hover:text-[#4f46e5]"
-                  title="撤销优化，恢复原始内容"
+                  className="flex h-9 items-center justify-center gap-1 rounded-lg px-2 text-xs text-[#10b981] transition-colors hover:bg-white/40 hover:text-[#059669]"
+                  title="已优化，点击撤销恢复原始内容"
                 >
-                  <Undo2 className="h-4 w-4" />
+                  <RotateCcw className="h-4 w-4" />
                   撤销
                 </button>
+              ) : (
+                // 状态1：默认 - 可优化
+                <button
+                  type="button"
+                  onClick={handleOptimizeInput}
+                  disabled={isLoading || !input.trim()}
+                  className={`flex h-9 items-center justify-center gap-1 rounded-lg px-2 text-xs transition-colors ${
+                    !input.trim() || isLoading
+                      ? 'text-[#a3a3a3] cursor-not-allowed'
+                      : 'text-[#4d4d4d] hover:bg-white/40 hover:text-[#171717]'
+                  }`}
+                  title="优化提问，让表述更清晰"
+                >
+                  <Wand2 className="h-4 w-4" />
+                  优化
+                </button>
               )}
-              {/* 优化按钮 */}
-              <button
-                type="button"
-                onClick={handleOptimizeInput}
-                disabled={isLoading || isOptimizingInput || !input.trim()}
-                className={`flex h-9 items-center justify-center gap-1 rounded-lg px-2 text-xs transition-colors ${
-                  isOptimizingInput || !input.trim() || isLoading
-                    ? 'text-[#a3a3a3] cursor-not-allowed'
-                    : 'text-[#4d4d4d] hover:bg-white/40 hover:text-[#171717]'
-                }`}
-                title={isOptimizingInput ? "正在优化，请稍候..." : "优化提问，让表述更清晰"}
-              >
-                <Sparkles className={`h-4 w-4 ${isOptimizingInput ? 'animate-spin' : ''}`} />
-                优化
-              </button>
               <button
                 type="button"
                 onClick={() => setShowDateTimePicker(true)}
