@@ -2,7 +2,9 @@
 
 import { SettingsProvider } from '@/lib/settings';
 import { SpeechProvider } from '@/lib/speech';
+import { QuickNotesProvider } from '@/lib/quick-notes';
 import { ToastContainer, Slide } from 'react-toastify';
+import QuickNotes from '@/components/QuickNotes';
 
 export default function ClientProviders({
   children,
@@ -12,20 +14,23 @@ export default function ClientProviders({
   return (
     <SettingsProvider>
       <SpeechProvider>
-        {children}
-        <ToastContainer
-          position="top-center"
-          autoClose={3000}
-          hideProgressBar={false}
-          newestOnTop={false}
-          closeOnClick
-          rtl={false}
-          pauseOnFocusLoss
-          draggable={false}
-          pauseOnHover
-          transition={Slide}
-          icon={false}
-        />
+        <QuickNotesProvider>
+          {children}
+          <QuickNotes />
+          <ToastContainer
+            position="top-center"
+            autoClose={3000}
+            hideProgressBar={false}
+            newestOnTop={false}
+            closeOnClick
+            rtl={false}
+            pauseOnFocusLoss
+            draggable={false}
+            pauseOnHover
+            transition={Slide}
+            icon={false}
+          />
+        </QuickNotesProvider>
       </SpeechProvider>
     </SettingsProvider>
   );
