@@ -26,10 +26,19 @@ interface DailyActivity {
   hours: HourlyActivity[];
 }
 
+interface MostUsedFeature {
+  toolName: string;
+  count: number;
+  percentage: number;
+  label: string;
+  emoji: string;
+}
+
 interface ConversationPattern {
   avgMessagesPerConversation: number;
   avgConversationDurationMinutes: number;
   mostUsedModels: { modelId: string; count: number; percentage: number }[];
+  mostUsedFeatures: MostUsedFeature[];
   totalConversations: number;
   totalMessages: number;
 }
@@ -163,6 +172,24 @@ function calculateDailyActivity(hourlyActivity: HourlyActivity[]): DailyActivity
   return days;
 }
 
+const TOOL_EMOJIS: Record<string, string> = {
+  web_search: '🔍',
+  code_execution: '💻',
+  calculator: '🧮',
+  text_analyzer: '📝',
+  translator: '🌐',
+  weather: '🌤️',
+};
+
+const TOOL_LABELS: Record<string, string> = {
+  web_search: '网络搜索',
+  code_execution: '代码执行',
+  calculator: '数学计算',
+  text_analyzer: '文本分析',
+  translator: '智能翻译',
+  weather: '天气查询',
+};
+
 async function calculateConversationPattern(
   deviceId: string,
   startTime: Date,
@@ -182,6 +209,7 @@ async function calculateConversationPattern(
         select: {
           createdAt: true,
           modelId: true,
+          toolInvocations: true,
         },
         orderBy: {
           createdAt: 'asc',
@@ -191,9 +219,11 @@ async function calculateConversationPattern(
   });
 
   const modelUsage = new Map<string, number>();
+  const toolUsage = new Map<string, number>();
   let totalMessages = 0;
   let totalDurationMinutes = 0;
   let conversationsWithDuration = 0;
+  let totalToolCalls = 0;
 
   conversations.forEach((conv) => {
     totalMessages += conv.messages.length;
@@ -213,6 +243,16 @@ async function calculateConversationPattern(
     conv.messages.forEach((msg) => {
       if (msg.modelId) {
         modelUsage.set(msg.modelId, (modelUsage.get(msg.modelId) || 0) + 1);
+      }
+
+      if (msg.toolInvocations && Array.isArray(msg.toolInvocations)) {
+        msg.toolInvocations.forEach((inv: any) => {
+          const toolName = inv.toolName as string;
+          if (toolName) {
+            toolUsage.set(toolName, (toolUsage.get(toolName) || 0) + 1);
+            totalToolCalls++;
+          }
+        });
       }
     });
   });
@@ -234,10 +274,21 @@ async function calculateConversationPattern(
 
   modelUsageArray.sort((a, b) => b.count - a.count);
 
+  const mostUsedFeatures: MostUsedFeature[] = Array.from(toolUsage.entries())
+    .map(([toolName, count]) => ({
+      toolName,
+      count,
+      percentage: totalToolCalls > 0 ? (count / totalToolCalls) * 100 : 0,
+      label: TOOL_LABELS[toolName] || toolName,
+      emoji: TOOL_EMOJIS[toolName] || '🔧',
+    }))
+    .sort((a, b) => b.count - a.count);
+
   return {
     avgMessagesPerConversation: Math.round(avgMessagesPerConversation * 10) / 10,
     avgConversationDurationMinutes: Math.round(avgConversationDurationMinutes * 10) / 10,
     mostUsedModels: modelUsageArray.slice(0, 5),
+    mostUsedFeatures: mostUsedFeatures.slice(0, 5),
     totalConversations,
     totalMessages,
   };
