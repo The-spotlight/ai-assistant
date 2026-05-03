@@ -120,6 +120,8 @@ model Share {
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
   views          ShareView[]
+  reactions      ShareReaction[]
+  comments       ShareComment[]
 
   @@index([shareId])
   @@index([userId, deviceId, createdAt(sort: Desc)])
@@ -140,6 +142,33 @@ model ShareView {
 
   @@index([shareId])
   @@index([shareId, viewedAt(sort: Desc)])
+}
+
+/// 分享反应（点赞）
+model ShareReaction {
+  id        String   @id @default(cuid())
+  shareId   String
+  share     Share    @relation(fields: [shareId], references: [shareId], onDelete: Cascade)
+  reaction  String
+  visitorId String
+  createdAt DateTime @default(now())
+
+  @@unique([shareId, visitorId, reaction])
+  @@index([shareId])
+  @@index([shareId, reaction])
+}
+
+/// 分享评论
+model ShareComment {
+  id        String   @id @default(cuid())
+  shareId   String
+  share     Share    @relation(fields: [shareId], references: [shareId], onDelete: Cascade)
+  nickname  String
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+
+  @@index([shareId])
+  @@index([shareId, createdAt(sort: Desc)])
 }
 
 /// 用户设置

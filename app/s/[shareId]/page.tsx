@@ -2,6 +2,7 @@ import { prisma } from '@/lib/db';
 import { isShareExpired } from '@/lib/share';
 import MarkdownRenderer from '@/components/MarkdownRenderer';
 import CopyLinkButton from '@/components/CopyLinkButton';
+import ShareInteraction from '@/components/ShareInteraction';
 import { DEFAULT_SETTINGS, THEME_PRESETS, FONT_SIZES, BUBBLE_STYLES, type ThemeKey } from '@/lib/theme-constants';
 import { Metadata } from 'next';
 import { headers } from 'next/headers';
@@ -292,8 +293,11 @@ export default async function SharePage({ params }: { params: Promise<{ shareId:
           </div>
         )}
 
+        {/* 互动区域 */}
+        <ShareInteraction shareId={shareId} />
+
         {/* 底部提示 */}
-        <div className="mt-12 border-t border-black/[0.06] pt-6 text-center">
+        <div className="mt-8 border-t border-black/[0.06] pt-6 text-center">
           <p className="text-xs text-[#a3a3a3]">
             内容由 AI 生成，仅供参考
           </p>
