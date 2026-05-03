@@ -57,14 +57,16 @@ export async function GET(req: Request) {
 /** 新建空会话 */
 export async function POST(req: Request) {
   let deviceId = req.headers.get('x-device-id');
-  if (!deviceId) {
-    try {
-      const body = await req.json();
-      if (typeof body?.deviceId === 'string') deviceId = body.deviceId;
-    } catch {
-      /* ignore */
-    }
+  let personaId: string | undefined;
+
+  try {
+    const body = await req.json();
+    if (typeof body?.deviceId === 'string') deviceId = body.deviceId;
+    if (typeof body?.personaId === 'string') personaId = body.personaId;
+  } catch {
+    /* ignore */
   }
+
   if (!deviceId) {
     return NextResponse.json({ error: '缺少 deviceId 或 X-Device-Id' }, { status: 400 });
   }
@@ -80,6 +82,7 @@ export async function POST(req: Request) {
         userId,
         deviceId,
         title: '新对话',
+        ...(personaId ? { personaId } : {}),
       },
     });
 

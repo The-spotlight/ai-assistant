@@ -5,6 +5,7 @@ import { chatTools } from '@/lib/tools/ai-tools';
 import { isFreeTierOpenRouterModel, resolveOpenRouterModelId } from '@/lib/openrouter-models';
 import { toolInvocationsFromSteps } from '@/lib/chat-persist';
 import { prisma } from '@/lib/db';
+import { getPersonaById, DEFAULT_PERSONA_ID } from '@/lib/settings';
 
 export const runtime = 'nodejs';
 
@@ -325,7 +326,7 @@ export async function POST(req: Request) {
 
   const conv = await prisma.conversation.findFirst({
     where: { id: conversationId, deviceId },
-    select: { id: true, userId: true },
+    select: { id: true, userId: true, personaId: true },
   });
   if (!conv) {
     return new Response(JSON.stringify({ error: '会话不存在或无权访问' }), {
@@ -333,6 +334,9 @@ export async function POST(req: Request) {
       headers: { 'Content-Type': 'application/json' },
     });
   }
+
+  const personaId = conv.personaId || DEFAULT_PERSONA_ID;
+  const persona = getPersonaById(personaId);
 
   const isCustomModel = !!customModelConfig;
   const modelId = isCustomModel 
@@ -386,9 +390,15 @@ export async function POST(req: Request) {
     ? customModelConfig.modelId 
     : modelId;
 
+  const baseSystemPrompt = useTools ? SYSTEM_PROMPT : SYSTEM_PROMPT_NO_TOOLS;
+  const personaSystemPrompt = persona?.systemPrompt || '';
+  const fullSystemPrompt = personaSystemPrompt 
+    ? `${personaSystemPrompt}\n\n---\n\n${baseSystemPrompt}` 
+    : baseSystemPrompt;
+
   const result = streamText({
     model: modelClient(actualModelId),
-    system: useTools ? SYSTEM_PROMPT : SYSTEM_PROMPT_NO_TOOLS,
+    system: fullSystemPrompt,
     messages: coreMessages,
     temperature: validTemperature,
     maxTokens: validMaxTokens,

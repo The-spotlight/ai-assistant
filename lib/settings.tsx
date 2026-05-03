@@ -107,6 +107,140 @@ export interface ModelSettings {
   streaming: boolean;
 }
 
+export interface AIPersona {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  systemPrompt: string;
+}
+
+export const PRESET_PERSONAS: AIPersona[] = [
+  {
+    id: 'professional',
+    name: '专业助手',
+    description: '回答严谨专业，适合工作场景',
+    icon: 'briefcase',
+    systemPrompt: `你是一个专业的 AI 助手，回答风格严谨、专业、准确。
+
+核心特点：
+1. 回答结构清晰，逻辑严谨
+2. 使用专业术语，表达准确
+3. 提供事实性强、可信赖的信息
+4. 适合工作场景、专业咨询、技术问题
+
+回答风格：
+- 使用正式但易懂的语言
+- 分点说明，条理清晰
+- 给出具体的建议和方案
+- 遇到不确定的问题诚实说明
+
+请用中文回答，除非用户要求其他语言。`,
+  },
+  {
+    id: 'creative',
+    name: '创意伙伴',
+    description: '回答富有创意与想象力，适合头脑风暴',
+    icon: 'sparkles',
+    systemPrompt: `你是一个富有创意的 AI 伙伴，回答风格生动、有趣、充满想象力。
+
+核心特点：
+1. 思维发散，善于联想
+2. 语言生动有趣，富有感染力
+3. 提供多样化的创意方案
+4. 适合头脑风暴、创意写作、灵感激发
+
+回答风格：
+- 使用生动形象的比喻和描述
+- 提供多种可能性供选择
+- 鼓励用户探索新想法
+- 保持积极乐观的语调
+
+请用中文回答，除非用户要求其他语言。`,
+  },
+  {
+    id: 'coach',
+    name: '学习教练',
+    description: '回答循循善诱，适合学习场景',
+    icon: 'book-open',
+    systemPrompt: `你是一个耐心的学习教练，回答风格循循善诱、注重引导、鼓励探索。
+
+核心特点：
+1. 善于用提问引导用户思考
+2. 将复杂概念分解成简单易懂的部分
+3. 鼓励用户主动探索和实践
+4. 适合学习新知识、技能培养、问题解答
+
+回答风格：
+- 使用苏格拉底式提问法引导思考
+- 概念解释清晰，配有例子说明
+- 鼓励用户"试试看"、"再想想"
+- 肯定用户的努力和进步
+
+请用中文回答，除非用户要求其他语言。`,
+  },
+  {
+    id: 'companion',
+    name: '生活管家',
+    description: '回答亲切实用，适合日常生活',
+    icon: 'home',
+    systemPrompt: `你是一个亲切的生活管家，回答风格温暖、实用、贴心。
+
+核心特点：
+1. 语气亲切，像朋友一样交流
+2. 建议实用，贴近日常生活
+3. 关心用户感受，富有同理心
+4. 适合日常咨询、生活建议、闲聊陪伴
+
+回答风格：
+- 使用轻松自然的口语化表达
+- 给出具体可行的生活建议
+- 关心用户的情绪和感受
+- 偶尔可以开个小玩笑调节气氛
+
+请用中文回答，除非用户要求其他语言。`,
+  },
+];
+
+export const DEFAULT_PERSONA_ID = 'professional';
+
+export type PersonaId = typeof PRESET_PERSONAS[number]['id'];
+
+const PERSONA_SETTINGS_STORAGE_KEY = 'ai-assistant-persona-settings';
+
+export function getPersonaById(id: string): AIPersona {
+  return PRESET_PERSONAS.find(p => p.id === id) ?? PRESET_PERSONAS[0];
+}
+
+export function loadPersonaSettings(): string {
+  if (typeof window === 'undefined') {
+    return DEFAULT_PERSONA_ID;
+  }
+
+  try {
+    const stored = localStorage.getItem(PERSONA_SETTINGS_STORAGE_KEY);
+    if (!stored) {
+      return DEFAULT_PERSONA_ID;
+    }
+
+    const personaId = stored;
+    const validPersonaIds = new Set(PRESET_PERSONAS.map(p => p.id));
+    
+    return validPersonaIds.has(personaId) ? personaId : DEFAULT_PERSONA_ID;
+  } catch {
+    return DEFAULT_PERSONA_ID;
+  }
+}
+
+export function savePersonaSettings(personaId: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(PERSONA_SETTINGS_STORAGE_KEY, personaId);
+  } catch {
+    console.warn('Failed to save persona settings');
+  }
+}
+
 export const DEFAULT_BEHAVIOR_SETTINGS: BehaviorSettings = {
   sendShortcut: 'enter',
   showTokenStats: true,
@@ -514,15 +648,18 @@ interface SettingsContextType {
   behavior: BehaviorSettings;
   model: ModelSettings;
   keyboardShortcuts: KeyboardShortcuts;
+  personaId: string;
   updateAppearance: <K extends keyof AppearanceSettings>(key: K, value: AppearanceSettings[K]) => void;
   updateBackground: <K extends keyof BackgroundSettings>(key: K, value: BackgroundSettings[K]) => void;
   updateBehavior: <K extends keyof BehaviorSettings>(key: K, value: BehaviorSettings[K]) => void;
   updateModel: <K extends keyof ModelSettings>(key: K, value: ModelSettings[K]) => void;
   updateKeyboardShortcuts: <K extends keyof KeyboardShortcuts>(key: K, value: KeyboardShortcuts[K]) => void;
+  updatePersona: (personaId: string) => void;
   resetAppearance: () => void;
   resetBehavior: () => void;
   resetModel: () => void;
   resetKeyboardShortcuts: () => void;
+  resetPersona: () => void;
   resetAll: () => void;
   themeColors: typeof THEME_PRESETS[ThemeKey];
   settings: AppearanceSettings;
@@ -577,6 +714,12 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     }
     return null;
   });
+  const [personaId, setPersonaId] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return loadPersonaSettings();
+    }
+    return DEFAULT_PERSONA_ID;
+  });
 
   // 从服务器加载设置
   const loadSettingsFromServer = useCallback(async () => {
@@ -606,6 +749,10 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
           setKeyboardShortcuts(data.keyboardShortcuts);
           saveKeyboardShortcuts(data.keyboardShortcuts);
         }
+        if (data.personaId) {
+          setPersonaId(data.personaId);
+          savePersonaSettings(data.personaId);
+        }
       }
     } catch (error) {
       console.error('从服务器加载设置失败:', error);
@@ -614,6 +761,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
       setBehavior(loadBehaviorSettings());
       setModel(loadModelSettings());
       setKeyboardShortcuts(loadKeyboardShortcuts());
+      setPersonaId(loadPersonaSettings());
     }
   }, []);
 
@@ -632,6 +780,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
           behavior,
           model,
           keyboardShortcuts,
+          personaId,
         }),
       });
 
@@ -641,7 +790,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       console.error('保存设置到服务器失败:', error);
     }
-  }, [appearance, behavior, model, keyboardShortcuts]);
+  }, [appearance, behavior, model, keyboardShortcuts, personaId]);
 
   useEffect(() => {
     if (!isLoaded) {
@@ -778,12 +927,23 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     saveKeyboardShortcuts(DEFAULT_KEYBOARD_SHORTCUTS);
   }, []);
 
+  const updatePersona = useCallback((personaId: string) => {
+    setPersonaId(personaId);
+    savePersonaSettings(personaId);
+  }, []);
+
+  const resetPersona = useCallback(() => {
+    setPersonaId(DEFAULT_PERSONA_ID);
+    savePersonaSettings(DEFAULT_PERSONA_ID);
+  }, []);
+
   const resetAll = useCallback(() => {
     resetAppearance();
     resetBehavior();
     resetModel();
     resetKeyboardShortcuts();
-  }, [resetAppearance, resetBehavior, resetModel, resetKeyboardShortcuts]);
+    resetPersona();
+  }, [resetAppearance, resetBehavior, resetModel, resetKeyboardShortcuts, resetPersona]);
 
   // 深色模式使用 dark 主题，浅色模式使用选定的主题
   const effectiveTheme = appearance.darkMode ? 'dark' : appearance.theme;
@@ -824,15 +984,18 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         behavior,
         model,
         keyboardShortcuts,
+        personaId,
         updateAppearance,
         updateBackground,
         updateBehavior,
         updateModel,
         updateKeyboardShortcuts,
+        updatePersona,
         resetAppearance,
         resetBehavior,
         resetModel,
         resetKeyboardShortcuts,
+        resetPersona,
         resetAll,
         themeColors,
         settings: appearance,

@@ -17,6 +17,7 @@ model Conversation {
   deviceId  String
   title     String?
   modelId   String?
+  personaId String?   @default("professional")
   isPinned  Boolean   @default(false)
   pinnedAt  DateTime?
   isDeleted Boolean   @default(false)
