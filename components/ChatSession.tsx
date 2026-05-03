@@ -1936,6 +1936,7 @@ export default function ChatSession({
             }}
             className="flex flex-col gap-3 rounded-lg bg-white/80 backdrop-blur-sm p-2 sm:flex-row sm:items-center sm:gap-2 sm:p-2"
             style={{ boxShadow: 'rgba(0,0,0,0.06) 0px 0px 0px 1px' }}
+            data-onboarding="input-area"
           >
             <input
               ref={inputRef}
@@ -1965,6 +1966,7 @@ export default function ChatSession({
                 onClick={() => setShowSkills(!showSkills)}
                 className="rounded px-3 py-2 text-sm text-[#4d4d4d] transition-colors hover:bg-white/40 hover:text-[#171717]"
                 title="技能"
+                data-onboarding="skill-button"
               >
                 技能
               </button>
