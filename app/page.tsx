@@ -2237,6 +2237,12 @@ export default function Home() {
     setPendingTemplateContent(null);
   }, []);
 
+  const handleRefreshTemplates = useCallback(() => {
+    if (deviceId) {
+      loadTemplates(deviceId);
+    }
+  }, [deviceId, loadTemplates]);
+
   // 从对话另存为模板相关函数
   const handleCloseSaveAsTemplateModal = useCallback(() => {
     setShowSaveAsTemplateModal(false);
@@ -2635,6 +2641,7 @@ export default function Home() {
         onAddTemplate={handleAddTemplate}
         onUpdateTemplate={handleUpdateTemplate}
         onDeleteTemplate={handleDeleteTemplate}
+        onRefreshTemplates={handleRefreshTemplates}
       />
 
       {/* 反馈统计浮层面板 */}

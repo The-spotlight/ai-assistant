@@ -85,7 +85,7 @@ model Favorite {
   @@index([userId, deviceId, createdAt(sort: Desc)])
 }
 
-/// 聊天模板
+/// 聊天模板（用户自定义）
 model Template {
   id          String   @id @default(cuid())
   userId      String
@@ -97,9 +97,49 @@ model Template {
   orderIndex  Int      @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  importedFromMarketTemplateId String?
 
   @@index([userId, deviceId, category, orderIndex(sort: Asc), createdAt(sort: Desc)])
   @@index([userId, deviceId, orderIndex(sort: Asc), createdAt(sort: Desc)])
+  @@index([importedFromMarketTemplateId])
+}
+
+/// 市场模板（官方预设模板）
+model MarketTemplate {
+  id          String    @id @default(cuid())
+  slug        String    @unique
+  title       String
+  description String    @db.Text
+  content     String    @db.Text
+  category    String    @default("其他")
+  isOfficial  Boolean   @default(true)
+  isActive    Boolean   @default(true)
+  usageCount  Int       @default(0)
+  sortOrder   Int       @default(0)
+  tags        Json?
+  meta        Json?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([category, isActive, sortOrder(sort: Asc), usageCount(sort: Desc)])
+  @@index([isActive, sortOrder(sort: Asc), usageCount(sort: Desc)])
+  @@index([slug])
+}
+
+/// 市场模板使用记录
+model MarketTemplateUsage {
+  id               String        @id @default(cuid())
+  marketTemplateId String
+  marketTemplate   MarketTemplate @relation(fields: [marketTemplateId], references: [id], onDelete: Cascade)
+  userId           String
+  deviceId         String
+  importedTemplateId String?
+
+  createdAt   DateTime  @default(now())
+
+  @@unique([marketTemplateId, userId, deviceId])
+  @@index([marketTemplateId, createdAt(sort: Desc)])
+  @@index([userId, deviceId, createdAt(sort: Desc)])
 }
 
 /// 分享的会话
