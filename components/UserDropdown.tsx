@@ -2,12 +2,14 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { Dropdown, Menu, Drawer } from 'antd';
-import { User, Settings, BarChart3, Palette, Bot, Sparkles, Square, Circle, Frame, Edit3, LogOut } from 'lucide-react';
+import { User, Settings, BarChart3, Palette, Bot, Sparkles, Square, Circle, Frame, Edit3, LogOut, Package } from 'lucide-react';
 import AppearanceSettings from './AppearanceSettings';
 import ModelSettings from './ModelSettings';
 import UserProfileEditor from './UserProfileEditor';
+import ChangelogPanel from './ChangelogPanel';
 import { useSettings, AVATAR_SHAPES, AVATAR_BORDERS, UserProfile, loadUserProfile, PRESET_AVATARS } from '@/lib/settings';
 import { logout } from '@/lib/auth';
+import { hasUnreadVersion } from '@/lib/changelog';
 
 interface UserDropdownProps {
   onOpenSettings: () => void;
@@ -127,6 +129,7 @@ export default function UserDropdown({ onOpenSettings, onOpenUserStats }: UserDr
   const [drawerContent, setDrawerContent] = useState<DrawerContent>(null);
   const [showEditor, setShowEditor] = useState(false);
   const [showModelModal, setShowModelModal] = useState(false);
+  const [showChangelog, setShowChangelog] = useState(false);
   const [profile, setProfile] = useState<UserProfile>(loadUserProfile());
   const activityStatus = useUserActivity();
   const { appearance, updateAppearance } = useSettings();
@@ -150,6 +153,10 @@ export default function UserDropdown({ onOpenSettings, onOpenUserStats }: UserDr
 
   const handleModelClick = () => {
     setShowModelModal(true);
+  };
+
+  const handleChangelogClick = () => {
+    setShowChangelog(true);
   };
 
   const handleDrawerClose = () => {
@@ -275,6 +282,25 @@ export default function UserDropdown({ onOpenSettings, onOpenUserStats }: UserDr
       type: 'divider' as const,
     },
     {
+      key: 'changelog',
+      label: (
+        <div className="flex items-center gap-2">
+          <Package className="h-4 w-4 text-[#525252] dark:text-[#d4d4d4]" />
+          <span className="text-sm text-gray-700 dark:text-gray-200">更新日志</span>
+          {hasUnreadVersion() && (
+            <span className="flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-2 w-2 rounded-full bg-blue-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
+            </span>
+          )}
+        </div>
+      ),
+      onClick: handleChangelogClick,
+    },
+    {
+      type: 'divider' as const,
+    },
+    {
       key: 'settings',
       label: (
         <div className="flex items-center gap-2">
@@ -354,6 +380,11 @@ export default function UserDropdown({ onOpenSettings, onOpenUserStats }: UserDr
       <ModelSettings
         open={showModelModal}
         onClose={() => setShowModelModal(false)}
+      />
+
+      <ChangelogPanel
+        open={showChangelog}
+        onClose={() => setShowChangelog(false)}
       />
     </>
   );
