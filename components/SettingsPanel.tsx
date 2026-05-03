@@ -76,6 +76,7 @@ import {
   Lightbulb,
   GraduationCap,
   Home,
+  BookOpen,
 } from 'lucide-react';
 
 type SettingsTab = 'behavior' | 'voice' | 'keyboard' | 'persona' | 'presets' | 'data' | 'commands';
@@ -1218,10 +1219,10 @@ const getPersonaIcon = (iconName: string) => {
   switch (iconName) {
     case 'briefcase':
       return Briefcase;
-    case 'lightbulb':
-      return Lightbulb;
-    case 'graduation-cap':
-      return GraduationCap;
+    case 'sparkles':
+      return Sparkles;
+    case 'book-open':
+      return BookOpen;
     case 'home':
       return Home;
     default:
@@ -1236,6 +1237,14 @@ function PersonaTab({
   personaId: string;
   updatePersona: (personaId: string) => void;
 }) {
+  const handlePersonaChange = (persona: AIPersona) => {
+    if (personaId === persona.id) {
+      return;
+    }
+    updatePersona(persona.id);
+    toast.success(`已切换到「${persona.name}」角色，将在新对话中生效`);
+  };
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-3">
@@ -1256,7 +1265,7 @@ function PersonaTab({
             <button
               key={persona.id}
               type="button"
-              onClick={() => updatePersona(persona.id)}
+              onClick={() => handlePersonaChange(persona)}
               className={`flex items-start gap-4 p-4 rounded-xl border transition-all text-left ${
                 isSelected
                   ? 'border-[#171717] bg-[#fafafa]'
