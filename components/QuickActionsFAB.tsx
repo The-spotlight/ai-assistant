@@ -14,7 +14,7 @@ function IconGear(props: React.SVGProps<SVGSVGElement>) {
       aria-hidden
       {...props}
     >
-      <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+      <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43-.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
       <circle cx="12" cy="12" r="3" />
     </svg>
   );
@@ -89,9 +89,13 @@ interface QuickActionsFABProps {
   isImmersiveMode?: boolean;
 }
 
-const FAN_RADIUS = 90;
+const FAN_RADIUS = 105;
+const MAIN_BUTTON_SIZE = 56;
 const ITEM_SIZE = 48;
-const DELAY_BETWEEN_ITEMS = 60;
+const DELAY_BETWEEN_ITEMS = 70;
+
+const MAIN_BUTTON_HALF = MAIN_BUTTON_SIZE / 2;
+const ITEM_HALF = ITEM_SIZE / 2;
 
 export default function QuickActionsFAB({
   onNewChat,
@@ -102,7 +106,7 @@ export default function QuickActionsFAB({
 }: QuickActionsFABProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [animationState, setAnimationState] = useState<'closed' | 'opening' | 'open' | 'closing'>('closed');
-  const buttonRef = useRef<HTMLButtonElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
   const actionItems: QuickActionItem[] = [
     {
@@ -136,8 +140,8 @@ export default function QuickActionsFAB({
   ];
 
   const getAngle = (index: number, total: number) => {
-    const startAngle = -180;
-    const endAngle = -90;
+    const startAngle = 180;
+    const endAngle = 270;
     const step = (endAngle - startAngle) / (total - 1);
     return startAngle + index * step;
   };
@@ -201,9 +205,8 @@ export default function QuickActionsFAB({
     const handleClickOutside = (e: MouseEvent) => {
       const target = e.target as Node;
       if (
-        buttonRef.current &&
-        !buttonRef.current.contains(target) &&
-        !(target as HTMLElement).closest('[data-quick-action-item]')
+        containerRef.current &&
+        !containerRef.current.contains(target)
       ) {
         handleClose();
       }
@@ -234,49 +237,59 @@ export default function QuickActionsFAB({
         />
       )}
 
-      <div className="fixed right-5 bottom-20 z-50 flex flex-col items-center">
+      <div
+        ref={containerRef}
+        className="fixed right-5 bottom-20 z-50"
+        style={{
+          width: MAIN_BUTTON_SIZE,
+          height: MAIN_BUTTON_SIZE,
+        }}
+      >
         {actionItems.map((item, index) => {
           const angle = getAngle(index, actionItems.length);
           const { x, y } = getPosition(angle, FAN_RADIUS);
 
-          const isAnimating = animationState === 'opening' || animationState === 'closing';
           const isOpening = animationState === 'opening';
-          const delay = isOpening ? index * DELAY_BETWEEN_ITEMS : (actionItems.length - 1 - index) * DELAY_BETWEEN_ITEMS;
+          const delay = isOpening
+            ? index * DELAY_BETWEEN_ITEMS
+            : (actionItems.length - 1 - index) * DELAY_BETWEEN_ITEMS;
+
+          const finalX = MAIN_BUTTON_HALF + x - ITEM_HALF;
+          const finalY = MAIN_BUTTON_HALF + y - ITEM_HALF;
 
           return (
-            <div
+            <button
               key={item.id}
-              data-quick-action-item
-              className="absolute flex items-center gap-2"
+              type="button"
+              onClick={() => handleItemClick(item)}
+              aria-label={item.label}
+              className={`absolute flex items-center justify-center rounded-full shadow-lg transition-all duration-200 hover:scale-110 active:scale-95 ${item.color}`}
               style={{
-                transform: isOpen
-                  ? `translate(${x}px, ${y}px)`
-                  : 'translate(0px, 0px) scale(0)',
+                width: ITEM_SIZE,
+                height: ITEM_SIZE,
+                left: isOpen ? finalX : MAIN_BUTTON_HALF - ITEM_HALF,
+                top: isOpen ? finalY : MAIN_BUTTON_HALF - ITEM_HALF,
+                transform: isOpen ? 'scale(1)' : 'scale(0)',
                 opacity: isOpen ? 1 : 0,
-                transition: `transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.25s ease`,
+                transitionProperty: 'left, top, transform, opacity',
+                transitionDuration: '350ms',
+                transitionTimingFunction: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
                 transitionDelay: `${delay}ms`,
               }}
             >
-              <span className="whitespace-nowrap rounded-full bg-black/80 px-3 py-1 text-xs text-white shadow-lg">
-                {item.label}
-              </span>
-              <button
-                type="button"
-                onClick={() => handleItemClick(item)}
-                className={`flex h-12 w-12 items-center justify-center rounded-full shadow-lg transition-all duration-200 hover:scale-110 active:scale-95 ${item.color}`}
-                aria-label={item.label}
-              >
-                {item.icon}
-              </button>
-            </div>
+              {item.icon}
+            </button>
           );
         })}
 
         <button
-          ref={buttonRef}
           type="button"
           onClick={handleToggle}
-          className="relative flex h-14 w-14 items-center justify-center rounded-full bg-[#171717] text-white shadow-xl transition-all duration-300 hover:bg-black hover:shadow-2xl active:scale-95 dark:bg-white dark:text-[#171717] dark:hover:bg-gray-200"
+          className="absolute left-0 top-0 flex items-center justify-center rounded-full bg-[#171717] text-white shadow-xl transition-all duration-300 hover:bg-black hover:shadow-2xl active:scale-95 dark:bg-white dark:text-[#171717] dark:hover:bg-gray-200"
+          style={{
+            width: MAIN_BUTTON_SIZE,
+            height: MAIN_BUTTON_SIZE,
+          }}
           aria-label={isOpen ? '关闭快捷菜单' : '打开快捷菜单'}
           aria-expanded={isOpen}
         >
