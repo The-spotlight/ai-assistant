@@ -125,6 +125,8 @@ type ChatSessionProps = {
   onTemplateUsed?: () => void;
   onToggleImmersiveMode?: () => void;
   isImmersiveMode?: boolean;
+  autoSendMessage?: string | null;
+  onAutoMessageSent?: () => void;
 };
 
 export default function ChatSession({
@@ -140,6 +142,8 @@ export default function ChatSession({
   onTemplateUsed,
   onToggleImmersiveMode,
   isImmersiveMode = false,
+  autoSendMessage,
+  onAutoMessageSent,
 }: ChatSessionProps) {
   const { settings, themeColors, behavior, model, keyboardShortcuts } = useSettings();
   const {
@@ -841,6 +845,16 @@ export default function ChatSession({
       }
     }
   }, [templateContent, setInput, onTemplateUsed]);
+
+  // 处理自动发送消息（快速创建对话场景）
+  useEffect(() => {
+    if (autoSendMessage && !isLoading) {
+      append({ role: 'user', content: autoSendMessage });
+      if (onAutoMessageSent) {
+        onAutoMessageSent();
+      }
+    }
+  }, [autoSendMessage, isLoading, append, onAutoMessageSent]);
 
   const handleSkillInsert = (text: string, skillId?: string) => {
     append({ role: 'user', content: text });

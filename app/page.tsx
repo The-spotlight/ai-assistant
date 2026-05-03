@@ -222,6 +222,23 @@ function IconBookmark(props: React.SVGProps<SVGSVGElement> & { filled?: boolean 
   );
 }
 
+function IconZap(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden
+      {...props}
+    >
+      <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+    </svg>
+  );
+}
+
 function IconRotateCcw(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg
@@ -1363,6 +1380,13 @@ export default function Home() {
     selectingForCompare: false,
   });
 
+  // 快速创建对话相关状态
+  const [showQuickInput, setShowQuickInput] = useState<boolean>(false);
+  const [quickInputValue, setQuickInputValue] = useState<string>('');
+  const [isCreatingQuickChat, setIsCreatingQuickChat] = useState<boolean>(false);
+  const [autoSendMessage, setAutoSendMessage] = useState<string | null>(null);
+  const quickInputRef = useRef<HTMLInputElement>(null);
+
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hasAutoArchivedRef = useRef(false);
   const prevAutoArchiveRef = useRef<boolean | null>(null);
@@ -2074,6 +2098,68 @@ export default function Home() {
     }
   }
 
+  const handleQuickInputSubmit = useCallback(async () => {
+    const trimmedValue = quickInputValue.trim();
+    if (!trimmedValue || !deviceId || isCreatingQuickChat) return;
+
+    setIsCreatingQuickChat(true);
+    setShowQuickInput(false);
+
+    try {
+      const createRes = await fetch('/api/conversations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-device-id': deviceId },
+        body: JSON.stringify({ deviceId }),
+      });
+      if (!createRes.ok) return;
+      const { id: conversationId } = (await createRes.json()) as { id: string };
+
+      const title = trimmedValue.slice(0, 10);
+      await fetch(`/api/conversations/${conversationId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-device-id': deviceId,
+        },
+        body: JSON.stringify({ title }),
+      });
+
+      localStorage.setItem(CONVERSATION_STORAGE_KEY, conversationId);
+      setChatPayload({
+        conversationId,
+        messages: [],
+      });
+      setAutoSendMessage(trimmedValue);
+
+      await loadConversations(deviceId);
+      await loadFavorites(deviceId);
+      await loadTrash(deviceId);
+      await loadTemplates(deviceId);
+
+      addActionLog('create_conversation', `快速创建了对话"${title}"`, { conversationId });
+    } catch (error) {
+      console.error('快速创建对话失败:', error);
+    } finally {
+      setIsCreatingQuickChat(false);
+      setQuickInputValue('');
+    }
+  }, [quickInputValue, deviceId, isCreatingQuickChat, loadConversations, loadFavorites, loadTrash, loadTemplates]);
+
+  const handleAutoMessageSent = useCallback(() => {
+    setAutoSendMessage(null);
+  }, []);
+
+  const handleQuickInputKeyDown = useCallback((e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      void handleQuickInputSubmit();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      setShowQuickInput(false);
+      setQuickInputValue('');
+    }
+  }, [handleQuickInputSubmit]);
+
   // 模板操作函数
   const handleOpenTemplates = useCallback(() => {
     setShowTemplatePanel(true);
@@ -2351,6 +2437,19 @@ export default function Home() {
             <p className="shrink-0 max-w-[min(52vw,14rem)] truncate text-right text-[11px] text-[#666666] dark:text-[#a3a3a3] sm:max-w-none sm:text-xs" title="当前对话模型">
               {DEFAULT_OPENROUTER_MODEL_LABEL}
             </p>
+            <button
+              type="button"
+              onClick={() => {
+                setShowQuickInput(true);
+                setQuickInputValue('');
+              }}
+              disabled={!deviceId || !!loadingMain}
+              className="flex h-8 w-8 items-center justify-center rounded-lg transition-colors text-[#a3a3a3] hover:bg-[#f5f5f5] hover:text-[#171717] dark:hover:bg-white/10 dark:hover:text-white disabled:opacity-40"
+              title="快速创建对话"
+              aria-label="快速创建对话"
+            >
+              <IconZap className="h-4 w-4" />
+            </button>
             <UserDropdown
               onOpenSettings={() => setShowSettingsPanel(true)}
               onOpenUserStats={() => setShowUserStatsPanel(true)}
@@ -2359,6 +2458,62 @@ export default function Home() {
           </div>
         </div>
       </header>
+
+      {/* 快速输入浮层 */}
+      {showQuickInput && (
+        <div className="fixed inset-x-0 top-14 z-40 flex justify-center px-4 sm:px-6">
+          <div
+            className="w-full max-w-2xl rounded-xl border border-black/[0.08] dark:border-white/10 bg-white/90 dark:bg-[#171717]/90 backdrop-blur-md shadow-lg"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-3">
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <IconZap className="h-4 w-4 text-[#a3a3a3]" />
+                </div>
+                <input
+                  ref={quickInputRef}
+                  type="text"
+                  value={quickInputValue}
+                  onChange={(e) => setQuickInputValue(e.target.value)}
+                  onKeyDown={handleQuickInputKeyDown}
+                  placeholder="快速输入一句话，按回车创建新对话..."
+                  disabled={isCreatingQuickChat}
+                  className="w-full pl-10 pr-24 py-2.5 text-sm bg-[#fafafa] dark:bg-white/5 border border-black/[0.08] dark:border-white/10 rounded-xl focus:outline-none focus:ring-2 focus:ring-[#171717]/20 dark:focus:ring-white/20 focus:border-[#171717]/20 dark:focus:border-white/20 placeholder:text-[#a3a3a3] disabled:opacity-50 transition-all"
+                  autoFocus
+                />
+                <div className="absolute inset-y-0 right-0 pr-2 flex items-center gap-1">
+                  <span className="text-[10px] text-[#a3a3a3]">
+                    {isCreatingQuickChat ? '创建中...' : 'Enter 发送'}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowQuickInput(false);
+                      setQuickInputValue('');
+                    }}
+                    className="flex h-7 w-7 items-center justify-center rounded-lg transition-colors text-[#a3a3a3] hover:bg-[#f5f5f5] hover:text-[#171717] dark:hover:bg-white/10 dark:hover:text-white"
+                    aria-label="关闭快速输入"
+                  >
+                    <IconX className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 点击背景关闭快速输入 */}
+      {showQuickInput && (
+        <div
+          className="fixed inset-0 z-30"
+          onClick={() => {
+            setShowQuickInput(false);
+            setQuickInputValue('');
+          }}
+        />
+      )}
 
       <div className={`mx-auto flex min-h-0 w-full max-w-[1280px] flex-1 flex-col gap-0 overflow-hidden px-3 pb-4 pt-4 sm:flex-row sm:px-5 sm:pb-6 sm:pt-5 transition-all duration-300 ease-in-out ${isImmersiveMode ? 'max-w-none px-0 py-0' : ''}`}>
         <div className={`transition-all duration-300 ease-in-out overflow-hidden ${
@@ -2499,6 +2654,8 @@ export default function Home() {
                 onTemplateUsed={handleTemplateUsed}
                 onToggleImmersiveMode={() => setIsImmersiveMode(true)}
                 isImmersiveMode={isImmersiveMode}
+                autoSendMessage={autoSendMessage}
+                onAutoMessageSent={handleAutoMessageSent}
               />
             </div>
           ) : null}
