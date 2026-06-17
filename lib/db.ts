@@ -8,9 +8,7 @@ const globalForPrisma = globalThis as unknown as {
 function createPrismaClient(): PrismaClient {
   const url = process.env.DATABASE_URL;
   if (!url) {
-    throw new Error(
-      'DATABASE_URL 未配置。请在 .env.local 中设置（参见 .env.local.example），并在 Neon 等控制台创建 PostgreSQL。'
-    );
+    throw new Error('DATABASE_URL 未配置。请在 .env.local 中设置。');
   }
   const adapter = new PrismaPg({ connectionString: url });
   return new PrismaClient({ adapter });
